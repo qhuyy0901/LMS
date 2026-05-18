@@ -1,0 +1,30 @@
+name: Deploy LMS
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # Job 1: Lint & Test (chạy trước khi deploy)
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint   # nếu có
+
+  # Job 2: Deploy Frontend (Vercel tự deploy khi push lên main)
+  # → Vercel đã tích hợp sẵn GitHub, không cần cấu hình thêm
+
+  # Job 3: Deploy Backend (trigger Render deploy hook)
+  deploy-backend:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}"

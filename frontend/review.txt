@@ -1,0 +1,210 @@
+===== events.html =====
+Length: 26183
+Unique classes found: 101
+<!-- Top bar -->
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 bg-white rounded-full border border-slate-200 px-4 py-3 flex items-center gap-3">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="Tìm kiếm lớp học, giảng viên hoặc môn học" class="flex-1 outline-none text-sm bg-transparent placeholder:text-slate-400">
+            </div>
+            <div class="bg-white rounded-full border border-slate-200 p-1 flex items-center gap-1">
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                <i data-lucide="sun" class="w-4 h-4 text-slate-600"></i>
+              </button>
+              <button class="w-9 h-9 rounded-full flex items-center justify-center">
+                <i data-lucide="moon" class="w-4 h-4 text-slate-400"></i>
+              </button>
+            </div>
+            <button class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+              <i data-lucide="bell" class="w-4 h-4 text-slate-600"></i>
+            </button>
+            <div class="bg-white rounded-full border border-slate-200 pl-1 pr-3 py-1 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-300 to-purple-400"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </div>
+          </div>
+
+          <!-- Page header -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
+                Sự kiện
+              </h1>
+              <p class="text-sm text-slate-500">
+...
+
+===== explore.html =====
+Length: 24882
+Unique classes found: 99
+<!-- Top bar -->
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 bg-white rounded-full border border-slate-200 px-4 py-3 flex items-center gap-3">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="Tìm kiếm khóa học, chủ đề hoặc giảng viên" class="flex-1 outline-none text-sm bg-transparent placeholder:text-slate-400">
+            </div>
+            <div class="bg-white rounded-full border border-slate-200 p-1 flex items-center gap-1">
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                <i data-lucide="sun" class="w-4 h-4 text-slate-600"></i>
+              </button>
+              <button class="w-9 h-9 rounded-full flex items-center justify-center">
+                <i data-lucide="moon" class="w-4 h-4 text-slate-400"></i>
+              </button>
+            </div>
+            <button class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+              <i data-lucide="bell" class="w-4 h-4 text-slate-600"></i>
+            </button>
+            <div class="bg-white rounded-full border border-slate-200 pl-1 pr-3 py-1 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-300 to-purple-400"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </div>
+          </div>
+
+          <!-- Page header -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
+                Khám phá
+              </h1>
+              <p class="text-sm text-slate-500">
+...
+
+===== instructors.html =====
+Length: 35347
+Unique classes found: 120
+<!-- Top bar -->
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 bg-white rounded-full border border-slate-200 px-4 py-3 flex items-center gap-3">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="Tìm kiếm khóa học, chủ đề hoặc giảng viên" class="flex-1 outline-none text-sm bg-transparent placeholder:text-slate-400">
+            </div>
+            <div class="bg-white rounded-full border border-slate-200 p-1 flex items-center gap-1">
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                <i data-lucide="sun" class="w-4 h-4 text-slate-600"></i>
+              </button>
+              <button class="w-9 h-9 rounded-full flex items-center justify-center">
+                <i data-lucide="moon" class="w-4 h-4 text-slate-400"></i>
+              </button>
+            </div>
+            <button class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+              <i data-lucide="bell" class="w-4 h-4 text-slate-600"></i>
+            </button>
+            <div class="bg-white rounded-full border border-slate-200 pl-1 pr-3 py-1 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-300 to-purple-400"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </div>
+          </div>
+
+          <!-- Page header -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
+                Báo cáo
+              </h1>
+              <p class="text-sm text-slate-500">
+...
+
+===== my-courses.html =====
+Length: 22397
+Unique classes found: 97
+<!-- Top bar -->
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 bg-white rounded-full border border-slate-200 px-4 py-3 flex items-center gap-3">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="Tìm kiếm lớp học, giảng viên hoặc môn học" class="flex-1 outline-none text-sm bg-transparent placeholder:text-slate-400">
+            </div>
+            <div class="bg-white rounded-full border border-slate-200 p-1 flex items-center gap-1">
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                <i data-lucide="sun" class="w-4 h-4 text-slate-600"></i>
+              </button>
+              <button class="w-9 h-9 rounded-full flex items-center justify-center">
+                <i data-lucide="moon" class="w-4 h-4 text-slate-400"></i>
+              </button>
+            </div>
+            <button class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+              <i data-lucide="bell" class="w-4 h-4 text-slate-600"></i>
+            </button>
+            <div class="bg-white rounded-full border border-slate-200 pl-1 pr-3 py-1 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-300 to-purple-400"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </div>
+          </div>
+
+          <!-- Page header -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
+                Khóa học của tôi
+              </h1>
+              <p class="text-sm text-slate-500">
+...
+
+===== reports.html =====
+Length: 25349
+Unique classes found: 100
+<!-- Top bar -->
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 bg-white rounded-full border border-slate-200 px-4 py-3 flex items-center gap-3">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="Tìm kiếm khóa học, chủ đề hoặc giảng viên" class="flex-1 outline-none text-sm bg-transparent placeholder:text-slate-400">
+            </div>
+            <div class="bg-white rounded-full border border-slate-200 p-1 flex items-center gap-1">
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                <i data-lucide="sun" class="w-4 h-4 text-slate-600"></i>
+              </button>
+              <button class="w-9 h-9 rounded-full flex items-center justify-center">
+                <i data-lucide="moon" class="w-4 h-4 text-slate-400"></i>
+              </button>
+            </div>
+            <button class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+              <i data-lucide="bell" class="w-4 h-4 text-slate-600"></i>
+            </button>
+            <div class="bg-white rounded-full border border-slate-200 pl-1 pr-3 py-1 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-300 to-purple-400"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </div>
+          </div>
+
+          <!-- Page header -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
+                Báo cáo học tập
+              </h1>
+              <p class="text-sm text-slate-500">
+...
+
+===== settings.html =====
+Length: 25899
+Unique classes found: 84
+<!-- Top bar -->
+          <div class="flex items-center gap-4 mb-6">
+            <div class="flex-1 bg-white rounded-full border border-slate-200 px-4 py-3 flex items-center gap-3">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400"></i>
+              <input type="text" placeholder="Tìm kiếm cài đặt" class="flex-1 outline-none text-sm bg-transparent placeholder:text-slate-400">
+            </div>
+            <div class="bg-white rounded-full border border-slate-200 p-1 flex items-center gap-1">
+              <button class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center">
+                <i data-lucide="sun" class="w-4 h-4 text-slate-600"></i>
+              </button>
+              <button class="w-9 h-9 rounded-full flex items-center justify-center">
+                <i data-lucide="moon" class="w-4 h-4 text-slate-400"></i>
+              </button>
+            </div>
+            <button class="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center">
+              <i data-lucide="bell" class="w-4 h-4 text-slate-600"></i>
+            </button>
+            <div class="bg-white rounded-full border border-slate-200 pl-1 pr-3 py-1 flex items-center gap-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-pink-300 to-purple-400"></div>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500"></i>
+            </div>
+          </div>
+
+          <!-- Page header -->
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h1 class="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
+                Cài đặt
+              </h1>
+              <p class="text-sm text-slate-500">
+...
+

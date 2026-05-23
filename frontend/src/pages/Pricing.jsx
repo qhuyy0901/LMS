@@ -49,6 +49,25 @@ const Pricing = () => {
 
   return (
     <div className="min-h-screen bg-transparent py-8 px-4 sm:px-6 lg:px-8">
+      {import.meta.env.DEV && (
+        <div className="max-w-7xl mx-auto mb-8 bg-amber-500/10 border border-amber-500/20 rounded-3xl p-6 backdrop-blur-sm shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+              <Sparkles className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-amber-900">Chế độ Thử nghiệm (Mock Payment) đang BẬT</h3>
+              <p className="text-sm text-amber-700 mt-0.5 leading-relaxed">
+                Hệ thống đang chạy trong môi trường cục bộ. Bạn không cần thẻ Visa hay tài khoản ngân hàng thật. Hãy click chọn bất kỳ mệnh giá nào dưới đây để được **nạp tiền ảo tức thì hoàn toàn miễn phí**!
+              </p>
+            </div>
+          </div>
+          <div className="flex-shrink-0 bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm shadow-amber-600/10">
+            Developer Tool
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto mb-10">
         <div className="text-center max-w-3xl mx-auto mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold mb-6">

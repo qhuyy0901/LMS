@@ -9,6 +9,7 @@ import {
   debitWalletForCoursePurchase,
   WalletOperationError,
 } from '../lib/wallet.js';
+import { validateCouponForCourse, computeDiscount } from './coupon.routes.js';
 
 const router = express.Router();
 
@@ -142,7 +143,7 @@ const completeExternalPaymentAndCreditWallet = async ({
   });
 };
 
-const purchaseCourseWithWallet = async ({ userId, courseId }) => {
+const purchaseCourseWithWallet = async ({ userId, courseId, couponCode = null }) => {
   const course = await prisma.course.findUnique({ where: { id: courseId } });
   if (!course) {
     return { status: 404, body: { message: 'Khong tim thay khoa hoc' } };
@@ -171,13 +172,30 @@ const purchaseCourseWithWallet = async ({ userId, courseId }) => {
     };
   }
 
+  // Validate coupon if provided
+  let discountAmount = 0;
+  let couponId = null;
+
+  if (couponCode) {
+    const couponResult = await validateCouponForCourse(couponCode, courseId, course.price);
+    if (!couponResult.valid) {
+      return { status: 400, body: { message: couponResult.error } };
+    }
+    discountAmount = couponResult.discountAmount;
+    couponId = couponResult.coupon.id;
+  }
+
+  const finalPrice = Math.max(0, course.price - discountAmount);
+
   try {
     const result = await debitWalletForCoursePurchase({
       userId,
       course,
-      note: `Mua khoa hoc: ${course.title}`,
+      note: `Mua khoa hoc: ${course.title}${discountAmount > 0 ? ` (giam ${formatCurrencyVnd(discountAmount)})` : ''}`,
       source: 'wallet_course_purchase',
       idempotencyKey: `course_purchase:${userId}:${courseId}`,
+      discountAmount,
+      couponId,
     });
 
     const nextTier = resolveMemberTier(result.totalSpent);
@@ -190,21 +208,23 @@ const purchaseCourseWithWallet = async ({ userId, courseId }) => {
         totalSpent: result.totalSpent,
         memberTier: result.memberTier,
         memberTierLabel: nextTier.label,
+        discountAmount,
+        finalPrice,
         successUrl: `${FRONTEND_URL}/course/${courseId}?success=true`,
       },
     };
   } catch (error) {
-    return mapWalletErrorToResponse(error, course.price);
+    return mapWalletErrorToResponse(error, finalPrice);
   }
 };
 
 router.post('/create-checkout-session', verifyToken, async (req, res) => {
   try {
-    const { type, courseId, amount } = req.body;
+    const { type, courseId, amount, couponCode } = req.body;
     const userId = req.userId;
 
     if (type === 'course') {
-      const result = await purchaseCourseWithWallet({ userId, courseId });
+      const result = await purchaseCourseWithWallet({ userId, courseId, couponCode });
       return res.status(result.status).json(result.body);
     }
 

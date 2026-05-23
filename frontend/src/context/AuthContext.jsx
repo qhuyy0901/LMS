@@ -6,6 +6,12 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 axios.defaults.baseURL = API_URL;
 
+// Khởi tạo Authorization header ngay lập tức nếu có token trong localStorage
+const initialToken = localStorage.getItem('token');
+if (initialToken) {
+  axios.defaults.headers.common.Authorization = `Bearer ${initialToken}`;
+}
+
 const normalizeUser = (user) => {
   if (!user) {
     return null;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { CheckCircle, ArrowRight, Sparkles, Wallet } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat('vi-VN', {
@@ -13,6 +14,7 @@ const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(5);
+  const { refreshUser } = useAuth();
 
   const sessionId = searchParams.get('session_id');
   const kind = searchParams.get('kind');
@@ -41,6 +43,10 @@ const PaymentSuccess = () => {
       icon: CheckCircle,
     };
   }, [amount, kind]);
+
+  useEffect(() => {
+    refreshUser().catch((err) => console.error('Lỗi khi đồng bộ số dư ví:', err));
+  }, [refreshUser]);
 
   useEffect(() => {
     const timer = setInterval(() => {

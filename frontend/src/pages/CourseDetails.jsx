@@ -11,8 +11,10 @@ import {
   MessageSquare,
   PlayCircle,
   Star,
+  Tag,
   Users,
   Wallet,
+  X,
 } from 'lucide-react';
 
 const formatCurrency = (amount = 0) =>
@@ -72,6 +74,9 @@ export default function CourseDetails() {
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
   const [deletingReview, setDeletingReview] = useState(false);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponResult, setCouponResult] = useState(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
 
   useEffect(() => {
     const fetchCourse = async () => {
@@ -104,6 +109,27 @@ export default function CourseDetails() {
     }
   }, [course?.userReview]);
 
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim()) return;
+    setValidatingCoupon(true);
+    try {
+      const response = await axios.post('/api/coupons/validate', {
+        code: couponCode.trim(),
+        courseId: id,
+      });
+      setCouponResult(response.data);
+    } catch (err) {
+      setCouponResult({ valid: false, error: err.response?.data?.error || err.message });
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode('');
+    setCouponResult(null);
+  };
+
   const handleEnroll = async () => {
     setEnrolling(true);
     try {
@@ -111,6 +137,7 @@ export default function CourseDetails() {
         const response = await axios.post('/api/payments/create-checkout-session', {
           type: 'course',
           courseId: id,
+          couponCode: couponResult?.valid ? couponResult.couponCode : undefined,
         });
 
         if (response.data.successUrl) {
@@ -449,9 +476,20 @@ export default function CourseDetails() {
         <div className="lg:col-span-1">
           <div className="sticky top-6 rounded-3xl border border-slate-100 bg-white p-6 shadow-xl shadow-slate-200/50">
             <div className="mb-6 text-center">
-              <span className="text-3xl font-bold text-slate-900">
-                {course.price > 0 ? formatCurrency(course.price) : 'Miễn phí'}
-              </span>
+              {couponResult?.valid ? (
+                <div>
+                  <span className="text-lg text-slate-400 line-through">{formatCurrency(course.price)}</span>
+                  <span className="ml-2 text-3xl font-bold text-purple-600">{formatCurrency(couponResult.finalPrice)}</span>
+                  <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700">
+                    <Tag className="h-3 w-3" />
+                    Giảm {formatCurrency(couponResult.discountAmount)}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-3xl font-bold text-slate-900">
+                  {course.price > 0 ? formatCurrency(course.price) : 'Miễn phí'}
+                </span>
+              )}
             </div>
 
             {!isEnrolled && course.price > 0 ? (
@@ -471,6 +509,44 @@ export default function CourseDetails() {
                 </div>
               </div>
             ) : null}
+
+            {/* Coupon Input */}
+            {!isEnrolled && course.price > 0 && (
+              <div className="mb-5">
+                {couponResult?.valid ? (
+                  <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+                    <Tag className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span className="flex-1 text-sm font-semibold text-green-800 tracking-wider">{couponResult.couponCode}</span>
+                    <button onClick={handleRemoveCoupon} className="rounded-full p-1 hover:bg-green-100 transition">
+                      <X className="h-3.5 w-3.5 text-green-600" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      value={couponCode}
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        if (couponResult) setCouponResult(null);
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && handleValidateCoupon()}
+                      placeholder="Nhập mã giảm giá"
+                      className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm uppercase tracking-wider font-medium outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all"
+                    />
+                    <button
+                      onClick={handleValidateCoupon}
+                      disabled={validatingCoupon || !couponCode.trim()}
+                      className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
+                    >
+                      {validatingCoupon ? '...' : 'Áp dụng'}
+                    </button>
+                  </div>
+                )}
+                {couponResult && !couponResult.valid && (
+                  <p className="mt-2 text-xs text-rose-600">{couponResult.error}</p>
+                )}
+              </div>
+            )}
 
             {isEnrolled ? (
               <div className="space-y-4">
@@ -506,7 +582,7 @@ export default function CourseDetails() {
                 disabled={enrolling}
                 className="w-full rounded-2xl bg-purple-600 px-6 py-4 font-semibold text-white transition-all hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {enrolling ? 'Đang xử lý...' : course.price > 0 ? 'Mua bằng ví nội bộ' : 'Đăng ký học ngay'}
+                {enrolling ? 'Đang xử lý...' : course.price > 0 ? (couponResult?.valid ? `Mua với ${formatCurrency(couponResult.finalPrice)}` : 'Mua bằng ví nội bộ') : 'Đăng ký học ngay'}
               </button>
             )}
 

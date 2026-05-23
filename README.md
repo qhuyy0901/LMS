@@ -2,13 +2,81 @@
 
 Monorepo cho dự án LMS, gồm:
 
-- `frontend`: React/Vite app
-- `backend`: Express/Prisma API
+- `frontend`: ứng dụng React/Vite
+- `backend`: API Express/Prisma
 
 ## Cài đặt
 
 ```bash
 npm run install:all
+```
+
+## Biến môi trường
+
+Tạo file môi trường cho backend:
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+Tạo file môi trường cho frontend:
+
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+Giá trị local mặc định:
+
+```env
+# backend/.env
+PORT=3000
+NODE_ENV=development
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lms
+JWT_SECRET=change-me-to-a-long-random-secret
+FRONTEND_URL=http://localhost:5173
+```
+
+```env
+# frontend/.env
+VITE_API_URL=http://localhost:3000
+```
+
+## Database
+
+Không push database thật lên Git. Git chỉ nên lưu:
+
+- `backend/prisma/schema.prisma`
+- `backend/prisma/migrations`
+- `backend/prisma/seed.cjs`
+- các file `.env.example`
+
+Project dùng PostgreSQL. Khi chạy local, hãy cài PostgreSQL hoặc dùng PostgreSQL qua Docker, sau đó tạo database tên `lms`.
+
+Nếu database local đang trống, tạo schema và seed dữ liệu:
+
+```bash
+npm run db:push
+npm run db:seed
+```
+
+Nếu deploy lên Render/production và muốn dùng migration:
+
+```bash
+npm run db:migrate
+```
+
+Tài khoản seed:
+
+```txt
+admin@gmail.com / 123456
+instructor@gmail.com / 123456
+student@gmail.com / 123456
+```
+
+Mở Prisma Studio:
+
+```bash
+npm run db:studio
 ```
 
 ## Chạy local
@@ -25,39 +93,8 @@ Terminal 2:
 npm run dev:frontend
 ```
 
-Frontend mặc định chạy ở `http://localhost:5173` hoặc `http://localhost:5174`.
+Frontend mặc định chạy ở `http://localhost:5173`.
 Backend mặc định chạy ở `http://localhost:3000`.
-
-## Biến môi trường
-
-Backend: tạo `backend/.env` từ `backend/.env.example`, tối thiểu cần:
-
-```env
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lms
-JWT_SECRET=change-me-to-a-long-random-secret
-FRONTEND_URL=http://localhost:5173
-```
-
-Frontend: tạo `frontend/.env`:
-
-```env
-VITE_API_URL=http://localhost:3000
-```
-
-## Database
-
-```bash
-npm run db:push
-npm run db:seed
-```
-
-Tài khoản seed:
-
-```txt
-admin@gmail.com / 123456
-instructor@gmail.com / 123456
-student@gmail.com / 123456
-```
 
 ## Deploy
 
@@ -75,6 +112,4 @@ JWT_SECRET=...
 FRONTEND_URL=https://your-frontend.vercel.app
 ```
 
-## Ghi chú Git
-
-Hiện tại `frontend` và `backend` vẫn là 2 git repo riêng. Nếu muốn chuyển hẳn thành 1 repo GitHub duy nhất, hãy tạo repo ở thư mục gốc và bỏ metadata `.git` con sau khi đã backup hoặc xác nhận không cần giữ lịch sử riêng.
+Sau khi set env backend trên Render, hãy redeploy service để biến môi trường có hiệu lực.

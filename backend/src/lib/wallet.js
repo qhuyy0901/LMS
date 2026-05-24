@@ -92,12 +92,17 @@ export const debitWalletForCoursePurchase = async ({
   note,
   source = 'wallet_purchase',
   idempotencyKey = null,
+  discountAmount = 0,
+  couponId = null,
 }) => {
   const coursePrice = Number(course.price);
 
   if (!Number.isInteger(coursePrice) || coursePrice <= 0) {
     throw new WalletOperationError('INVALID_PRICE', 'Gia khoa hoc khong hop le');
   }
+
+  const safeDiscount = Math.max(0, Math.min(Number(discountAmount) || 0, coursePrice));
+  const finalPrice = coursePrice - safeDiscount;
 
   return prisma.$transaction(async (tx) => {
     const existingEnrollment = await tx.enrollment.findUnique({
@@ -113,33 +118,42 @@ export const debitWalletForCoursePurchase = async ({
       throw new WalletOperationError('ALREADY_ENROLLED', 'Ban da dang ky khoa hoc nay roi');
     }
 
-    const walletUpdate = await tx.user.updateMany({
-      where: {
-        id: userId,
-        walletBalance: {
-          gte: coursePrice,
+    // If the course is free after discount, skip wallet deduction
+    if (finalPrice > 0) {
+      const walletUpdate = await tx.user.updateMany({
+        where: {
+          id: userId,
+          walletBalance: {
+            gte: finalPrice,
+          },
         },
-      },
-      data: {
-        walletBalance: {
-          decrement: coursePrice,
+        data: {
+          walletBalance: {
+            decrement: finalPrice,
+          },
+          totalSpent: {
+            increment: finalPrice,
+          },
         },
-        totalSpent: {
-          increment: coursePrice,
-        },
-      },
-    });
-
-    if (walletUpdate.count === 0) {
-      const user = await tx.user.findUnique({
-        where: { id: userId },
-        select: { walletBalance: true },
       });
 
-      throw new WalletOperationError('INSUFFICIENT_FUNDS', 'So du vi khong du de mua khoa hoc nay', {
-        requiredAmount: coursePrice,
-        walletBalance: user?.walletBalance || 0,
-        shortfall: Math.max(coursePrice - (user?.walletBalance || 0), 0),
+      if (walletUpdate.count === 0) {
+        const user = await tx.user.findUnique({
+          where: { id: userId },
+          select: { walletBalance: true },
+        });
+
+        throw new WalletOperationError('INSUFFICIENT_FUNDS', 'So du vi khong du de mua khoa hoc nay', {
+          requiredAmount: finalPrice,
+          walletBalance: user?.walletBalance || 0,
+          shortfall: Math.max(finalPrice - (user?.walletBalance || 0), 0),
+        });
+      }
+    } else {
+      // Free after discount — just increment totalSpent by 0 (no wallet change)
+      await tx.user.update({
+        where: { id: userId },
+        data: {},
       });
     }
 
@@ -169,9 +183,10 @@ export const debitWalletForCoursePurchase = async ({
         userId,
         courseId: course.id,
         originalAmount: coursePrice,
-        discountAmount: 0,
-        finalAmount: coursePrice,
+        discountAmount: safeDiscount,
+        finalAmount: finalPrice,
         status: 'COMPLETED',
+        couponId: couponId || null,
       },
     });
 
@@ -183,18 +198,28 @@ export const debitWalletForCoursePurchase = async ({
       },
     });
 
-    await tx.walletTransaction.create({
-      data: {
-        userId,
-        courseId: course.id,
-        purchaseId: purchase.id,
-        type: 'COURSE_PURCHASE',
-        amount: -coursePrice,
-        balanceAfter: updatedUser.walletBalance,
-        note,
-        metadata: buildWalletMetadata({ source, idempotencyKey }),
-      },
-    });
+    if (finalPrice > 0) {
+      await tx.walletTransaction.create({
+        data: {
+          userId,
+          courseId: course.id,
+          purchaseId: purchase.id,
+          type: 'COURSE_PURCHASE',
+          amount: -finalPrice,
+          balanceAfter: updatedUser.walletBalance,
+          note,
+          metadata: buildWalletMetadata({ source, idempotencyKey }),
+        },
+      });
+    }
+
+    // Increment coupon usage count atomically
+    if (couponId) {
+      await tx.coupon.update({
+        where: { id: couponId },
+        data: { usageCount: { increment: 1 } },
+      });
+    }
 
     return {
       walletBalance: updatedUser.walletBalance,
@@ -202,6 +227,8 @@ export const debitWalletForCoursePurchase = async ({
       memberTier,
       purchaseId: purchase.id,
       coursePrice,
+      discountAmount: safeDiscount,
+      finalPrice,
     };
   });
 };

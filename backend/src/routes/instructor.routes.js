@@ -214,6 +214,71 @@ router.get('/revenue', verifyToken, isInstructor, async (req, res) => {
   }
 });
 
+router.get('/students', verifyToken, isInstructor, async (req, res) => {
+  try {
+    const instructorId = req.userId;
+
+    const enrollments = await prisma.enrollment.findMany({
+      where: { course: { instructorId } },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true, avatar: true },
+        },
+        course: {
+          select: { id: true, title: true, slug: true, thumbnail: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const studentsById = new Map();
+
+    enrollments.forEach((enrollment) => {
+      const existing = studentsById.get(enrollment.userId) || {
+        id: enrollment.user.id,
+        name: enrollment.user.name,
+        email: enrollment.user.email,
+        avatar: enrollment.user.avatar,
+        courses: [],
+        averageProgress: 0,
+        lastActiveAt: enrollment.updatedAt,
+      };
+
+      existing.courses.push({
+        id: enrollment.course.id,
+        title: enrollment.course.title,
+        slug: enrollment.course.slug,
+        thumbnail: enrollment.course.thumbnail,
+        progress: enrollment.progress,
+        completedAt: enrollment.completedAt,
+        enrolledAt: enrollment.createdAt,
+      });
+
+      if (new Date(enrollment.updatedAt) > new Date(existing.lastActiveAt)) {
+        existing.lastActiveAt = enrollment.updatedAt;
+      }
+
+      studentsById.set(enrollment.userId, existing);
+    });
+
+    const students = Array.from(studentsById.values()).map((student) => ({
+      ...student,
+      averageProgress: student.courses.length
+        ? Math.round(student.courses.reduce((sum, course) => sum + (course.progress || 0), 0) / student.courses.length)
+        : 0,
+    }));
+
+    res.status(200).json({
+      totalStudents: students.length,
+      totalEnrollments: enrollments.length,
+      students,
+    });
+  } catch (error) {
+    console.error('Instructor students error:', error);
+    res.status(500).json({ message: 'Loi may chu' });
+  }
+});
+
 router.post('/courses', verifyToken, isInstructor, async (req, res) => {
   try {
     const { title, description, price, thumbnail, minimumMemberTier } = req.body;

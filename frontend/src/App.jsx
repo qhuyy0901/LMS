@@ -26,6 +26,9 @@ import AdminUsers from './pages/AdminUsers';
 import AdminCourses from './pages/AdminCourses';
 import AdminTransactions from './pages/AdminTransactions';
 import AdminSecurity from './pages/AdminSecurity';
+import AdminCoupons from './pages/AdminCoupons';
+import Certificates from './pages/Certificates';
+import InstructorStudents from './pages/InstructorStudents';
 
 function App() {
   return (
@@ -54,13 +57,16 @@ function App() {
                 <Route path="instructors" element={<Instructors />} />
                 <Route path="my-classes" element={<MyClasses />} />
                 <Route path="reports" element={<Reports />} />
+                <Route path="certificates" element={<Certificates />} />
                 <Route path="upgrade" element={<Pricing />} />
                 <Route path="instructor" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><InstructorDashboard /></RoleRoute>} />
                 <Route path="instructor/revenue" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><InstructorRevenue /></RoleRoute>} />
+                <Route path="instructor/students" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><InstructorStudents /></RoleRoute>} />
                 <Route path="instructor/courses/new" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><CourseEditor /></RoleRoute>} />
                 <Route path="instructor/courses/:id" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><CourseEditor /></RoleRoute>} />
                 <Route path="admin/users" element={<RoleRoute roles={['ADMIN']}><AdminUsers /></RoleRoute>} />
                 <Route path="admin/courses" element={<RoleRoute roles={['ADMIN']}><AdminCourses /></RoleRoute>} />
+                <Route path="admin/coupons" element={<RoleRoute roles={['ADMIN']}><AdminCoupons /></RoleRoute>} />
                 <Route path="admin/transactions" element={<RoleRoute roles={['ADMIN']}><AdminTransactions /></RoleRoute>} />
                 <Route path="admin/security" element={<RoleRoute roles={['ADMIN']}><AdminSecurity /></RoleRoute>} />
               </Route>

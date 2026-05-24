@@ -10,6 +10,8 @@ import userRoutes from './routes/user.routes.js';
 import instructorRoutes from './routes/instructor.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import couponRoutes from './routes/coupon.routes.js';
+import quizRoutes from './routes/quiz.routes.js';
 import { notFoundHandler, globalErrorHandler } from './middleware/error.middleware.js';
 
 dotenv.config();
@@ -59,6 +61,8 @@ app.use('/api/user', userRoutes);
 app.use('/api/instructor', instructorRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/coupons', couponRoutes);
+app.use('/api/quizzes', quizRoutes);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 app.get('/', (req, res) => {

@@ -17,17 +17,8 @@ import {
   UserCog,
   FileCheck,
   Webhook,
+  Tag,
 } from 'lucide-react';
-
-/**
- * Sidebar menu definitions keyed by role.
- *
- * Each item has:
- *  - name     — display label
- *  - path     — react-router path
- *  - icon     — lucide-react component
- *  - badge    — optional badge text or dynamic key
- */
 
 export const STUDENT_MENU = [
   { section: 'Tổng quan' },
@@ -49,7 +40,7 @@ export const STUDENT_MENU = [
 
 export const INSTRUCTOR_MENU = [
   { section: 'Tổng quan' },
-  { name: 'Dashboard Giảng viên', path: '/', icon: LayoutDashboard },
+  { name: 'Dashboard giảng viên', path: '/', icon: LayoutDashboard },
 
   { section: 'Quản lý nội dung' },
   { name: 'Khóa học của tôi', path: '/instructor', icon: Briefcase },
@@ -71,6 +62,7 @@ export const ADMIN_MENU = [
   { section: 'Quản lý hệ thống' },
   { name: 'Quản lý người dùng', path: '/admin/users', icon: UserCog },
   { name: 'Duyệt khóa học', path: '/admin/courses', icon: FileCheck },
+  { name: 'Mã giảm giá', path: '/admin/coupons', icon: Tag },
   { name: 'Đối soát giao dịch', path: '/admin/transactions', icon: Webhook },
 
   { section: 'Khác' },
@@ -79,9 +71,6 @@ export const ADMIN_MENU = [
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
-/**
- * Returns the appropriate menu array for a given role string.
- */
 export const getMenuByRole = (role) => {
   switch (role) {
     case 'INSTRUCTOR':

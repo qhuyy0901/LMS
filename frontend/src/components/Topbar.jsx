@@ -1,13 +1,15 @@
 import { Search, Sun, Moon, Bell, LogOut, Wallet, BadgeCheck, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 
 const TIER_LABELS = {
-  BRONZE: '\u0110\u1ed3ng',
-  SILVER: 'B\u1ea1c',
-  GOLD: 'V\u00e0ng',
-  PLATINUM: 'B\u1ea1ch kim',
-  DIAMOND: 'Kim c\u01b0\u01a1ng',
+  BRONZE: 'Đồng',
+  SILVER: 'Bạc',
+  GOLD: 'Vàng',
+  PLATINUM: 'Bạch kim',
+  DIAMOND: 'Kim cương',
 };
 
 const formatCurrency = (amount = 0) =>
@@ -20,15 +22,55 @@ const formatCurrency = (amount = 0) =>
 const Topbar = () => {
   const { user, logout } = useAuth();
   const { canImpersonate, isImpersonating, enterStudentView } = useDashboardView();
-  const tierLabel = TIER_LABELS[user?.memberTier] || '\u0110\u1ed3ng';
+  const tierLabel = TIER_LABELS[user?.memberTier] || 'Đồng';
+
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const qParam = searchParams.get('q') || '';
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (location.pathname === '/explore') {
+      setSearchQuery(qParam);
+    } else {
+      setSearchQuery('');
+    }
+  }, [qParam, location.pathname]);
+
+  const triggerSearch = (query) => {
+    const trimmed = query.trim();
+    if (location.pathname === '/explore') {
+      const newParams = new URLSearchParams(searchParams);
+      if (trimmed) {
+        newParams.set('q', trimmed);
+      } else {
+        newParams.delete('q');
+      }
+      newParams.set('page', '1'); // reset page on search
+      navigate(`/explore?${newParams.toString()}`);
+    } else {
+      navigate(trimmed ? `/explore?q=${encodeURIComponent(trimmed)}` : '/explore');
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      triggerSearch(searchQuery);
+    }
+  };
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-4 md:flex-nowrap">
       <div className="order-last flex w-full min-w-0 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-300 hover:shadow-md focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-200 md:order-none md:flex-1">
-        <Search className="h-4 w-4 text-slate-400" />
+        <Search className="h-4 w-4 text-slate-400 cursor-pointer" onClick={() => triggerSearch(searchQuery)} />
         <input
           type="text"
-          placeholder={'T\u00ecm ki\u1ebfm kh\u00f3a h\u1ecdc, ch\u1ee7 \u0111\u1ec1...'}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={'Tìm kiếm khóa học, chủ đề...'}
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
         />
       </div>

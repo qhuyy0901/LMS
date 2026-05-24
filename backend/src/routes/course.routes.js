@@ -24,6 +24,8 @@ const syncCourseReviewStats = async (tx, courseId) => {
 
 router.get('/', async (req, res) => {
   try {
+    const { q, category, tier, price, minPrice, maxPrice, sort, page, pageSize } = req.query;
+
     const courses = await prisma.course.findMany({
       where: { isPublished: true },
       include: {
@@ -50,7 +52,133 @@ router.get('/', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.status(200).json(courses);
+    // In-memory mapping to extract parsed metadata from description JSON safely
+    let filtered = courses.map(course => {
+      let courseCategory = null;
+      let rating = course.averageRating || 0;
+      let students = course._count?.enrollments || 0;
+      let badge = null;
+      let badgeColor = null;
+      let icon = null;
+      let gradient = null;
+      
+      try {
+        if (course.description) {
+          const meta = JSON.parse(course.description);
+          courseCategory = meta.category || null;
+          if (meta.rating) rating = parseFloat(meta.rating);
+          if (meta.students) students += parseInt(meta.students, 10);
+          badge = meta.badge || null;
+          badgeColor = meta.badgeColor || null;
+          icon = meta.icon || null;
+          gradient = meta.gradient || null;
+        }
+      } catch (e) {
+        // Fallback if description is plain text
+      }
+
+      return {
+        ...course,
+        category: courseCategory,
+        rating,
+        students,
+        badge,
+        badgeColor,
+        icon,
+        gradient,
+      };
+    });
+
+    // 1. Search Query "q" filter
+    if (q) {
+      const keyword = String(q).toLowerCase().trim();
+      filtered = filtered.filter(course => {
+        const titleMatch = course.title?.toLowerCase().includes(keyword);
+        const instructorMatch = course.instructor?.name?.toLowerCase().includes(keyword);
+        const categoryMatch = course.category?.toLowerCase().includes(keyword);
+        
+        let descMatch = false;
+        try {
+          const meta = JSON.parse(course.description);
+          descMatch = meta.description?.toLowerCase().includes(keyword) || false;
+        } catch (e) {
+          descMatch = course.description?.toLowerCase().includes(keyword) || false;
+        }
+
+        return titleMatch || instructorMatch || categoryMatch || descMatch;
+      });
+    }
+
+    // 2. Category filter
+    if (category) {
+      const targetCategory = String(category).toLowerCase().trim();
+      filtered = filtered.filter(course => 
+        course.category?.toLowerCase() === targetCategory
+      );
+    }
+
+    // 3. Price filter
+    if (price === 'free') {
+      filtered = filtered.filter(course => course.price === 0);
+    } else if (price === 'paid') {
+      filtered = filtered.filter(course => course.price > 0);
+    }
+
+    // 4. Price range filter
+    if (minPrice !== undefined) {
+      const min = parseInt(minPrice, 10);
+      if (!isNaN(min)) {
+        filtered = filtered.filter(course => course.price >= min);
+      }
+    }
+    if (maxPrice !== undefined) {
+      const max = parseInt(maxPrice, 10);
+      if (!isNaN(max)) {
+        filtered = filtered.filter(course => course.price <= max);
+      }
+    }
+
+    // 5. Member Tier filter
+    if (tier) {
+      filtered = filtered.filter(course => course.minimumMemberTier === tier);
+    }
+
+    // 6. Sorting
+    if (sort === 'price_asc') {
+      filtered.sort((a, b) => a.price - b.price);
+    } else if (sort === 'price_desc') {
+      filtered.sort((a, b) => b.price - a.price);
+    } else if (sort === 'rating_desc') {
+      filtered.sort((a, b) => b.rating - a.rating);
+    } else if (sort === 'students_desc') {
+      filtered.sort((a, b) => b.students - a.students);
+    } else {
+      // Default: Newest first
+      filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+
+    // 7. Pagination
+    const total = filtered.length;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const sizeNum = Math.max(1, parseInt(pageSize, 10) || 12);
+    const pages = Math.ceil(total / sizeNum);
+    const skip = (pageNum - 1) * sizeNum;
+    
+    const items = filtered.slice(skip, skip + sizeNum);
+
+    // If page or pageSize is requested, return paginated structure
+    if (page || pageSize || req.query.paginate === 'true') {
+      res.status(200).json({
+        items,
+        total,
+        page: pageNum,
+        pageSize: sizeNum,
+        pages,
+      });
+    } else {
+      // Return full filtered array for backward compatibility
+      res.status(200).json(filtered);
+    }
   } catch (error) {
     console.error('Fetch courses error:', error);
     res.status(500).json({ message: 'Loi server khi lay danh sach khoa hoc' });
@@ -95,6 +223,15 @@ router.get('/:id', verifyToken, async (req, res) => {
           include: {
             lessons: {
               orderBy: { position: 'asc' },
+              include: {
+                quiz: {
+                  select: {
+                    id: true,
+                    title: true,
+                    passingScore: true,
+                  },
+                },
+              },
             },
           },
         },

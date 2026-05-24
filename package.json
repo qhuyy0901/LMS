@@ -10,6 +10,8 @@
     "build:frontend": "npm run build --prefix frontend",
     "test:backend": "npm test --prefix backend",
     "db:push": "npx prisma db push --schema backend/prisma/schema.prisma",
-    "db:seed": "node backend/prisma/seed.cjs"
+    "db:migrate": "npx prisma migrate deploy --schema backend/prisma/schema.prisma",
+    "db:seed": "node backend/prisma/seed.cjs",
+    "db:studio": "npx prisma studio --schema backend/prisma/schema.prisma"
   }
 }

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   Video,
 } from 'lucide-react';
 import { api } from '../api/client';
+import QuizEditorModal from '../components/QuizEditorModal';
 
 const STEPS = [
   { id: 1, title: 'Th\u00f4ng tin chung', hint: 'Ti\u00eau \u0111\u1ec1, m\u00f4 t\u1ea3, \u1ea3nh b\u00eca' },
@@ -89,6 +90,7 @@ const CourseEditor = () => {
   const [course, setCourse] = useState(null);
   const [courseForm, setCourseForm] = useState(emptyCourseForm);
   const [dragState, setDragState] = useState(null);
+  const [selectedLessonForQuiz, setSelectedLessonForQuiz] = useState(null);
 
   const fetchCourse = async (courseId) => {
     setLoading(true);
@@ -645,8 +647,16 @@ const CourseEditor = () => {
                           </div>
 
                           <button
+                            type="button"
+                            onClick={() => setSelectedLessonForQuiz({ id: lesson.id, title: lesson.title })}
+                            className="w-full mt-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 px-3 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                          >
+                            📝 Thiết lập Quiz
+                          </button>
+
+                          <button
                             onClick={() => removeLesson(lesson.id)}
-                            className="rounded-full border border-rose-200 px-3 py-2 text-sm text-rose-600"
+                            className="w-full mt-2 rounded-xl border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition"
                           >
                             Xóa bài học
                           </button>
@@ -943,6 +953,14 @@ const CourseEditor = () => {
           {activeStep === STEPS.length ? 'Hoàn tất' : 'Tiếp tục'}
         </button>
       </div>
+
+      {selectedLessonForQuiz && (
+        <QuizEditorModal
+          lessonId={selectedLessonForQuiz.id}
+          lessonTitle={selectedLessonForQuiz.title}
+          onClose={() => setSelectedLessonForQuiz(null)}
+        />
+      )}
     </div>
   );
 };

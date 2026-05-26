@@ -39,7 +39,7 @@ $processes = @($backend, $frontend)
 try {
   Write-Host ''
   Write-Host 'Local dev is starting:'
-  Write-Host '- Backend:  http://localhost:3000'
+  Write-Host '- Backend:  http://localhost:5000'
   Write-Host '- Frontend: http://localhost:5173'
   Write-Host ''
   Write-Host 'Press Ctrl+C to stop both processes.'

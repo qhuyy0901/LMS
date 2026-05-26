@@ -4,20 +4,17 @@
   "version": "1.0.0",
   "description": "Monorepo for the Skillio LMS frontend and backend.",
   "scripts": {
-    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "install:all": "npm install --prefix frontend",
     "dev": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/dev.ps1",
-    "dev:backend": "npm run dev --prefix backend",
+    "dev:backend": "npm run dev:backend:dotnet",
     "dev:backend:dotnet": "dotnet run --project backend-dotnet/LMS.Api.csproj --urls http://localhost:5000",
     "dev:frontend": "npm run dev --prefix frontend",
     "build:frontend": "npm run build --prefix frontend",
-    "test:backend": "npm test --prefix backend",
+    "test:backend": "dotnet build backend-dotnet/LMS.Api.csproj",
     "dotnet:tool-restore": "dotnet tool restore",
     "dotnet:build": "dotnet build backend-dotnet/LMS.Api.csproj",
     "db:dotnet:migrate": "dotnet tool run dotnet-ef database update --project backend-dotnet/LMS.Api.csproj --startup-project backend-dotnet/LMS.Api.csproj",
     "db:dotnet:migration:add": "dotnet tool run dotnet-ef migrations add",
-    "db:push": "npx prisma db push --schema backend/prisma/schema.prisma",
-    "db:migrate": "npm run db:push",
-    "db:seed": "node backend/prisma/seed.cjs",
-    "db:studio": "npx prisma studio --schema backend/prisma/schema.prisma"
+    "db:migrate": "npm run db:dotnet:migrate"
   }
 }

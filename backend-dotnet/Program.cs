@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Globalization;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -212,6 +213,226 @@ app.MapGet("/api/user/certificates", async (ClaimsPrincipal principal, LmsDbCont
         .ToListAsync();
 
     return Results.Ok(certificates);
+}).RequireAuthorization();
+
+app.MapGet("/api/user/notifications", async (ClaimsPrincipal principal, LmsDbContext db) =>
+{
+    var userId = CurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+
+    var notifications = await db.Notifications
+        .AsNoTracking()
+        .Where(item => item.UserId == userId)
+        .OrderByDescending(item => item.CreatedAt)
+        .Take(30)
+        .Select(item => new
+        {
+            item.Id,
+            item.Type,
+            item.Title,
+            item.Body,
+            item.Link,
+            item.IsRead,
+            item.Metadata,
+            item.ReadAt,
+            item.CreatedAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(notifications);
+}).RequireAuthorization();
+
+app.MapPatch("/api/user/notifications/{id}/read", async (string id, ClaimsPrincipal principal, LmsDbContext db) =>
+{
+    var userId = CurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+
+    var notification = await db.Notifications.FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId);
+    if (notification is null) return Results.NotFound(new { message = "Khong tim thay thong bao" });
+
+    notification.IsRead = true;
+    notification.ReadAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Da danh dau da doc" });
+}).RequireAuthorization();
+
+app.MapGet("/api/user/reports", async (ClaimsPrincipal principal, LmsDbContext db) =>
+{
+    var userId = CurrentUserId(principal);
+    if (userId is null) return Results.Unauthorized();
+
+    var buckets = BuildRecentDayBuckets(7);
+    var reportStartDate = buckets[0].Date;
+
+    var enrollments = await db.Enrollments
+        .AsNoTracking()
+        .Where(item => item.UserId == userId)
+        .Include(item => item.Course)
+            .ThenInclude(course => course!.Instructor)
+        .Include(item => item.Course)
+            .ThenInclude(course => course!.Lessons.Where(lesson => lesson.IsPublished))
+        .OrderByDescending(item => item.UpdatedAt)
+        .ToListAsync();
+
+    var lessonProgress = await db.LessonProgresses
+        .AsNoTracking()
+        .Where(item => item.UserId == userId)
+        .Include(item => item.Lesson)
+            .ThenInclude(lesson => lesson!.Course)
+        .OrderByDescending(item => item.UpdatedAt)
+        .ToListAsync();
+
+    var quizSubmissions = await db.QuizSubmissions
+        .AsNoTracking()
+        .Where(item => item.UserId == userId)
+        .Include(item => item.Quiz)
+            .ThenInclude(quiz => quiz!.Lesson)
+                .ThenInclude(lesson => lesson!.Course)
+        .OrderByDescending(item => item.CreatedAt)
+        .Take(30)
+        .ToListAsync();
+
+    var certificates = await db.Certificates
+        .AsNoTracking()
+        .Where(item => item.UserId == userId)
+        .Include(item => item.Course)
+        .OrderByDescending(item => item.IssuedAt)
+        .ToListAsync();
+
+    var progressByLessonId = lessonProgress.ToDictionary(item => item.LessonId, item => item);
+    var bucketByKey = buckets.ToDictionary(item => item.Key, item => item);
+
+    foreach (var progress in lessonProgress.Where(item => item.UpdatedAt >= reportStartDate))
+    {
+        var key = GetDayKey(progress.CompletedAt ?? progress.UpdatedAt);
+        if (!bucketByKey.TryGetValue(key, out var bucket)) continue;
+
+        bucket.Minutes += (int)Math.Round(progress.WatchedSeconds / 60.0);
+        if (progress.IsCompleted) bucket.CompletedLessons += 1;
+    }
+
+    var completedLessonCount = lessonProgress.Count(item => item.IsCompleted);
+    var learningMinutes = (int)Math.Round(lessonProgress.Sum(item => item.WatchedSeconds) / 60.0);
+    var averageQuizScore = quizSubmissions.Count > 0 ? quizSubmissions.Average(item => item.Score) : 0;
+
+    var courseProgress = enrollments
+        .Where(item => item.Course is not null)
+        .Select(item =>
+        {
+            var lessonIds = item.Course!.Lessons.Select(lesson => lesson.Id).ToList();
+            var completedLessons = lessonIds.Count(lessonId => progressByLessonId.TryGetValue(lessonId, out var progress) && progress.IsCompleted);
+            var totalLessons = lessonIds.Count;
+            var progress = totalLessons > 0 ? completedLessons / (double)totalLessons * 100 : item.Progress;
+
+            return new
+            {
+                id = item.Course.Id,
+                title = item.Course.Title,
+                thumbnail = item.Course.Thumbnail,
+                instructorName = item.Course.Instructor?.Name ?? "Instructor",
+                completedLessons,
+                totalLessons,
+                progress = ClampPercent(progress),
+                item.CompletedAt,
+                item.UpdatedAt
+            };
+        })
+        .ToList();
+
+    var recentAchievements = certificates.Select(certificate => new AchievementDto(
+            $"certificate-{certificate.Id}",
+            "certificate",
+            "Certificate earned",
+            certificate.Course?.Title ?? "Completed course",
+            certificate.IssuedAt,
+            null))
+        .Concat(enrollments
+            .Where(enrollment => enrollment.CompletedAt is not null)
+            .Select(enrollment => new AchievementDto(
+                $"course-{enrollment.Id}",
+                "course",
+                "Course completed",
+                enrollment.Course?.Title ?? "Course",
+                enrollment.CompletedAt!.Value,
+                null)))
+        .Concat(quizSubmissions
+            .Where(submission => submission.Passed)
+            .Select(submission => new AchievementDto(
+                $"quiz-{submission.Id}",
+                "quiz",
+                "Quiz passed",
+                submission.Quiz?.Title ?? "Quiz",
+                submission.CreatedAt,
+                (int)Math.Round(submission.Score))))
+        .OrderByDescending(item => item.Date)
+        .Take(6)
+        .ToList();
+
+    var weeklyMinutes = buckets.Sum(item => item.Minutes);
+    var weeklyCompletedLessons = buckets.Sum(item => item.CompletedLessons);
+    var weeklyCertificates = certificates.Count(item => item.IssuedAt >= reportStartDate);
+
+    return Results.Ok(new
+    {
+        summary = new
+        {
+            learningMinutes,
+            learningHours = Math.Round(learningMinutes / 60.0, 1),
+            completedLessons = completedLessonCount,
+            averageQuizScore = Math.Round(averageQuizScore / 10.0, 1),
+            certificates = certificates.Count
+        },
+        weeklyActivity = buckets.Select(bucket => new
+        {
+            date = bucket.Key,
+            label = bucket.Label,
+            minutes = bucket.Minutes,
+            hours = Math.Round(bucket.Minutes / 60.0, 1),
+            completedLessons = bucket.CompletedLessons
+        }),
+        courseProgress,
+        recentAchievements,
+        weeklyGoals = new[]
+        {
+            new
+            {
+                id = "weekly-hours",
+                title = "Study 10 hours",
+                current = Math.Round(weeklyMinutes / 60.0, 1),
+                target = 10,
+                unit = "h",
+                progress = ClampPercent(weeklyMinutes / 600.0 * 100)
+            },
+            new
+            {
+                id = "weekly-lessons",
+                title = "Complete 5 lessons",
+                current = (double)weeklyCompletedLessons,
+                target = 5,
+                unit = "lessons",
+                progress = ClampPercent(weeklyCompletedLessons / 5.0 * 100)
+            },
+            new
+            {
+                id = "weekly-certificate",
+                title = "Earn 1 certificate",
+                current = (double)weeklyCertificates,
+                target = 1,
+                unit = "certificate",
+                progress = ClampPercent(weeklyCertificates * 100)
+            }
+        },
+        recentQuizSubmissions = quizSubmissions.Take(5).Select(submission => new
+        {
+            id = submission.Id,
+            title = submission.Quiz?.Title ?? "Quiz",
+            courseTitle = submission.Quiz?.Lesson?.Course?.Title,
+            score = (int)Math.Round(submission.Score),
+            passed = submission.Passed,
+            submission.CreatedAt
+        })
+    });
 }).RequireAuthorization();
 
 app.MapDelete("/api/user/avatar", async (ClaimsPrincipal principal, LmsDbContext db) =>
@@ -2232,6 +2453,34 @@ static async Task NormalizeLessonPositions(LmsDbContext db, string sectionId)
     await db.SaveChangesAsync();
 }
 
+static DateTime AddDays(DateTime date, int days) => date.AddDays(days);
+
+static DateTime StartOfLocalDay(DateTime date) => date.ToLocalTime().Date;
+
+static string GetDayKey(DateTime date) => StartOfLocalDay(date).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+static List<ReportDayBucket> BuildRecentDayBuckets(int days = 7)
+{
+    var startDate = AddDays(StartOfLocalDay(DateTime.UtcNow), -(days - 1));
+    var culture = CultureInfo.GetCultureInfo("vi-VN");
+
+    return Enumerable.Range(0, days)
+        .Select(index =>
+        {
+            var date = AddDays(startDate, index);
+            return new ReportDayBucket(
+                date,
+                GetDayKey(date),
+                culture.DateTimeFormat.GetAbbreviatedDayName(date.DayOfWeek),
+                0,
+                0
+            );
+        })
+        .ToList();
+}
+
+static int ClampPercent(double value) => Math.Min(100, Math.Max(0, (int)Math.Round(value)));
+
 record RegisterRequest(string Email, string Password, string? Name);
 record LoginRequest(string Email, string Password);
 record UserUpdateRequest(string? Name, string? Phone, string? Bio, JsonElement? Settings);
@@ -2261,6 +2510,12 @@ record ReorderLessonRequest(string Id);
 record CourseUpsertRequest(string? Title, string? Description, string? Thumbnail, int? Price, string? MinimumMemberTier);
 record SectionRequest(string? Title, string? Description);
 record LessonRequest(string? Title, string? Content, string? VideoUrl, int? DurationSeconds, bool? IsPublished, bool? IsPreview, string? SectionId);
+record ReportDayBucket(DateTime Date, string Key, string Label, int Minutes, int CompletedLessons)
+{
+    public int Minutes { get; set; } = Minutes;
+    public int CompletedLessons { get; set; } = CompletedLessons;
+}
+record AchievementDto(string Id, string Type, string Title, string Description, DateTime Date, int? Score);
 
 record AuthResponse(string Token, UserDto User)
 {

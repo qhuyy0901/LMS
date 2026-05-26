@@ -11,13 +11,6 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
-backend/node_modules/
-backend/generated/
-backend/dist/
-backend/.env
-backend/.env.*
-!backend/.env.example
-
 backend-dotnet/bin/
 backend-dotnet/obj/
 backend-dotnet/appsettings.Development.json

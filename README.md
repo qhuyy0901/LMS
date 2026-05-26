@@ -1,76 +1,43 @@
 # Skillio LMS
 
-Monorepo cho dự án LMS, gồm:
+Monorepo cho dự án LMS:
 
 - `frontend`: ứng dụng React/Vite
-- `backend`: API Express/Prisma
-- `backend-dotnet`: API ASP.NET Core đang được migrate/đối chiếu, chưa phải backend mặc định
+- `backend-dotnet`: API ASP.NET Core C# dùng Entity Framework Core và SQL Server
 
-Backend mặc định của frontend hiện tại là `backend` Node/Express tại `http://localhost:3000`.
-Chỉ đổi `VITE_API_URL` sang `http://localhost:5000` khi muốn chạy thử backend .NET.
+Backend mặc định hiện tại là ASP.NET Core tại `http://localhost:5000`. Backend Node.js/Express đã được loại khỏi repo.
 
 ## Cài Đặt
 
 ```bash
 npm run install:all
-```
-
-## Biến Môi Trường
-
-Tạo file môi trường cho backend:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Tạo file môi trường cho frontend:
-
-```bash
-cp frontend/.env.example frontend/.env
-```
-
-Giá trị local mặc định:
-
-```env
-# backend/.env
-PORT=3000
-NODE_ENV=development
-DATABASE_URL=sqlserver://localhost:1433;database=lms;user=sa;password=YourStrongPassword123;encrypt=true;trustServerCertificate=true
-JWT_SECRET=change-me-to-a-long-random-secret
-FRONTEND_URL=http://localhost:5173
-```
-
-```env
-# frontend/.env
-VITE_API_URL=http://localhost:3000
+dotnet tool restore
 ```
 
 ## Database
 
-Không push database thật lên Git. Git chỉ nên lưu:
-
-- `backend/prisma/schema.prisma`
-- `backend/prisma/seed.cjs`
-- các file `.env.example`
-
-Project hiện dùng SQL Server qua Prisma. Khi chạy local, hãy cài SQL Server hoặc dùng SQL Server qua Docker, sau đó tạo database tên `lms`.
-
-Ví dụ chạy SQL Server bằng Docker Compose:
+Dự án dùng SQL Server. Cách nhanh nhất để chạy local là dùng Docker Compose:
 
 ```bash
 docker compose up -d
 ```
 
-Nếu database local đang trống, tạo schema và seed dữ liệu:
+Database local mặc định:
 
-```bash
-npm run db:push
-npm run db:seed
+```txt
+Server=127.0.0.1,11433
+Database=lms
+User Id=sa
+Password=LmsPassw0rd#2026
 ```
 
-Lưu ý: các migration cũ trong repo được tạo cho PostgreSQL, không dùng cho SQL Server. Với bản SQL Server hiện tại, dùng `db:push` để dựng schema.
+Tạo schema bằng EF Core migrations:
 
-Tài khoản seed:
+```bash
+npm run db:migrate
+```
+
+Khi chạy ASP.NET Core ở môi trường Development, dữ liệu seed sẽ tự được thêm nếu database còn trống. Tài khoản mẫu:
 
 ```txt
 admin@gmail.com / 123456
@@ -78,15 +45,23 @@ instructor@gmail.com / 123456
 student@gmail.com / 123456
 ```
 
-Mở Prisma Studio:
+## Biến Môi Trường
 
-```bash
-npm run db:studio
+Frontend:
+
+```env
+VITE_API_URL=http://localhost:5000
+```
+
+Backend ASP.NET Core đọc cấu hình từ `backend-dotnet/appsettings.json` hoặc environment variables:
+
+```env
+ConnectionStrings__DefaultConnection=Server=127.0.0.1,11433;Database=lms;User Id=sa;Password=LmsPassw0rd#2026;TrustServerCertificate=True;Encrypt=False
+JWT_SECRET=change-me-to-a-long-random-secret
+FRONTEND_URL=http://localhost:5173
 ```
 
 ## Chạy Local
-
-Chạy Node/Express backend mặc định.
 
 Một lệnh từ root repo:
 
@@ -94,56 +69,39 @@ Một lệnh từ root repo:
 npm run dev
 ```
 
-Lệnh này chạy backend Node tại `http://localhost:3000` và frontend Vite tại
-`http://localhost:5173`. Nếu muốn xem log riêng từng service, dùng cách 2
-terminal bên dưới.
+Lệnh này chạy:
 
-Terminal 1:
+- Backend ASP.NET Core: `http://localhost:5000`
+- Frontend Vite: `http://localhost:5173`
+
+Chạy riêng từng phần:
 
 ```bash
 npm run dev:backend
-```
-
-Terminal 2:
-
-```bash
 npm run dev:frontend
 ```
 
-Frontend mặc định chạy ở `http://localhost:5173`.
-Backend mặc định chạy ở `http://localhost:3000`.
-
-Nếu frontend được mở bằng `http://127.0.0.1:5173` hoặc Vite tự nhảy sang
-`5174`, backend đã whitelist các origin local này. Khi gặp lỗi login/API
-`ERR_CONNECTION_REFUSED`, kiểm tra `frontend/.env` trước: Node backend dùng
-`VITE_API_URL=http://127.0.0.1:3000`; chỉ đổi sang `5000` khi chạy backend .NET.
-
-Chạy thử backend .NET:
+## Build / Kiểm Tra
 
 ```bash
-npm run dev:backend:dotnet
+npm run build:frontend
+npm run test:backend
 ```
 
-Sau đó đổi `frontend/.env` sang:
-
-```env
-VITE_API_URL=http://127.0.0.1:5000
-```
+`test:backend` hiện build project ASP.NET Core. Nếu cần test API sâu hơn, thêm test project .NET riêng.
 
 ## Deploy
 
 Frontend:
 
 ```env
-VITE_API_URL=https://your-backend.onrender.com
+VITE_API_URL=https://your-backend.example.com
 ```
 
 Backend:
 
 ```env
-DATABASE_URL=sqlserver://host:1433;database=lms;user=sa;password=...;encrypt=true;trustServerCertificate=true
+ConnectionStrings__DefaultConnection=Server=...;Database=lms;User Id=...;Password=...;TrustServerCertificate=True;Encrypt=True
 JWT_SECRET=...
-FRONTEND_URL=https://your-frontend.vercel.app
+FRONTEND_URL=https://your-frontend.example.com
 ```
-
-Sau khi set env backend trên Render, hãy redeploy service để biến môi trường có hiệu lực.

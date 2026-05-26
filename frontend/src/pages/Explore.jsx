@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
-import { Bookmark, Flame, Hash, MoreHorizontal, Play, Route, SlidersHorizontal, Sparkles, Star, Users } from 'lucide-react';
+import { Bookmark, Flame, Hash, MoreHorizontal, Play, Route, SlidersHorizontal, Sparkles, Star } from 'lucide-react';
 import CourseCard, { CourseSkeleton } from '../components/CourseCard';
 
 const Explore = () => {

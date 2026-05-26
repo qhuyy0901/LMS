@@ -1,80 +1,156 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Pricing from './pages/Pricing';
-import Events from './pages/Events';
-import MyClasses from './pages/MyClasses';
-import MyCourses from './pages/MyCourses';
-import Explore from './pages/Explore';
-import Reports from './pages/Reports';
-import Instructors from './pages/Instructors';
-import Settings from './pages/Settings';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import { AuthProvider } from './context/AuthContext';
-import { DashboardViewProvider } from './context/DashboardViewContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
-import CourseDetails from './pages/CourseDetails';
-import LearningWorkspace from './pages/LearningWorkspace';
-import InstructorDashboard from './pages/InstructorDashboard';
-import InstructorRevenue from './pages/InstructorRevenue';
-import CourseEditor from './pages/CourseEditor';
-import PaymentSuccess from './pages/PaymentSuccess';
-import PaymentCancel from './pages/PaymentCancel';
-import AdminUsers from './pages/AdminUsers';
-import AdminCourses from './pages/AdminCourses';
-import AdminTransactions from './pages/AdminTransactions';
-import AdminSecurity from './pages/AdminSecurity';
-import AdminCoupons from './pages/AdminCoupons';
-import Certificates from './pages/Certificates';
-import InstructorStudents from './pages/InstructorStudents';
+import { AuthProvider } from './context/AuthContext';
+import { DashboardViewProvider } from './context/DashboardViewContext';
+
+const AdminCoupons = lazy(() => import('./pages/AdminCoupons'));
+const AdminCourses = lazy(() => import('./pages/AdminCourses'));
+const AdminSecurity = lazy(() => import('./pages/AdminSecurity'));
+const AdminTransactions = lazy(() => import('./pages/AdminTransactions'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const Certificates = lazy(() => import('./pages/Certificates'));
+const CourseDetails = lazy(() => import('./pages/CourseDetails'));
+const CourseEditor = lazy(() => import('./pages/CourseEditor'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Events = lazy(() => import('./pages/Events'));
+const Explore = lazy(() => import('./pages/Explore'));
+const InstructorDashboard = lazy(() => import('./pages/InstructorDashboard'));
+const InstructorRevenue = lazy(() => import('./pages/InstructorRevenue'));
+const InstructorStudents = lazy(() => import('./pages/InstructorStudents'));
+const Instructors = lazy(() => import('./pages/Instructors'));
+const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
+const Login = lazy(() => import('./pages/Login'));
+const MyClasses = lazy(() => import('./pages/MyClasses'));
+const MyCourses = lazy(() => import('./pages/MyCourses'));
+const PaymentCancel = lazy(() => import('./pages/PaymentCancel'));
+const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
+const Pricing = lazy(() => import('./pages/Pricing'));
+const Register = lazy(() => import('./pages/Register'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Settings = lazy(() => import('./pages/Settings'));
+
+const PageFallback = () => (
+  <div className="flex min-h-screen items-center justify-center bg-slate-50">
+    <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-b-purple-600" />
+  </div>
+);
 
 function App() {
   return (
     <AuthProvider>
       <DashboardViewProvider>
         <BrowserRouter>
-          <Routes>
-            {/* Auth pages — no sidebar/layout */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            {/* Dashboard pages — wrapped in ProtectedRoute -> Layout */}
-            <Route element={<ProtectedRoute />}>
-              {/* Fullscreen pages — no sidebar */}
-              <Route path="/learn/:courseId" element={<LearningWorkspace />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/payment-cancel" element={<PaymentCancel />} />
-              
-              <Route path="/" element={<Layout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="events" element={<Events />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="my-courses" element={<MyCourses />} />
-                <Route path="explore" element={<Explore />} />
-                <Route path="course/:id" element={<CourseDetails />} />
-                <Route path="instructors" element={<Instructors />} />
-                <Route path="my-classes" element={<MyClasses />} />
-                <Route path="reports" element={<Reports />} />
-                <Route path="certificates" element={<Certificates />} />
-                <Route path="upgrade" element={<Pricing />} />
-                <Route path="instructor" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><InstructorDashboard /></RoleRoute>} />
-                <Route path="instructor/revenue" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><InstructorRevenue /></RoleRoute>} />
-                <Route path="instructor/students" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><InstructorStudents /></RoleRoute>} />
-                <Route path="instructor/courses/new" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><CourseEditor /></RoleRoute>} />
-                <Route path="instructor/courses/:id" element={<RoleRoute roles={['INSTRUCTOR', 'ADMIN']}><CourseEditor /></RoleRoute>} />
-                <Route path="admin/users" element={<RoleRoute roles={['ADMIN']}><AdminUsers /></RoleRoute>} />
-                <Route path="admin/courses" element={<RoleRoute roles={['ADMIN']}><AdminCourses /></RoleRoute>} />
-                <Route path="admin/coupons" element={<RoleRoute roles={['ADMIN']}><AdminCoupons /></RoleRoute>} />
-                <Route path="admin/transactions" element={<RoleRoute roles={['ADMIN']}><AdminTransactions /></RoleRoute>} />
-                <Route path="admin/security" element={<RoleRoute roles={['ADMIN']}><AdminSecurity /></RoleRoute>} />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/learn/:courseId" element={<LearningWorkspace />} />
+                <Route path="/payment-success" element={<PaymentSuccess />} />
+                <Route path="/payment-cancel" element={<PaymentCancel />} />
+
+                <Route path="/" element={<Layout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="events" element={<Events />} />
+                  <Route path="settings" element={<Settings />} />
+                  <Route path="my-courses" element={<MyCourses />} />
+                  <Route path="explore" element={<Explore />} />
+                  <Route path="course/:id" element={<CourseDetails />} />
+                  <Route path="instructors" element={<Instructors />} />
+                  <Route path="my-classes" element={<MyClasses />} />
+                  <Route path="reports" element={<Reports />} />
+                  <Route path="certificates" element={<Certificates />} />
+                  <Route path="upgrade" element={<Pricing />} />
+                  <Route
+                    path="instructor"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <InstructorDashboard />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/revenue"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <InstructorRevenue />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/students"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <InstructorStudents />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/courses/new"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <CourseEditor />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/courses/:id"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <CourseEditor />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/users"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <AdminUsers />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/courses"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <AdminCourses />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/coupons"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <AdminCoupons />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/transactions"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <AdminTransactions />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="admin/security"
+                    element={
+                      <RoleRoute roles={['ADMIN']}>
+                        <AdminSecurity />
+                      </RoleRoute>
+                    }
+                  />
+                </Route>
               </Route>
-            </Route>
-            
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </DashboardViewProvider>
     </AuthProvider>

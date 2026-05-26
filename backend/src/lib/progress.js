@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import prisma from './prisma.js';
+import { stringifyJsonField } from './json-field.js';
 
 const CERTIFICATE_COMPLETION_THRESHOLD = 100;
 const LESSON_COMPLETION_THRESHOLD = 0.9;
@@ -36,11 +37,11 @@ const issueCertificateIfEligible = async (tx, { userId, courseId, completedLesso
       courseId,
       certificateNo: buildCertificateNumber(),
       verifyCode: buildVerifyCode(),
-      completionSnapshot: {
+      completionSnapshot: stringifyJsonField({
         totalLessons,
         completedLessons,
         courseTitle: course?.title || '',
-      },
+      }),
     },
   });
 
@@ -64,7 +65,7 @@ const createCompletionNotification = async (tx, { userId, courseId }) => {
       title: 'Ban da hoan thanh khoa hoc',
       body: `Chuc mung! Ban da hoan thanh khoa hoc ${course.title}.`,
       link: `/course/${courseId}`,
-      metadata: { courseId },
+      metadata: stringifyJsonField({ courseId }),
     },
   });
 };
@@ -77,7 +78,7 @@ const createCertificateNotification = async (tx, { userId, courseId, certificate
       title: 'Chung chi da san sang',
       body: 'Ban da du dieu kien nhan chung chi cho khoa hoc vua hoan thanh.',
       link: `/course/${courseId}?certificate=${certificateId}`,
-      metadata: { courseId, certificateId },
+      metadata: stringifyJsonField({ courseId, certificateId }),
     },
   });
 };

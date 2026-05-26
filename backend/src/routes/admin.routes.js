@@ -1,6 +1,8 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
 import { verifyToken, isAdmin, Role } from '../middleware/auth.middleware.js';
+import { parseJsonFields, stringifyJsonField } from '../lib/json-field.js';
+import { deleteCourseGraph, deleteUserGraph } from '../lib/delete-graph.js';
 
 const router = express.Router();
 
@@ -48,7 +50,7 @@ const writeAuditLog = async (req, { action, entityType, entityId = null, metadat
         action,
         entityType,
         entityId,
-        metadata,
+        metadata: stringifyJsonField(metadata),
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || null,
       },
@@ -182,7 +184,7 @@ router.delete('/users/:id', async (req, res) => {
       }
     }
 
-    await prisma.user.delete({ where: { id: req.params.id } });
+    await deleteUserGraph(prisma, req.params.id);
 
     await writeAuditLog(req, {
       action: 'USER_DELETED',
@@ -286,7 +288,7 @@ router.delete('/courses/:id', async (req, res) => {
       return res.status(404).json({ message: 'Khong tim thay khoa hoc' });
     }
 
-    await prisma.course.delete({ where: { id: req.params.id } });
+    await deleteCourseGraph(prisma, req.params.id);
 
     await writeAuditLog(req, {
       action: 'COURSE_DELETED_BY_ADMIN',
@@ -324,7 +326,7 @@ router.get('/transactions', async (req, res) => {
       prisma.walletTransaction.count({ where }),
     ]);
 
-    res.json(paginated(items, total, page, pageSize));
+    res.json(paginated(items.map((item) => parseJsonFields(item, ['metadata'])), total, page, pageSize));
   } catch (error) {
     console.error('Admin list transactions error:', error);
     res.status(500).json({ message: 'Loi server khi lay giao dich' });
@@ -350,7 +352,7 @@ router.get('/audit-logs', async (req, res) => {
       prisma.auditLog.count({ where }),
     ]);
 
-    res.json(paginated(items, total, page, pageSize));
+    res.json(paginated(items.map((item) => parseJsonFields(item, ['metadata'])), total, page, pageSize));
   } catch (error) {
     console.error('Admin list audit logs error:', error);
     res.status(500).json({ message: 'Loi server khi lay audit log' });

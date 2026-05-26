@@ -4,14 +4,18 @@ Monorepo cho dự án LMS, gồm:
 
 - `frontend`: ứng dụng React/Vite
 - `backend`: API Express/Prisma
+- `backend-dotnet`: API ASP.NET Core đang được migrate/đối chiếu, chưa phải backend mặc định
 
-## Cài đặt
+Backend mặc định của frontend hiện tại là `backend` Node/Express tại `http://localhost:3000`.
+Chỉ đổi `VITE_API_URL` sang `http://localhost:5000` khi muốn chạy thử backend .NET.
+
+## Cài Đặt
 
 ```bash
 npm run install:all
 ```
 
-## Biến môi trường
+## Biến Môi Trường
 
 Tạo file môi trường cho backend:
 
@@ -31,7 +35,7 @@ Giá trị local mặc định:
 # backend/.env
 PORT=3000
 NODE_ENV=development
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/lms
+DATABASE_URL=sqlserver://localhost:1433;database=lms;user=sa;password=YourStrongPassword123;encrypt=true;trustServerCertificate=true
 JWT_SECRET=change-me-to-a-long-random-secret
 FRONTEND_URL=http://localhost:5173
 ```
@@ -46,11 +50,16 @@ VITE_API_URL=http://localhost:3000
 Không push database thật lên Git. Git chỉ nên lưu:
 
 - `backend/prisma/schema.prisma`
-- `backend/prisma/migrations`
 - `backend/prisma/seed.cjs`
 - các file `.env.example`
 
-Project dùng PostgreSQL. Khi chạy local, hãy cài PostgreSQL hoặc dùng PostgreSQL qua Docker, sau đó tạo database tên `lms`.
+Project hiện dùng SQL Server qua Prisma. Khi chạy local, hãy cài SQL Server hoặc dùng SQL Server qua Docker, sau đó tạo database tên `lms`.
+
+Ví dụ chạy SQL Server bằng Docker Compose:
+
+```bash
+docker compose up -d
+```
 
 Nếu database local đang trống, tạo schema và seed dữ liệu:
 
@@ -59,11 +68,7 @@ npm run db:push
 npm run db:seed
 ```
 
-Nếu deploy lên Render/production và muốn dùng migration:
-
-```bash
-npm run db:migrate
-```
+Lưu ý: các migration cũ trong repo được tạo cho PostgreSQL, không dùng cho SQL Server. Với bản SQL Server hiện tại, dùng `db:push` để dựng schema.
 
 Tài khoản seed:
 
@@ -79,7 +84,19 @@ Mở Prisma Studio:
 npm run db:studio
 ```
 
-## Chạy local
+## Chạy Local
+
+Chạy Node/Express backend mặc định.
+
+Một lệnh từ root repo:
+
+```bash
+npm run dev
+```
+
+Lệnh này chạy backend Node tại `http://localhost:3000` và frontend Vite tại
+`http://localhost:5173`. Nếu muốn xem log riêng từng service, dùng cách 2
+terminal bên dưới.
 
 Terminal 1:
 
@@ -96,6 +113,23 @@ npm run dev:frontend
 Frontend mặc định chạy ở `http://localhost:5173`.
 Backend mặc định chạy ở `http://localhost:3000`.
 
+Nếu frontend được mở bằng `http://127.0.0.1:5173` hoặc Vite tự nhảy sang
+`5174`, backend đã whitelist các origin local này. Khi gặp lỗi login/API
+`ERR_CONNECTION_REFUSED`, kiểm tra `frontend/.env` trước: Node backend dùng
+`VITE_API_URL=http://127.0.0.1:3000`; chỉ đổi sang `5000` khi chạy backend .NET.
+
+Chạy thử backend .NET:
+
+```bash
+npm run dev:backend:dotnet
+```
+
+Sau đó đổi `frontend/.env` sang:
+
+```env
+VITE_API_URL=http://127.0.0.1:5000
+```
+
 ## Deploy
 
 Frontend:
@@ -107,7 +141,7 @@ VITE_API_URL=https://your-backend.onrender.com
 Backend:
 
 ```env
-DATABASE_URL=...
+DATABASE_URL=sqlserver://host:1433;database=lms;user=sa;password=...;encrypt=true;trustServerCertificate=true
 JWT_SECRET=...
 FRONTEND_URL=https://your-frontend.vercel.app
 ```

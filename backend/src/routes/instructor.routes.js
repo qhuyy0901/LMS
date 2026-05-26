@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import { verifyToken, isInstructor } from '../middleware/auth.middleware.js';
 import { uploadVideo, isCloudinaryConfigured, cloudinary } from '../lib/cloudinary.js';
 import { ensureUniqueSlug } from '../lib/slug.js';
+import { deleteCourseGraph, deleteLessonGraph, deleteSectionGraph } from '../lib/delete-graph.js';
 import {
   courseDetailsInclude,
   formatCurriculumResponse,
@@ -418,7 +419,7 @@ router.delete('/courses/:id', verifyToken, isInstructor, async (req, res) => {
       return res.status(403).json({ message: 'Khong co quyen xoa khoa hoc nay' });
     }
 
-    await prisma.course.delete({ where: { id: req.params.id } });
+    await deleteCourseGraph(prisma, req.params.id);
 
     res.status(200).json({ message: 'Da xoa khoa hoc thanh cong' });
   } catch (error) {
@@ -523,7 +524,7 @@ router.delete('/courses/:courseId/sections/:sectionId', verifyToken, isInstructo
       return res.status(404).json({ message: 'Khong tim thay chuong' });
     }
 
-    await prisma.section.delete({ where: { id: req.params.sectionId } });
+    await deleteSectionGraph(prisma, req.params.sectionId);
 
     const remainingSections = await prisma.section.findMany({
       where: { courseId: req.params.courseId },
@@ -656,7 +657,7 @@ router.delete('/courses/:courseId/lessons/:lessonId', verifyToken, isInstructor,
       return res.status(403).json({ message: 'Khong co quyen truy cap' });
     }
 
-    await prisma.lesson.delete({ where: { id: lessonId } });
+    await deleteLessonGraph(prisma, lessonId);
 
     const remainingLessons = await prisma.lesson.findMany({
       where: { sectionId: lesson.sectionId },

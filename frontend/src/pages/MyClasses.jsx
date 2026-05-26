@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle2, Clock, Code2, FileText, Filter, MessageCircle, MoreHorizontal, Plus, Users, Video } from 'lucide-react';
 
 const MyClasses = () => {

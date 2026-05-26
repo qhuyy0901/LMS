@@ -2,8 +2,19 @@ import express from 'express';
 import prisma from '../lib/prisma.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { upsertLessonProgress } from '../lib/progress.js';
+import { parseJsonField, stringifyJsonField } from '../lib/json-field.js';
 
 const router = express.Router();
+
+const serializeQuestion = (question) => ({
+  ...question,
+  options: parseJsonField(question.options, []),
+});
+
+const serializeSubmission = (submission) => ({
+  ...submission,
+  answers: parseJsonField(submission.answers, {}),
+});
 
 // Helper kiểm tra quyền truy cập khóa học của Giảng viên / Admin
 const checkInstructorOrAdmin = async (userId, lessonId) => {
@@ -74,8 +85,10 @@ router.get('/lesson/:lessonId', verifyToken, async (req, res) => {
     if (!isInstructor) {
       quiz.questions = quiz.questions.map(q => {
         const { correctOptionIndex, explanation, ...publicFields } = q;
-        return publicFields;
+        return serializeQuestion(publicFields);
       });
+    } else {
+      quiz.questions = quiz.questions.map(serializeQuestion);
     }
 
     // Lấy submission gần nhất của học viên đối với Quiz này (nếu có)
@@ -87,7 +100,7 @@ router.get('/lesson/:lessonId', verifyToken, async (req, res) => {
 
     return res.status(200).json({
       ...quiz,
-      submissions
+      submissions: submissions.map(serializeSubmission)
     });
   } catch (error) {
     console.error('Fetch quiz error:', error);
@@ -156,7 +169,7 @@ router.post('/lesson/:lessonId', verifyToken, async (req, res) => {
       const questionsData = questions.map((q, idx) => ({
         quizId: quiz.id,
         questionText: q.questionText,
-        options: q.options,
+        options: stringifyJsonField(q.options),
         correctOptionIndex: Number(q.correctOptionIndex),
         explanation: q.explanation || null,
         position: idx
@@ -172,7 +185,10 @@ router.post('/lesson/:lessonId', verifyToken, async (req, res) => {
       });
     });
 
-    return res.status(200).json(resultQuiz);
+    return res.status(200).json({
+      ...resultQuiz,
+      questions: resultQuiz.questions.map(serializeQuestion),
+    });
   } catch (error) {
     console.error('Upsert quiz error:', error);
     return res.status(500).json({ message: 'Lỗi server khi cập nhật bài trắc nghiệm' });
@@ -223,7 +239,8 @@ router.post('/lesson/:lessonId/submit', verifyToken, async (req, res) => {
     // Chấm điểm
     let correctCount = 0;
     const totalQuestions = quiz.questions.length;
-    const detailedResults = quiz.questions.map(q => {
+    const detailedResults = quiz.questions.map((rawQuestion) => {
+      const q = serializeQuestion(rawQuestion);
       const selectedIndex = answers[q.id];
       const isCorrect = selectedIndex !== undefined && Number(selectedIndex) === q.correctOptionIndex;
       if (isCorrect) {
@@ -250,7 +267,7 @@ router.post('/lesson/:lessonId/submit', verifyToken, async (req, res) => {
         quizId: quiz.id,
         score,
         passed,
-        answers: answers
+        answers: stringifyJsonField(answers)
       }
     });
 

@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js';
 import { verifyToken } from '../middleware/auth.middleware.js';
 import { uploadAvatar, isCloudinaryConfigured } from '../lib/cloudinary.js';
 import { resolveMemberTier, formatCurrencyVnd } from '../lib/membership.js';
+import { deleteUserGraph } from '../lib/delete-graph.js';
 
 const router = express.Router();
 
@@ -18,6 +19,45 @@ const parseSettings = (settings) => {
     return {};
   }
 };
+
+const addDays = (date, days) => {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+};
+
+const startOfLocalDay = (date) => {
+  const nextDate = new Date(date);
+  nextDate.setHours(0, 0, 0, 0);
+  return nextDate;
+};
+
+const getDayKey = (date) => {
+  const localDate = startOfLocalDay(date);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const buildRecentDayBuckets = (days = 7) => {
+  const startDate = addDays(startOfLocalDay(new Date()), -(days - 1));
+
+  return Array.from({ length: days }, (_, index) => {
+    const date = addDays(startDate, index);
+
+    return {
+      date,
+      key: getDayKey(date),
+      label: date.toLocaleDateString('vi-VN', { weekday: 'short' }),
+      minutes: 0,
+      completedLessons: 0,
+    };
+  });
+};
+
+const clampPercent = (value) => Math.min(100, Math.max(0, Math.round(value || 0)));
 
 const serializeUser = (user) => {
   const membership = resolveMemberTier(user.totalSpent);
@@ -217,6 +257,232 @@ router.patch('/notifications/:id/read', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/reports', verifyToken, async (req, res) => {
+  try {
+    const buckets = buildRecentDayBuckets(7);
+    const reportStartDate = buckets[0].date;
+
+    const [enrollments, lessonProgress, quizSubmissions, certificates] = await Promise.all([
+      prisma.enrollment.findMany({
+        where: { userId: req.userId },
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+              thumbnail: true,
+              instructor: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              lessons: {
+                where: { isPublished: true },
+                select: { id: true },
+              },
+            },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.lessonProgress.findMany({
+        where: { userId: req.userId },
+        include: {
+          lesson: {
+            select: {
+              id: true,
+              title: true,
+              courseId: true,
+              course: {
+                select: {
+                  id: true,
+                  title: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.quizSubmission.findMany({
+        where: { userId: req.userId },
+        include: {
+          quiz: {
+            select: {
+              id: true,
+              title: true,
+              lesson: {
+                select: {
+                  course: {
+                    select: {
+                      id: true,
+                      title: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 30,
+      }),
+      prisma.certificate.findMany({
+        where: { userId: req.userId },
+        include: {
+          course: {
+            select: {
+              id: true,
+              title: true,
+              thumbnail: true,
+            },
+          },
+        },
+        orderBy: { issuedAt: 'desc' },
+      }),
+    ]);
+
+    const progressByLessonId = new Map(lessonProgress.map((progress) => [progress.lessonId, progress]));
+    const weeklyProgress = lessonProgress.filter((progress) => new Date(progress.updatedAt) >= reportStartDate);
+    const bucketByKey = new Map(buckets.map((bucket) => [bucket.key, bucket]));
+
+    weeklyProgress.forEach((progress) => {
+      const key = getDayKey(progress.completedAt || progress.updatedAt);
+      const bucket = bucketByKey.get(key);
+
+      if (!bucket) {
+        return;
+      }
+
+      bucket.minutes += Math.round((progress.watchedSeconds || 0) / 60);
+
+      if (progress.isCompleted) {
+        bucket.completedLessons += 1;
+      }
+    });
+
+    const completedLessonCount = lessonProgress.filter((progress) => progress.isCompleted).length;
+    const learningMinutes = Math.round(
+      lessonProgress.reduce((total, progress) => total + (progress.watchedSeconds || 0), 0) / 60
+    );
+    const averageQuizScore = quizSubmissions.length
+      ? quizSubmissions.reduce((total, submission) => total + submission.score, 0) / quizSubmissions.length
+      : 0;
+
+    const courseProgress = enrollments.map((enrollment) => {
+      const lessonIds = enrollment.course.lessons.map((lesson) => lesson.id);
+      const completedLessons = lessonIds.filter((lessonId) => progressByLessonId.get(lessonId)?.isCompleted).length;
+      const totalLessons = lessonIds.length;
+      const progress = totalLessons > 0 ? (completedLessons / totalLessons) * 100 : enrollment.progress;
+
+      return {
+        id: enrollment.course.id,
+        title: enrollment.course.title,
+        thumbnail: enrollment.course.thumbnail,
+        instructorName: enrollment.course.instructor?.name || 'Instructor',
+        completedLessons,
+        totalLessons,
+        progress: clampPercent(progress || enrollment.progress),
+        completedAt: enrollment.completedAt,
+        updatedAt: enrollment.updatedAt,
+      };
+    });
+
+    const recentAchievements = [
+      ...certificates.map((certificate) => ({
+        id: `certificate-${certificate.id}`,
+        type: 'certificate',
+        title: 'Certificate earned',
+        description: certificate.course?.title || 'Completed course',
+        date: certificate.issuedAt,
+      })),
+      ...enrollments
+        .filter((enrollment) => enrollment.completedAt)
+        .map((enrollment) => ({
+          id: `course-${enrollment.id}`,
+          type: 'course',
+          title: 'Course completed',
+          description: enrollment.course?.title || 'Course',
+          date: enrollment.completedAt,
+        })),
+      ...quizSubmissions
+        .filter((submission) => submission.passed)
+        .map((submission) => ({
+          id: `quiz-${submission.id}`,
+          type: 'quiz',
+          title: 'Quiz passed',
+          description: submission.quiz?.title || 'Quiz',
+          date: submission.createdAt,
+          score: Math.round(submission.score),
+        })),
+    ]
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 6);
+
+    const weeklyMinutes = buckets.reduce((total, bucket) => total + bucket.minutes, 0);
+    const weeklyCompletedLessons = buckets.reduce((total, bucket) => total + bucket.completedLessons, 0);
+    const weeklyCertificates = certificates.filter((certificate) => new Date(certificate.issuedAt) >= reportStartDate)
+      .length;
+
+    res.status(200).json({
+      summary: {
+        learningMinutes,
+        learningHours: Number((learningMinutes / 60).toFixed(1)),
+        completedLessons: completedLessonCount,
+        averageQuizScore: Number((averageQuizScore / 10).toFixed(1)),
+        certificates: certificates.length,
+      },
+      weeklyActivity: buckets.map((bucket) => ({
+        date: bucket.key,
+        label: bucket.label,
+        minutes: bucket.minutes,
+        hours: Number((bucket.minutes / 60).toFixed(1)),
+        completedLessons: bucket.completedLessons,
+      })),
+      courseProgress,
+      recentAchievements,
+      weeklyGoals: [
+        {
+          id: 'weekly-hours',
+          title: 'Study 10 hours',
+          current: Number((weeklyMinutes / 60).toFixed(1)),
+          target: 10,
+          unit: 'h',
+          progress: clampPercent((weeklyMinutes / 600) * 100),
+        },
+        {
+          id: 'weekly-lessons',
+          title: 'Complete 5 lessons',
+          current: weeklyCompletedLessons,
+          target: 5,
+          unit: 'lessons',
+          progress: clampPercent((weeklyCompletedLessons / 5) * 100),
+        },
+        {
+          id: 'weekly-certificate',
+          title: 'Earn 1 certificate',
+          current: weeklyCertificates,
+          target: 1,
+          unit: 'certificate',
+          progress: clampPercent(weeklyCertificates * 100),
+        },
+      ],
+      recentQuizSubmissions: quizSubmissions.slice(0, 5).map((submission) => ({
+        id: submission.id,
+        title: submission.quiz?.title || 'Quiz',
+        courseTitle: submission.quiz?.lesson?.course?.title || null,
+        score: Math.round(submission.score),
+        passed: submission.passed,
+        createdAt: submission.createdAt,
+      })),
+    });
+  } catch (error) {
+    console.error('Fetch reports error:', error);
+    res.status(500).json({ message: 'Loi server' });
+  }
+});
+
 router.post('/avatar', verifyToken, (req, res) => {
   if (!isCloudinaryConfigured()) {
     return res.status(200).json({ avatarUrl: 'https://api.dicebear.com/7.x/avataaars/svg?seed=mock' });
@@ -272,9 +538,7 @@ router.delete('/avatar', verifyToken, async (req, res) => {
 
 router.delete('/me', verifyToken, async (req, res) => {
   try {
-    await prisma.user.delete({
-      where: { id: req.userId },
-    });
+    await deleteUserGraph(prisma, req.userId);
 
     res.status(200).json({ message: 'Tai khoan da duoc xoa vinh vien.' });
   } catch (error) {

@@ -1,5 +1,6 @@
 import prisma from './prisma.js';
 import { resolveMemberTier } from './membership.js';
+import { stringifyJsonField } from './json-field.js';
 
 export class WalletOperationError extends Error {
   constructor(code, message, details = {}) {
@@ -79,7 +80,7 @@ export const creditWalletInTransaction = async (
       balanceAfter: updatedUser.walletBalance,
       note,
       externalPaymentId,
-      metadata: buildWalletMetadata({ source, idempotencyKey }),
+      metadata: stringifyJsonField(buildWalletMetadata({ source, idempotencyKey })),
     },
   });
 
@@ -208,7 +209,7 @@ export const debitWalletForCoursePurchase = async ({
           amount: -finalPrice,
           balanceAfter: updatedUser.walletBalance,
           note,
-          metadata: buildWalletMetadata({ source, idempotencyKey }),
+          metadata: stringifyJsonField(buildWalletMetadata({ source, idempotencyKey })),
         },
       });
     }

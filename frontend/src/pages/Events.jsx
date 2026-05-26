@@ -1,4 +1,3 @@
-import React from 'react';
 import { Bell, CalendarDays, CalendarX, ChevronLeft, ChevronRight, Clock, Info, MapPin, MoreHorizontal, Plus, Presentation, Radio, Ticket, Users, Video } from 'lucide-react';
 
 const Events = () => {

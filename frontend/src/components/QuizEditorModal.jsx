@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X, Plus, Trash2, Save, HelpCircle, Loader2, AlertCircle } from 'lucide-react';
 
@@ -7,7 +7,6 @@ export default function QuizEditorModal({ lessonId, lessonTitle, onClose }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   
-  const [quizId, setQuizId] = useState(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [passingScore, setPassingScore] = useState(80);
@@ -21,7 +20,6 @@ export default function QuizEditorModal({ lessonId, lessonTitle, onClose }) {
         const response = await axios.get(`/api/quizzes/lesson/${lessonId}`);
         if (response.data) {
           const quiz = response.data;
-          setQuizId(quiz.id);
           setTitle(quiz.title || '');
           setDescription(quiz.description || '');
           setPassingScore(quiz.passingScore || 80);

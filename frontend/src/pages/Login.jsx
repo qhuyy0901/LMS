@@ -26,14 +26,14 @@ export default function Login() {
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!email || !password) {
       setError('Vui lòng nhập email và mật khẩu');
       return;
@@ -52,10 +52,8 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left: Form */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="flex items-center gap-2 mb-10">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" strokeWidth={1.5} />
@@ -72,7 +70,6 @@ export default function Login() {
             Đăng nhập để tiếp tục hành trình học tập của bạn.
           </p>
 
-          {/* Social login */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 px-4 py-2.5 rounded-full text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors">
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -115,8 +112,7 @@ export default function Login() {
                 <span className="font-medium">{error}</span>
               </div>
             )}
-            
-            {/* Email */}
+
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">
                 Email
@@ -135,7 +131,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-slate-500">
@@ -174,7 +169,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Remember me */}
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -222,7 +216,6 @@ export default function Login() {
         </div>
       </div>
 
-      {/* Right: Visual */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 relative overflow-hidden items-center justify-center p-12">
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-pink-400/30 blur-3xl" />
         <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-indigo-400/30 blur-3xl" />
@@ -242,7 +235,6 @@ export default function Login() {
             và cộng đồng mentor toàn cầu.
           </p>
 
-          {/* Mini course cards */}
           <div className="space-y-3">
             {[
               {

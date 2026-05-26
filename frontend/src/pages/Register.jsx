@@ -28,14 +28,14 @@ export default function Register() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { register } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!fullName || !email || !password) {
       setError('Vui lòng điền đầy đủ thông tin');
       return;
@@ -44,7 +44,7 @@ export default function Register() {
       setError('Bạn cần đồng ý với Điều khoản và Chính sách bảo mật');
       return;
     }
-    
+
     try {
       setIsLoading(true);
       await register(fullName, email, password);
@@ -58,10 +58,8 @@ export default function Register() {
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left: Form */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-white">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="flex items-center gap-2 mb-10">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" strokeWidth={1.5} />
@@ -78,7 +76,6 @@ export default function Register() {
             Bắt đầu hành trình học tập cùng hàng trăm nghìn học viên.
           </p>
 
-          {/* Social login */}
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 px-4 py-2.5 rounded-full text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors">
               <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -122,7 +119,6 @@ export default function Register() {
               </div>
             )}
 
-            {/* Full name */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">
                 Họ và tên
@@ -141,7 +137,6 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Email */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">
                 Email
@@ -160,7 +155,6 @@ export default function Register() {
               </div>
             </div>
 
-            {/* Password */}
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">
                 Mật khẩu
@@ -194,7 +188,6 @@ export default function Register() {
               </p>
             </div>
 
-            {/* Terms checkbox */}
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -255,7 +248,6 @@ export default function Register() {
         </div>
       </div>
 
-      {/* Right: Visual */}
       <div className="hidden lg:flex flex-1 bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 relative overflow-hidden items-center justify-center p-12">
         <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-pink-400/30 blur-3xl" />
         <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-indigo-400/30 blur-3xl" />
@@ -275,7 +267,6 @@ export default function Register() {
             và cộng đồng mentor toàn cầu.
           </p>
 
-          {/* Mini course cards */}
           <div className="space-y-3">
             {[
               {

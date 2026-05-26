@@ -1,11 +1,35 @@
 require('dotenv').config();
-const { Pool } = require('pg');
-const { PrismaPg } = require('@prisma/adapter-pg');
+const { PrismaMssql } = require('@prisma/adapter-mssql');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
+const parseSqlServerConnection = (url) => {
+  const cleanUrl = url.replace(/^sqlserver:\/\//i, '');
+  const [serverPart, ...rawOptions] = cleanUrl.split(';').filter(Boolean);
+  const [server, port] = serverPart.split(':');
+  const options = rawOptions.reduce((acc, item) => {
+    const separatorIndex = item.indexOf('=');
+    if (separatorIndex === -1) return acc;
+    const key = item.slice(0, separatorIndex).trim().toLowerCase();
+    const value = item.slice(separatorIndex + 1).trim().replace(/^\{|\}$/g, '');
+    acc[key] = value;
+    return acc;
+  }, {});
+
+  return {
+    server,
+    port: port ? Number(port) : 1433,
+    database: options.database || options['initial catalog'],
+    user: options.user || options.username || options.uid,
+    password: options.password || options.pwd,
+    options: {
+      encrypt: options.encrypt !== 'false',
+      trustServerCertificate: options.trustservercertificate === 'true',
+    },
+  };
+};
+
+const adapter = new PrismaMssql(parseSqlServerConnection(process.env.DATABASE_URL));
 const prisma = new PrismaClient({ adapter });
 
 async function main() {

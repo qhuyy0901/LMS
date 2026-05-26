@@ -1,4 +1,3 @@
-import React from 'react';
 import { ArrowUpDown, BadgeCheck, BookOpen, CalendarPlus, Filter, GraduationCap, MessageCircle, Star, UserPlus, Users } from 'lucide-react';
 
 const Instructors = () => {

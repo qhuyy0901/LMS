@@ -2,6 +2,7 @@ import request from 'supertest';
 import jwt from 'jsonwebtoken';
 import app from '../../src/index.js';
 import prisma from '../../src/lib/prisma.js';
+import { deleteUserGraph } from '../../src/lib/delete-graph.js';
 
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET || 'test-secret', { expiresIn: '1h' });
@@ -14,9 +15,14 @@ describe('Integration Test: POST /api/instructor/courses', () => {
   let testStudent;
 
   beforeAll(async () => {
-    await prisma.user.deleteMany({
+    const existingUsers = await prisma.user.findMany({
       where: { email: { in: ['instructor_test@test.com', 'student_test@test.com'] } },
+      select: { id: true },
     });
+
+    for (const user of existingUsers) {
+      await deleteUserGraph(prisma, user.id);
+    }
 
     testInstructor = await prisma.user.create({
       data: {
@@ -43,9 +49,9 @@ describe('Integration Test: POST /api/instructor/courses', () => {
   afterAll(async () => {
     const userIds = [testInstructor?.id, testStudent?.id].filter(Boolean);
     if (userIds.length > 0) {
-      await prisma.user.deleteMany({
-        where: { id: { in: userIds } },
-      });
+      for (const userId of userIds) {
+        await deleteUserGraph(prisma, userId);
+      }
     }
     await prisma.$disconnect();
   });

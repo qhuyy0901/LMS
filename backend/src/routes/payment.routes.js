@@ -10,12 +10,14 @@ import {
   WalletOperationError,
 } from '../lib/wallet.js';
 import { validateCouponForCourse, computeDiscount } from './coupon.routes.js';
+import { stringifyJsonField } from '../lib/json-field.js';
 
 const router = express.Router();
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const stripeKey = process.env.STRIPE_SECRET_KEY || 'sk_test_mock';
 const stripe = new Stripe(stripeKey);
+const isMockStripe = stripeKey === 'sk_test_mock';
 
 const ALLOWED_TOP_UP_AMOUNTS = [100000, 200000, 500000, 1000000];
 
@@ -79,7 +81,7 @@ const completeExternalPaymentAndCreditWallet = async ({
         data: {
           provider: 'STRIPE',
           providerEventId,
-          payload: { sessionId, paymentIntentId, userId, amount },
+          payload: stringifyJsonField({ sessionId, paymentIntentId, userId, amount }),
         },
       });
     } catch (error) {
@@ -135,7 +137,7 @@ const completeExternalPaymentAndCreditWallet = async ({
         title: 'Nap vi thanh cong',
         body: `Ban vua nap thanh cong ${formatCurrencyVnd(amount)} vao vi noi bo.`,
         link: '/pricing',
-        metadata: { amount, externalPaymentId: externalPayment.id },
+        metadata: stringifyJsonField({ amount, externalPaymentId: externalPayment.id }),
       },
     });
 
@@ -245,7 +247,11 @@ router.post('/create-checkout-session', verifyToken, async (req, res) => {
       return res.status(404).json({ message: 'Khong tim thay nguoi dung' });
     }
 
-    if (stripeKey === 'sk_test_mock') {
+    if (isMockStripe && process.env.NODE_ENV === 'production') {
+      return res.status(500).json({ message: 'Stripe chua duoc cau hinh cho moi truong production' });
+    }
+
+    if (isMockStripe) {
       const mockSessionId = `mock_wallet_${Date.now()}`;
 
       const externalPayment = await prisma.externalPayment.create({
@@ -276,7 +282,7 @@ router.post('/create-checkout-session', verifyToken, async (req, res) => {
           title: 'Nap vi thanh cong',
           body: `Ban vua nap thanh cong ${formatCurrencyVnd(topUpAmount)} vao vi noi bo.`,
           link: '/pricing',
-          metadata: { amount: topUpAmount, externalPaymentId: externalPayment.id },
+          metadata: stringifyJsonField({ amount: topUpAmount, externalPaymentId: externalPayment.id }),
         },
       });
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import prisma from '../lib/prisma.js';
 import { verifyToken, isAdmin } from '../middleware/auth.middleware.js';
+import { stringifyJsonField } from '../lib/json-field.js';
 
 const router = express.Router();
 
@@ -103,7 +104,7 @@ const writeAuditLog = async (req, { action, entityType, entityId = null, metadat
         action,
         entityType,
         entityId,
-        metadata,
+        metadata: stringifyJsonField(metadata),
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'] || null,
       },

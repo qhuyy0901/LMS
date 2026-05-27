@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { BookOpen, Search, Trash2 } from 'lucide-react';
 
@@ -16,7 +16,7 @@ export default function AdminCourses() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchCourses = async () => {
+  const fetchCourses = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -29,11 +29,11 @@ export default function AdminCourses() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [query, status]);
 
   useEffect(() => {
     fetchCourses();
-  }, []);
+  }, [fetchCourses]);
 
   const updatePublication = async (courseId, isPublished) => {
     try {

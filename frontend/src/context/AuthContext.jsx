@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import axios from 'axios';
 
 const AuthContext = createContext();
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 axios.defaults.baseURL = API_URL;
 
@@ -129,7 +129,7 @@ export function AuthProvider({ children }) {
       logout,
       refreshUser,
     }),
-    [user, token, logout, refreshUser]
+    [user, token, login, register, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

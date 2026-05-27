@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ChevronLeft, PlayCircle, CheckCircle, Circle, 
-  MessageSquare, FileText, Download, Share2, MoreVertical,
+  MessageSquare, FileText, Download, Share2,
   ChevronDown, ChevronUp, BookOpen, Send, X, CornerDownRight,
   Clock, HelpCircle, Award, AlertCircle, ArrowRight, RotateCcw, Check, Loader2
 } from 'lucide-react';
@@ -265,7 +265,7 @@ export default function LearningWorkspace() {
     if (!url) return null;
     const isYoutube = url.includes('youtube.com') || url.includes('youtu.be');
     if (isYoutube) {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
       const match = url.match(regExp);
       if (match && match[2].length === 11) {
         return `https://www.youtube.com/embed/${match[2]}?autoplay=1`;

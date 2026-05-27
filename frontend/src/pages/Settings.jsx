@@ -1,8 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, Bell, Check, CreditCard, Code, GraduationCap, KeyRound, MessageSquare, Monitor, Moon, Palette, PenTool, Plug, RotateCcw, Shield, ShieldCheck, Sun, Upload, User, Video, LogOut } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+
+const defaultSettings = {
+  theme: 'auto',
+  language: 'vi',
+  autoPlayVideo: true,
+  showSubtitles: true,
+  videoQuality: 'auto',
+};
 
 const Settings = () => {
   const { user, logout } = useAuth();
@@ -16,18 +24,12 @@ const Settings = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [walletProfile, setWalletProfile] = useState(null);
   const [walletHistory, setWalletHistory] = useState([]);
-  const fileInputRef = React.useRef(null);
+  const fileInputRef = useRef(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     bio: '',
-    settings: {
-      theme: 'auto',
-      language: 'vi',
-      autoPlayVideo: true,
-      showSubtitles: true,
-      videoQuality: 'auto'
-    }
+    settings: defaultSettings,
   });
 
   useEffect(() => {
@@ -46,9 +48,9 @@ const Settings = () => {
           phone: data.phone || '',
           bio: data.bio || '',
           settings: {
-            ...formData.settings,
-            ...data.settings
-          }
+            ...defaultSettings,
+            ...data.settings,
+          },
         });
       } catch (error) {
         console.error('Lỗi tải cài đặt:', error);
@@ -628,43 +630,43 @@ const Settings = () => {
                 <div id="billing" className="bg-white rounded-2xl p-6 border border-slate-100">
                   <div className="flex items-center justify-between mb-5">
                     <div>
-                      <h3 className="text-xl font-semibold tracking-tight text-slate-900">Vi hoi vien</h3>
-                      <p className="text-xs text-slate-400 mt-1">Quan ly so du vi noi bo, danh hieu va lich su giao dich</p>
+                      <h3 className="text-xl font-semibold tracking-tight text-slate-900">Ví hội viên</h3>
+                      <p className="text-xs text-slate-400 mt-1">Quản lý số dư ví nội bộ, danh hiệu và lịch sử giao dịch</p>
                     </div>
                     <button
                       onClick={() => navigate('/upgrade')}
                       className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-medium transition-colors"
                     >
-                      Nap them vao vi
+                      Nạp thêm vào ví
                     </button>
                   </div>
 
                   <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
                     <div className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50 to-orange-50 p-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700 mb-2">Danh hieu</p>
-                      <p className="text-2xl font-bold text-slate-900">{walletProfile?.memberTierLabel || walletProfile?.memberTier || 'Dong'}</p>
-                      <p className="text-xs text-slate-500 mt-2">Tu dong nang cap theo tong chi tieu tich luy</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700 mb-2">Danh hiệu</p>
+                      <p className="text-2xl font-bold text-slate-900">{walletProfile?.memberTierLabel || walletProfile?.memberTier || 'Đồng'}</p>
+                      <p className="text-xs text-slate-500 mt-2">Tự động nâng cấp theo tổng chi tiêu tích lũy</p>
                     </div>
 
                     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">So du vi</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">Số dư ví</p>
                       <p className="text-2xl font-bold text-slate-900">
                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(walletProfile?.walletBalance || 0)}
                       </p>
-                      <p className="text-xs text-slate-500 mt-2">Dung de mua khoa hoc tra phi trong he thong</p>
+                      <p className="text-xs text-slate-500 mt-2">Dùng để mua khóa học trả phí trong hệ thống</p>
                     </div>
 
                     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">Tong chi tieu</p>
+                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 mb-2">Tổng chi tiêu</p>
                       <p className="text-2xl font-bold text-slate-900">
                         {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(walletProfile?.totalSpent || 0)}
                       </p>
-                      <p className="text-xs text-slate-500 mt-2">Gia tri dung de xep hang hoi vien</p>
+                      <p className="text-xs text-slate-500 mt-2">Giá trị dùng để xếp hạng hội viên</p>
                     </div>
                   </div>
 
                   <div>
-                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Lich su giao dich</h4>
+                    <h4 className="text-sm font-semibold text-slate-900 mb-3">Lịch sử giao dịch</h4>
                     <div className="space-y-3">
                       {walletHistory.length > 0 ? (
                         walletHistory.map((item) => (
@@ -684,13 +686,13 @@ const Settings = () => {
                               <p className={`text-sm font-medium ${item.amount >= 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
                                 {item.amountText}
                               </p>
-                              <p className="text-[10px] text-slate-400">So du sau GD: {item.balanceAfterText}</p>
+                              <p className="text-[10px] text-slate-400">Số dư sau GD: {item.balanceAfterText}</p>
                             </div>
                           </div>
                         ))
                       ) : (
                         <div className="rounded-xl border border-dashed border-slate-200 p-6 text-sm text-slate-500 text-center">
-                          Chua co giao dich nao trong vi noi bo.
+                          Chưa có giao dịch nào trong ví nội bộ.
                         </div>
                       )}
                     </div>

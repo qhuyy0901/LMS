@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { CreditCard, RefreshCw } from 'lucide-react';
 
@@ -22,7 +22,7 @@ export default function AdminTransactions() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -35,11 +35,11 @@ export default function AdminTransactions() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [type]);
 
   useEffect(() => {
     fetchTransactions();
-  }, []);
+  }, [fetchTransactions]);
 
   return (
     <div className="space-y-6">

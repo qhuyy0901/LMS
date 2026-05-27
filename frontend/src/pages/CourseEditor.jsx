@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -92,7 +92,7 @@ const CourseEditor = () => {
   const [dragState, setDragState] = useState(null);
   const [selectedLessonForQuiz, setSelectedLessonForQuiz] = useState(null);
 
-  const fetchCourse = async (courseId) => {
+  const fetchCourse = useCallback(async (courseId) => {
     setLoading(true);
     try {
       const data = await api.get(`/api/instructor/courses/${courseId}`);
@@ -115,13 +115,13 @@ const CourseEditor = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate]);
 
   useEffect(() => {
     if (id) {
       fetchCourse(id);
     }
-  }, [id]);
+  }, [fetchCourse, id]);
 
   const totalLessons = useMemo(
     () => sections.reduce((sum, section) => sum + (section.lessons?.length || 0), 0),

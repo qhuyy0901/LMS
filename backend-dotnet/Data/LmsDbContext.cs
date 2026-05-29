@@ -5,28 +5,29 @@ namespace LMS.Api.Data;
 
 public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(options)
 {
-    public DbSet<User> Users => Set<User>();
-    public DbSet<Course> Courses => Set<Course>();
-    public DbSet<Section> Sections => Set<Section>();
-    public DbSet<Lesson> Lessons => Set<Lesson>();
-    public DbSet<Enrollment> Enrollments => Set<Enrollment>();
-    public DbSet<Certificate> Certificates => Set<Certificate>();
-    public DbSet<Purchase> Purchases => Set<Purchase>();
-    public DbSet<WalletTransaction> WalletTransactions => Set<WalletTransaction>();
-    public DbSet<ExternalPayment> ExternalPayments => Set<ExternalPayment>();
-    public DbSet<Notification> Notifications => Set<Notification>();
-    public DbSet<CourseReview> CourseReviews => Set<CourseReview>();
-    public DbSet<LessonProgress> LessonProgresses => Set<LessonProgress>();
-    public DbSet<Comment> Comments => Set<Comment>();
-    public DbSet<Quiz> Quizzes => Set<Quiz>();
-    public DbSet<QuizQuestion> QuizQuestions => Set<QuizQuestion>();
-    public DbSet<QuizSubmission> QuizSubmissions => Set<QuizSubmission>();
-    public DbSet<Coupon> Coupons => Set<Coupon>();
-    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<NguoiDung> Users => Set<NguoiDung>();
+    public DbSet<KhoaHoc> Courses => Set<KhoaHoc>();
+    public DbSet<ChuongHoc> Sections => Set<ChuongHoc>();
+    public DbSet<BaiHoc> Lessons => Set<BaiHoc>();
+    public DbSet<GhiDanh> Enrollments => Set<GhiDanh>();
+    public DbSet<ChungChi> Certificates => Set<ChungChi>();
+    public DbSet<GiaoDichMua> Purchases => Set<GiaoDichMua>();
+    public DbSet<GiaoDichVi> WalletTransactions => Set<GiaoDichVi>();
+    public DbSet<ThanhToanNgoai> ExternalPayments => Set<ThanhToanNgoai>();
+    public DbSet<ThongBao> Notifications => Set<ThongBao>();
+    public DbSet<DanhGiaKhoaHoc> CourseReviews => Set<DanhGiaKhoaHoc>();
+    public DbSet<TienDoBaiHoc> LessonProgresses => Set<TienDoBaiHoc>();
+    public DbSet<BinhLuan> Comments => Set<BinhLuan>();
+    public DbSet<BaiKiemTra> Quizzes => Set<BaiKiemTra>();
+    public DbSet<CauHoiKiemTra> QuizQuestions => Set<CauHoiKiemTra>();
+    public DbSet<NopBaiKiemTra> QuizSubmissions => Set<NopBaiKiemTra>();
+    public DbSet<MaGiamGia> Coupons => Set<MaGiamGia>();
+    public DbSet<NhatKyHeThong> AuditLogs => Set<NhatKyHeThong>();
+    public DbSet<BaiTap> Assignments => Set<BaiTap>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<User>(entity =>
+        modelBuilder.Entity<NguoiDung>(entity =>
         {
             entity.ToTable("User");
             entity.HasKey(item => item.Id);
@@ -37,7 +38,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.Property(item => item.TotalSpent).HasDefaultValue(0);
         });
 
-        modelBuilder.Entity<Course>(entity =>
+        modelBuilder.Entity<KhoaHoc>(entity =>
         {
             entity.ToTable("Course");
             entity.HasKey(item => item.Id);
@@ -47,9 +48,12 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .HasForeignKey(item => item.InstructorId)
                 .OnDelete(DeleteBehavior.NoAction);
             entity.Property(item => item.MinimumMemberTier).HasDefaultValue("BRONZE");
+            entity.Property(item => item.Category).HasDefaultValue("Lập trình");
+            entity.Property(item => item.Level).HasDefaultValue("BEGINNER");
+            entity.Property(item => item.Status).HasDefaultValue("DRAFT");
         });
 
-        modelBuilder.Entity<Section>(entity =>
+        modelBuilder.Entity<ChuongHoc>(entity =>
         {
             entity.ToTable("Section");
             entity.HasKey(item => item.Id);
@@ -59,7 +63,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<Lesson>(entity =>
+        modelBuilder.Entity<BaiHoc>(entity =>
         {
             entity.ToTable("Lesson");
             entity.HasKey(item => item.Id);
@@ -71,9 +75,34 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .WithMany(item => item.Lessons)
                 .HasForeignKey(item => item.SectionId)
                 .OnDelete(DeleteBehavior.NoAction);
+            entity.Property(item => item.Status).HasDefaultValue("DRAFT");
         });
 
-        modelBuilder.Entity<Enrollment>(entity =>
+        modelBuilder.Entity<BaiTap>(entity =>
+        {
+            entity.ToTable("Assignment");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.CourseId);
+            entity.HasIndex(item => item.LessonId);
+            entity.HasIndex(item => item.TeacherId);
+            entity.Property(item => item.MaxScore).HasDefaultValue(100);
+            entity.Property(item => item.AllowTextSubmission).HasDefaultValue(true);
+            entity.Property(item => item.AllowFileSubmission).HasDefaultValue(true);
+            entity.HasOne(item => item.Course)
+                .WithMany(item => item.Assignments)
+                .HasForeignKey(item => item.CourseId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Lesson)
+                .WithMany(item => item.Assignments)
+                .HasForeignKey(item => item.LessonId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Teacher)
+                .WithMany()
+                .HasForeignKey(item => item.TeacherId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<GhiDanh>(entity =>
         {
             entity.ToTable("Enrollment");
             entity.HasKey(item => item.Id);
@@ -88,7 +117,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<Certificate>(entity =>
+        modelBuilder.Entity<ChungChi>(entity =>
         {
             entity.ToTable("Certificate");
             entity.HasKey(item => item.Id);
@@ -103,7 +132,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<CourseReview>(entity =>
+        modelBuilder.Entity<DanhGiaKhoaHoc>(entity =>
         {
             entity.ToTable("CourseReview");
             entity.HasKey(item => item.Id);
@@ -120,7 +149,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<LessonProgress>(entity =>
+        modelBuilder.Entity<TienDoBaiHoc>(entity =>
         {
             entity.ToTable("LessonProgress");
             entity.HasKey(item => item.Id);
@@ -138,7 +167,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<Comment>(entity =>
+        modelBuilder.Entity<BinhLuan>(entity =>
         {
             entity.ToTable("Comment");
             entity.HasKey(item => item.Id);
@@ -158,7 +187,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<Quiz>(entity =>
+        modelBuilder.Entity<BaiKiemTra>(entity =>
         {
             entity.ToTable("Quiz");
             entity.HasKey(item => item.Id);
@@ -166,11 +195,11 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.Property(item => item.PassingScore).HasDefaultValue(80);
             entity.HasOne(item => item.Lesson)
                 .WithOne(item => item.Quiz)
-                .HasForeignKey<Quiz>(item => item.LessonId)
+                .HasForeignKey<BaiKiemTra>(item => item.LessonId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<QuizQuestion>(entity =>
+        modelBuilder.Entity<CauHoiKiemTra>(entity =>
         {
             entity.ToTable("QuizQuestion");
             entity.HasKey(item => item.Id);
@@ -182,7 +211,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<QuizSubmission>(entity =>
+        modelBuilder.Entity<NopBaiKiemTra>(entity =>
         {
             entity.ToTable("QuizSubmission");
             entity.HasKey(item => item.Id);
@@ -199,7 +228,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<Coupon>(entity =>
+        modelBuilder.Entity<MaGiamGia>(entity =>
         {
             entity.ToTable("Coupon");
             entity.HasKey(item => item.Id);
@@ -215,7 +244,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<AuditLog>(entity =>
+        modelBuilder.Entity<NhatKyHeThong>(entity =>
         {
             entity.ToTable("AuditLog");
             entity.HasKey(item => item.Id);
@@ -225,7 +254,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.Property(item => item.Metadata).HasMaxLength(4000);
         });
 
-        modelBuilder.Entity<Purchase>(entity =>
+        modelBuilder.Entity<GiaoDichMua>(entity =>
         {
             entity.ToTable("Purchase");
             entity.HasKey(item => item.Id);
@@ -245,7 +274,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<WalletTransaction>(entity =>
+        modelBuilder.Entity<GiaoDichVi>(entity =>
         {
             entity.ToTable("WalletTransaction");
             entity.HasKey(item => item.Id);
@@ -271,7 +300,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<ExternalPayment>(entity =>
+        modelBuilder.Entity<ThanhToanNgoai>(entity =>
         {
             entity.ToTable("ExternalPayment");
             entity.HasKey(item => item.Id);
@@ -286,7 +315,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
-        modelBuilder.Entity<Notification>(entity =>
+        modelBuilder.Entity<ThongBao>(entity =>
         {
             entity.ToTable("Notification");
             entity.HasKey(item => item.Id);

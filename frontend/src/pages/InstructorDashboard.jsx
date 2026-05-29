@@ -39,8 +39,8 @@ const InstructorDashboard = () => {
 
     const fetchDashboard = async () => {
       try {
-        const response = await axios.get('/api/instructor/dashboard');
-        setDashboardData(response.data);
+        const response = await axios.get('/api/instructor/courses');
+        setDashboardData({ courses: response.data });
       } catch (error) {
         console.error(text.loadError, error);
       } finally {

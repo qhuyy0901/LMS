@@ -16,6 +16,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { getFileUrl } from '../utils/fileUtils';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -254,7 +255,10 @@ export default function CourseDetails() {
     );
   }
 
-  const totalLessons = course.lessons?.length || course._count?.lessons || 0;
+  const totalLessons = course.sections
+    ? course.sections.reduce((acc, sec) => acc + (sec.lessons?.length || 0), 0)
+    : course.lessons?.length || course._count?.lessons || 0;
+  const hasPreview = course.sections?.some(s => s.lessons?.some(l => l.isPreview)) || course.lessons?.some(l => l.isPreview);
   const isEnrolled = course.isEnrolled;
   const averageRating = Number(course.averageRating || 0);
   const reviewCount = Number(course.reviewCount || 0);
@@ -278,7 +282,7 @@ export default function CourseDetails() {
               }`}
             >
               {course.thumbnail ? (
-                <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
+                <img src={getFileUrl(course.thumbnail)} alt={course.title} className="h-full w-full object-cover" />
               ) : (
                 <div className="text-8xl">{meta.icon || '🎓'}</div>
               )}
@@ -369,7 +373,7 @@ export default function CourseDetails() {
                                 {lesson.durationSeconds ? <span>{formatDuration(lesson.durationSeconds)}</span> : null}
                                 {lesson.isPreview ? (
                                   <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-600">
-                                    Preview
+                                    Học thử
                                   </span>
                                 ) : null}
                               </div>
@@ -577,13 +581,23 @@ export default function CourseDetails() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handleEnroll}
-                disabled={enrolling}
-                className="w-full rounded-2xl bg-purple-600 px-6 py-4 font-semibold text-white transition-all hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {enrolling ? 'Đang xử lý...' : course.price > 0 ? (couponResult?.valid ? `Mua với ${formatCurrency(couponResult.finalPrice)}` : 'Mua bằng ví nội bộ') : 'Đăng ký học ngay'}
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleEnroll}
+                  disabled={enrolling}
+                  className="w-full rounded-2xl bg-purple-600 px-6 py-4 font-semibold text-white transition-all hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {enrolling ? 'Đang xử lý...' : course.price > 0 ? (couponResult?.valid ? `Mua với ${formatCurrency(couponResult.finalPrice)}` : 'Mua khóa học') : 'Đăng ký học miễn phí'}
+                </button>
+                {hasPreview && (
+                  <button
+                    onClick={() => navigate(`/learn/${id}`)}
+                    className="w-full rounded-2xl border-2 border-purple-600 bg-white px-6 py-4 font-semibold text-purple-600 transition-all hover:bg-purple-50"
+                  >
+                    Học thử
+                  </button>
+                )}
+              </div>
             )}
 
             <div className="mt-8 space-y-4">

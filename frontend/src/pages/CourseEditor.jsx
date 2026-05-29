@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import QuizEditorModal from '../components/QuizEditorModal';
+import { getFileUrl } from '../utils/fileUtils';
 
 const STEPS = [
   { id: 1, title: 'Th\u00f4ng tin chung', hint: 'Ti\u00eau \u0111\u1ec1, m\u00f4 t\u1ea3, \u1ea3nh b\u00eca' },
@@ -39,6 +40,7 @@ const emptyCourseForm = {
   thumbnail: '',
   price: 0,
   minimumMemberTier: 'BRONZE',
+  coverImageFile: null,
 };
 
 const moveArrayItem = (items, fromIndex, toIndex) => {
@@ -104,6 +106,7 @@ const CourseEditor = () => {
         thumbnail: data.thumbnail || '',
         price: data.price || 0,
         minimumMemberTier: data.minimumMemberTier || 'BRONZE',
+        coverImageFile: null,
       });
       if (data.sections?.length > 0) {
         setExpandedSectionId((prev) => prev || data.sections[0].id);
@@ -154,11 +157,19 @@ const CourseEditor = () => {
   const saveCourse = async () => {
     setSaving(true);
     try {
+      const formData = new FormData();
+      if (courseForm.title) formData.append('TieuDe', courseForm.title);
+      if (courseForm.description) formData.append('MoTa', courseForm.description);
+      if (courseForm.thumbnail && !courseForm.coverImageFile) formData.append('Thumbnail', courseForm.thumbnail);
+      if (courseForm.price !== undefined) formData.append('Gia', courseForm.price);
+      if (courseForm.minimumMemberTier) formData.append('MinimumMemberTier', courseForm.minimumMemberTier);
+      if (courseForm.coverImageFile) formData.append('CoverImageFile', courseForm.coverImageFile);
+
       if (course?.id || id) {
-        const updated = await api.put(`/api/instructor/courses/${course?.id || id}`, courseForm);
+        const updated = await api.uploadPut(`/api/instructor/courses/${course?.id || id}`, formData);
         setCourse(updated);
       } else {
-        const created = await api.post('/api/instructor/courses', courseForm);
+        const created = await api.upload('/api/instructor/courses', formData);
         setCourse(created);
         navigate(`/instructor/courses/${created.id}`, { replace: true });
       }
@@ -433,9 +444,24 @@ const CourseEditor = () => {
             name="thumbnail"
             value={courseForm.thumbnail}
             onChange={handleCourseFieldChange}
-            placeholder="Dán URL ảnh bìa"
+            placeholder="Dán URL ảnh bìa hoặc tải ảnh lên"
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
           />
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
+            <Upload className="h-4 w-4" />
+            Tải ảnh từ máy tính
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setCourseForm(prev => ({ ...prev, coverImageFile: file, thumbnail: URL.createObjectURL(file) }));
+                }
+              }} 
+            />
+          </label>
         </div>
       </section>
 
@@ -444,7 +470,7 @@ const CourseEditor = () => {
           <p className="text-sm font-medium text-slate-900">Xem trước thông tin</p>
           <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white">
             {courseForm.thumbnail ? (
-              <img src={courseForm.thumbnail} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
+              <img src={getFileUrl(courseForm.thumbnail)} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
             ) : (
               <div className="text-center text-slate-400">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-500">

@@ -1,5 +1,6 @@
 import { Star, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getFileUrl } from '../utils/fileUtils';
 
 export default function CourseCard({ course }) {
   const navigate = useNavigate();
@@ -35,7 +36,7 @@ export default function CourseCard({ course }) {
         }`}
       >
         {course.thumbnail ? (
-          <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
+          <img src={getFileUrl(course.thumbnail)} alt={course.title} className="h-full w-full object-cover" />
         ) : (
           <div className="text-6xl">{meta.icon || '📚'}</div>
         )}

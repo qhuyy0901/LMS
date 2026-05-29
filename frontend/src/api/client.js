@@ -6,7 +6,8 @@
  * File này dành cho các nơi cần fetch API ngoài context.
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl;
 
 const getHeaders = (isJson = true) => {
   const headers = {};
@@ -60,6 +61,13 @@ export const api = {
   upload: (path, formData) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: formData,
+    }).then(handleResponse),
+
+  uploadPut: (path, formData) =>
+    fetch(`${BASE_URL}${path}`, {
+      method: 'PUT',
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       body: formData,
     }).then(handleResponse),

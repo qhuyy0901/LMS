@@ -5,8 +5,9 @@ import {
   ChevronLeft, PlayCircle, CheckCircle, Circle, 
   MessageSquare, FileText, Download, Share2,
   ChevronDown, ChevronUp, BookOpen, Send, X, CornerDownRight,
-  Clock, HelpCircle, Award, AlertCircle, ArrowRight, RotateCcw, Check, Loader2
+  Clock, HelpCircle, Award, AlertCircle, ArrowRight, RotateCcw, Check, Loader2, Lock
 } from 'lucide-react';
+import { getFileUrl } from '../utils/fileUtils';
 
 export default function LearningWorkspace() {
   const { courseId } = useParams();
@@ -41,7 +42,8 @@ export default function LearningWorkspace() {
         const response = await axios.get(`/api/courses/${courseId}`);
         const data = response.data;
         
-        if (!data.isEnrolled) {
+        const hasPreview = data.sections?.some(s => s.lessons?.some(l => l.isPreview)) || data.lessons?.some(l => l.isPreview);
+        if (!data.isEnrolled && !hasPreview) {
           navigate(`/course/${courseId}`);
           return;
         }
@@ -72,8 +74,16 @@ export default function LearningWorkspace() {
     fetchCourse();
   }, [courseId, navigate]);
 
-  const lessons = course?.lessons || [];
+  const lessons = course?.lessons || (course?.sections ? course.sections.flatMap(s => s.lessons) : []);
   const activeLesson = lessons[activeLessonIndex];
+  
+  const isLessonLocked = (lesson) => {
+    if (!lesson) return true;
+    if (course?.isEnrolled) return false;
+    return !lesson.isPreview;
+  };
+  
+  const locked = isLessonLocked(activeLesson);
 
   // Tải Quiz khi đổi bài học
   useEffect(() => {
@@ -335,7 +345,7 @@ export default function LearningWorkspace() {
         <div className="flex-1 flex flex-col h-full bg-white overflow-y-auto custom-scrollbar relative">
           
           {/* Video Player Area (Chỉ render nếu bài học có Video URL) */}
-          {activeLesson?.videoUrl ? (
+          {activeLesson?.videoUrl && !locked ? (
             <div className="w-full bg-black aspect-video relative group flex shrink-0 items-center justify-center shadow-inner">
               {isYoutubeVideo ? (
                 <iframe 
@@ -347,12 +357,23 @@ export default function LearningWorkspace() {
                 ></iframe>
               ) : (
                 <video 
-                  src={activeLesson.videoUrl} 
+                  src={getFileUrl(activeLesson.videoUrl)} 
                   className="w-full h-full object-contain"
                   controls
                   autoPlay
                 />
               )}
+            </div>
+          ) : locked ? (
+            <div className="w-full bg-slate-900 aspect-video relative flex flex-col items-center justify-center shadow-inner text-white p-6 text-center">
+              <Lock className="w-16 h-16 text-slate-500 mb-4" />
+              <h3 className="text-xl font-bold mb-2">Bài học bị khóa</h3>
+              <p className="text-slate-400 mb-4 max-w-md">
+                Bài học này thuộc nội dung trả phí. Vui lòng mua khóa học để tiếp tục học.
+              </p>
+              <button onClick={() => navigate(`/course/${courseId}`)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all">
+                Mua khóa học
+              </button>
             </div>
           ) : null}
 
@@ -430,7 +451,11 @@ export default function LearningWorkspace() {
                   </h2>
                   
                   <div className="prose prose-slate max-w-none">
-                    {activeLesson?.content ? (
+                    {locked ? (
+                      <div className="text-slate-500 italic flex items-center gap-2 bg-slate-50/50 border border-slate-100 p-6 rounded-2xl">
+                        <Lock className="w-5 h-5" /> Nội dung bài học bị khóa.
+                      </div>
+                    ) : activeLesson?.content ? (
                       <div className="text-slate-700 leading-relaxed text-base whitespace-pre-line bg-slate-50/50 border border-slate-100 p-6 rounded-2xl">
                         {activeLesson.content}
                       </div>

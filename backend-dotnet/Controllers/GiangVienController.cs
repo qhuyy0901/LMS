@@ -37,10 +37,85 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             .Where(c => c.InstructorId == userId)
             .Include(c => c.Sections.OrderBy(s => s.Position))
                 .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
+            .Include(c => c.Enrollments)
             .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
 
         return Results.Ok(ds.Select(MapCourse));
+    }
+
+    [HttpGet("/api/instructor/dashboard")]
+    public async Task<IResult> Dashboard()
+    {
+        var loi = TroGiup.YeuCauGiangVien(User);
+        if (loi is not null) return loi;
+
+        var userId = TroGiup.LayUserId(User)!;
+        var khoaHocs = await db.Courses.AsNoTracking()
+            .Where(c => c.InstructorId == userId)
+            .Include(c => c.Sections)
+                .ThenInclude(s => s.Lessons)
+            .Include(c => c.Enrollments)
+            .Include(c => c.Purchases)
+            .Include(c => c.Reviews)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
+        var giaoDich = await db.Purchases.AsNoTracking()
+            .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
+            .Include(p => p.User)
+            .Include(p => p.Course)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+
+        var hocVienMoi = await db.Enrollments.AsNoTracking()
+            .Where(e => khoaHocIds.Contains(e.CourseId))
+            .Include(e => e.User)
+            .Include(e => e.Course)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(8)
+            .ToListAsync();
+
+        var danhGia = khoaHocs.SelectMany(c => c.Reviews).ToList();
+        var khoaHocNhieuHocVienNhat = khoaHocs
+            .OrderByDescending(c => c.Enrollments.Count)
+            .FirstOrDefault(c => c.Enrollments.Count > 0);
+
+        return Results.Ok(new
+        {
+            tongDoanhThu = giaoDich.Sum(p => p.FinalAmount),
+            tongHocVien = khoaHocs.Sum(c => c.Enrollments.Count),
+            tongKhoaHoc = khoaHocs.Count,
+            khoaHocCongKhai = khoaHocs.Count(IsCoursePublished),
+            khoaHocBanNhap = khoaHocs.Count(c => !IsCoursePublished(c) || string.Equals(c.Status, "DRAFT", StringComparison.OrdinalIgnoreCase)),
+            danhGiaTrungBinh = danhGia.Count == 0 ? (double?)null : Math.Round(danhGia.Average(r => r.Rating), 1),
+            hocVienMoi = hocVienMoi.Select(e => new
+            {
+                id = e.Id,
+                hocVienId = e.UserId,
+                tenHocVien = e.User?.Name ?? "Học viên",
+                emailHocVien = e.User?.Email,
+                khoaHocId = e.CourseId,
+                tenKhoaHoc = e.Course?.Title ?? "Khóa học",
+                tienDo = e.Progress,
+                ngayDangKy = e.CreatedAt
+            }),
+            khoaHocCuaToi = khoaHocs.Take(5).Select(MapDashboardCourse),
+            khoaHocNhieuHocVienNhat = khoaHocNhieuHocVienNhat is null ? null : MapDashboardCourse(khoaHocNhieuHocVienNhat),
+            doanhThuGanDay = giaoDich.Take(5).Select(p => new
+            {
+                id = p.Id,
+                soTien = p.FinalAmount,
+                amount = p.FinalAmount,
+                khoaHocId = p.CourseId,
+                tenKhoaHoc = p.Course?.Title ?? "Khóa học",
+                hocVienId = p.UserId,
+                tenHocVien = p.User?.Name ?? "Học viên",
+                ngayThanhToan = p.CreatedAt,
+                createdAt = p.CreatedAt
+            })
+        });
     }
 
     [HttpGet("/api/instructor/courses/{id}")]
@@ -163,13 +238,29 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         {
             return Results.BadRequest(new
             {
-                message = "Khóa học cần ít nhất 1 chương và 1 bài học có nội dung hoặc video trước khi xuất bản.",
+                message = "Khóa học cần có ít nhất 1 chương và 1 bài học trước khi xuất bản.",
                 errors
             });
         }
 
         kh.IsPublished = yeuCau.IsPublished;
+        kh.Status = yeuCau.IsPublished ? "PUBLIC" : "DRAFT";
         kh.PublishedAt = yeuCau.IsPublished ? DateTime.UtcNow : kh.PublishedAt;
+        kh.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        var reloaded = await LoadOwnedCourse(id, asNoTracking: true);
+        return Results.Ok(MapCourse(reloaded!));
+    }
+
+    [HttpPatch("/api/instructor/courses/{id}/hide")]
+    public async Task<IResult> AnKhoaHoc(string id)
+    {
+        var kh = await LoadOwnedCourse(id);
+        if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+
+        kh.IsPublished = false;
+        kh.Status = "HIDDEN";
         kh.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
@@ -290,7 +381,18 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             }
             baiHoc.IllustrationUrl = string.Join(",", imageUrls);
         }
-        if (yeuCau.DocumentFile is not null) baiHoc.FileUrl = await SaveUpload(yeuCau.DocumentFile, "uploads/lessons/files");
+        if (yeuCau.RemoveDocument)
+        {
+            baiHoc.FileUrl = null;
+        }
+        else if (yeuCau.DocumentFile is not null)
+        {
+            baiHoc.FileUrl = await SaveUpload(yeuCau.DocumentFile, "uploads/lessons/files");
+        }
+        else if (yeuCau.FileUrl is not null)
+        {
+            baiHoc.FileUrl = string.IsNullOrWhiteSpace(yeuCau.FileUrl) ? null : yeuCau.FileUrl.Trim();
+        }
 
         db.Lessons.Add(baiHoc);
         await db.SaveChangesAsync();
@@ -327,6 +429,10 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         {
             baiHoc.VideoUrl = await SaveUpload(yeuCau.VideoFile, "uploads/lessons/videos");
         }
+        else if (yeuCau.VideoUrl is not null)
+        {
+            baiHoc.VideoUrl = string.IsNullOrWhiteSpace(yeuCau.VideoUrl) ? null : yeuCau.VideoUrl.Trim();
+        }
 
         if (yeuCau.RemoveImage)
         {
@@ -341,6 +447,10 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
                 imageUrls.Add(url);
             }
             baiHoc.IllustrationUrl = string.Join(",", imageUrls);
+        }
+        else if (yeuCau.ImageUrls is not null)
+        {
+            baiHoc.IllustrationUrl = string.IsNullOrWhiteSpace(yeuCau.ImageUrls) ? null : yeuCau.ImageUrls.Trim();
         }
 
         if (yeuCau.DocumentFile is not null) baiHoc.FileUrl = await SaveUpload(yeuCau.DocumentFile, "uploads/lessons/files");
@@ -408,6 +518,38 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
     private async Task<IResult> DeleteSection(ChuongHoc chuong)
     {
         var courseId = chuong.CourseId;
+        var lessonIds = await db.Lessons
+            .Where(lesson => lesson.SectionId == chuong.Id)
+            .Select(lesson => lesson.Id)
+            .ToListAsync();
+
+        if (lessonIds.Count > 0)
+        {
+            var quizIds = await db.Quizzes
+                .Where(quiz => lessonIds.Contains(quiz.LessonId))
+                .Select(quiz => quiz.Id)
+                .ToListAsync();
+
+            if (quizIds.Count > 0)
+            {
+                db.QuizSubmissions.RemoveRange(db.QuizSubmissions.Where(submission => quizIds.Contains(submission.QuizId)));
+                db.QuizQuestions.RemoveRange(db.QuizQuestions.Where(question => quizIds.Contains(question.QuizId)));
+                db.Quizzes.RemoveRange(db.Quizzes.Where(quiz => quizIds.Contains(quiz.Id)));
+            }
+
+            db.Assignments.RemoveRange(db.Assignments.Where(assignment => assignment.LessonId != null && lessonIds.Contains(assignment.LessonId)));
+            db.LessonProgresses.RemoveRange(db.LessonProgresses.Where(progress => lessonIds.Contains(progress.LessonId)));
+
+            var comments = await db.Comments
+                .Where(comment => lessonIds.Contains(comment.LessonId))
+                .ToListAsync();
+            var commentIds = comments.Select(comment => comment.Id).ToList();
+            db.Comments.RemoveRange(comments.Where(comment => comment.ParentId != null && commentIds.Contains(comment.ParentId)));
+            db.Comments.RemoveRange(comments.Where(comment => comment.ParentId == null || !commentIds.Contains(comment.ParentId)));
+
+            db.Lessons.RemoveRange(db.Lessons.Where(lesson => lessonIds.Contains(lesson.Id)));
+        }
+
         db.Sections.Remove(chuong);
         await db.SaveChangesAsync();
         await ChuanHoaViTriChuong(courseId);
@@ -424,6 +566,7 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         var query = db.Courses
             .Include(c => c.Sections.OrderBy(s => s.Position))
                 .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
+            .Include(c => c.Enrollments)
             .Where(c => c.Id == courseId && c.InstructorId == userId);
         if (asNoTracking) query = query.AsNoTracking();
         return await query.FirstOrDefaultAsync();
@@ -493,6 +636,13 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         _ => "DRAFT"
     };
 
+    private static bool IsCoursePublished(KhoaHoc kh)
+    {
+        return kh.IsPublished
+            || string.Equals(kh.Status, "PUBLIC", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kh.Status, "PUBLISHED", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static IResult? ValidateFile(IFormFile file, HashSet<string> allowedTypes, long maxSize, string label)
     {
         if (!allowedTypes.Contains(file.ContentType)) return Results.BadRequest(new { message = $"{label} không đúng định dạng được hỗ trợ." });
@@ -540,16 +690,59 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             price = kh.Price,
             gia = kh.Price,
             trangThai = kh.Status,
+            status = kh.Status,
             isPublished = kh.IsPublished,
             daXuatBan = kh.IsPublished,
             totalDurationSeconds = kh.TotalDurationSeconds,
+            sectionCount = kh.Sections.Count,
+            lessonCount = kh.Sections.Sum(s => s.Lessons.Count),
+            studentCount = kh.Enrollments.Count,
             totalLessons = kh.Sections.Sum(s => s.Lessons.Count),
+            enrollments = kh.Enrollments.Count,
             createdAt = kh.CreatedAt,
             updatedAt = kh.UpdatedAt,
             instructorId = kh.InstructorId,
             sections,
             publishValidationErrors = errors,
             canPublish = errors.Count == 0
+        };
+    }
+
+    private static object MapDashboardCourse(KhoaHoc kh)
+    {
+        var soChuong = kh.Sections.Count;
+        var soBaiHoc = kh.Sections.Sum(s => s.Lessons.Count);
+        var soHocVien = kh.Enrollments.Count;
+        var doanhThu = kh.Purchases.Where(p => p.Status == "COMPLETED").Sum(p => p.FinalAmount);
+        var danhGia = kh.Reviews.Count == 0 ? null : (double?)Math.Round(kh.Reviews.Average(r => r.Rating), 1);
+
+        return new
+        {
+            id = kh.Id,
+            title = kh.Title,
+            tenKhoaHoc = kh.Title,
+            moTaNgan = kh.ShortDescription ?? kh.Description,
+            description = kh.Description,
+            thumbnail = kh.Thumbnail,
+            anhBia = kh.Thumbnail,
+            price = kh.Price,
+            gia = kh.Price,
+            trangThai = kh.Status,
+            status = kh.Status,
+            isPublished = kh.IsPublished,
+            daXuatBan = IsCoursePublished(kh),
+            sectionCount = soChuong,
+            chuong = soChuong,
+            lessonCount = soBaiHoc,
+            baiHoc = soBaiHoc,
+            studentCount = soHocVien,
+            hocVien = soHocVien,
+            revenue = doanhThu,
+            doanhThu,
+            rating = danhGia,
+            reviewCount = kh.Reviews.Count,
+            createdAt = kh.CreatedAt,
+            updatedAt = kh.UpdatedAt
         };
     }
 
@@ -600,11 +793,8 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(kh.Title)) errors.Add("Khóa học cần có tiêu đề.");
         if (string.IsNullOrWhiteSpace(kh.Description)) errors.Add("Khóa học cần có mô tả.");
-        if (string.IsNullOrWhiteSpace(kh.Thumbnail)) errors.Add("Khóa học cần có ảnh bìa.");
         if (kh.Sections.Count == 0) errors.Add("Khóa học cần ít nhất 1 chương.");
         if (kh.Sections.Sum(s => s.Lessons.Count) == 0) errors.Add("Khóa học cần ít nhất 1 bài học.");
-        if (kh.Sections.SelectMany(s => s.Lessons).Any(l => string.IsNullOrWhiteSpace(l.Content) && string.IsNullOrWhiteSpace(l.VideoUrl)))
-            errors.Add("Mỗi bài học cần có nội dung lý thuyết hoặc video.");
         return errors;
     }
 
@@ -688,9 +878,13 @@ public class LuuBaiHocForm
     public bool ChoPhepHocThu { get; set; }
     public int ThuTu { get; set; } = 1;
     public IFormFile? VideoFile { get; set; }
+    public string? VideoUrl { get; set; }
     public bool RemoveVideo { get; set; }
     public List<IFormFile>? ImageFiles { get; set; }
+    public string? ImageUrls { get; set; }
     public bool RemoveImage { get; set; }
     public IFormFile? DocumentFile { get; set; }
+    public string? FileUrl { get; set; }
+    public bool RemoveDocument { get; set; }
     public string? TrangThai { get; set; }
 }

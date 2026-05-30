@@ -2,6 +2,7 @@ using LMS.Api.Data;
 using LMS.Api.DTOs.PhanHoi;
 using LMS.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace LMS.Api.Services;
 
@@ -15,6 +16,7 @@ public interface IDichVuGhiDanh
     Task<IResult> HoanThanhBaiHocAsync(string userId, string khoaHocId, string baiHocId);
     Task<IResult> HoanThanhBaiHocTheoBaiAsync(string userId, string baiHocId);
     Task<object> LayKhoaHocDaGhiDanhAsync(string userId);
+    Task<object?> KiemTraVaCapChungChiAsync(string userId, string khoaHocId);
 }
 
 public class DichVuGhiDanh(LmsDbContext db) : IDichVuGhiDanh
@@ -84,6 +86,7 @@ public class DichVuGhiDanh(LmsDbContext db) : IDichVuGhiDanh
         await db.SaveChangesAsync();
 
         var diemNhanDuoc = canHoanThanh && !daHoanThanhTruocDo && tienDo.IsCompleted ? 5 : 0;
+        var chungChi = await KiemTraVaCapChungChiAsync(userId, khoaHocId);
 
         return Results.Ok(new
         {
@@ -95,7 +98,7 @@ public class DichVuGhiDanh(LmsDbContext db) : IDichVuGhiDanh
             completedCount = baiXong,
             totalLessons = tongBai,
             lessonProgress = new { tienDo.Id, tienDo.IsCompleted, tienDo.WatchedSeconds, tienDo.LastPositionSeconds, tienDo.CompletionRate, tienDo.CompletedAt },
-            certificate = (object?)null
+            certificate = chungChi
         });
     }
 
@@ -106,5 +109,70 @@ public class DichVuGhiDanh(LmsDbContext db) : IDichVuGhiDanh
             .OrderByDescending(e => e.CreatedAt)
             .Select(e => new { e.Id, e.Progress, e.CompletedAt, e.CreatedAt, course = e.Course == null ? null : KhoaHocDto.TuKhoaHoc(e.Course) })
             .ToListAsync();
+    }
+
+    public async Task<object?> KiemTraVaCapChungChiAsync(string userId, string khoaHocId)
+    {
+        var ghiDanh = await db.Enrollments.FirstOrDefaultAsync(e => e.UserId == userId && e.CourseId == khoaHocId);
+        if (ghiDanh is null || ghiDanh.Progress < 80) return null;
+
+        var quizzes = await db.Quizzes.AsNoTracking()
+            .Include(q => q.Questions)
+            .Include(q => q.Lesson)
+            .Where(q => q.Lesson != null && q.Lesson.CourseId == khoaHocId && q.Lesson.IsPublished)
+            .ToListAsync();
+
+        var quizIds = quizzes.Select(q => q.Id).ToList();
+        var submissions = await db.QuizSubmissions.AsNoTracking()
+            .Where(s => s.UserId == userId && quizIds.Contains(s.QuizId))
+            .ToListAsync();
+
+        var tongCauHoi = quizzes.Sum(q => q.Questions.Count);
+        double? diemQuizToanKhoa = null;
+        if (tongCauHoi > 0 && submissions.Count > 0)
+        {
+            var tongCauDungUocTinh = quizzes.Sum(q =>
+            {
+                var diemTotNhat = submissions
+                    .Where(s => s.QuizId == q.Id)
+                    .Select(s => s.Score)
+                    .DefaultIfEmpty(0)
+                    .Max();
+                return (diemTotNhat / 100.0) * q.Questions.Count;
+            });
+            diemQuizToanKhoa = Math.Round((tongCauDungUocTinh / tongCauHoi) * 100, 2);
+        }
+
+        var chungChiDaCo = await db.Certificates.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UserId == userId && c.CourseId == khoaHocId);
+        if (chungChiDaCo is not null)
+        {
+            return new { chungChiDaCo.Id, chungChiDaCo.CertificateNo, chungChiDaCo.VerifyCode, chungChiDaCo.IssuedAt, quizScore = diemQuizToanKhoa, progress = ghiDanh.Progress };
+        }
+
+        var now = DateTime.UtcNow;
+        var chungChi = new ChungChi
+        {
+            Id = TaoId.Moi(),
+            CertificateNo = $"SKL-{now:yyyyMMdd}-{TaoId.Moi()[..8].ToUpperInvariant()}",
+            VerifyCode = TaoId.Moi(),
+            UserId = userId,
+            CourseId = khoaHocId,
+            IssuedAt = now,
+            CompletionSnapshot = JsonSerializer.Serialize(new
+            {
+                progress = ghiDanh.Progress,
+                quizScore = diemQuizToanKhoa,
+                totalQuizzes = quizzes.Count,
+                totalQuestions = tongCauHoi
+            })
+        };
+
+        db.Certificates.Add(chungChi);
+        ghiDanh.CompletedAt ??= now;
+        ghiDanh.UpdatedAt = now;
+        await db.SaveChangesAsync();
+
+        return new { chungChi.Id, chungChi.CertificateNo, chungChi.VerifyCode, chungChi.IssuedAt, quizScore = diemQuizToanKhoa, progress = ghiDanh.Progress };
     }
 }

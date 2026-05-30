@@ -40,10 +40,10 @@ export const STUDENT_MENU = [
 
 export const INSTRUCTOR_MENU = [
   { section: 'Tổng quan' },
-  { name: 'Dashboard giảng viên', path: '/', icon: LayoutDashboard },
+  { name: 'Dashboard giảng viên', path: '/instructor/dashboard', icon: LayoutDashboard },
 
   { section: 'Quản lý nội dung' },
-  { name: 'Khóa học của tôi', path: '/instructor', icon: Briefcase },
+  { name: 'Khóa học của tôi', path: '/instructor/courses', icon: Briefcase },
   { name: 'Tạo khóa học mới', path: '/instructor/courses/new', icon: PlusCircle },
   { name: 'Danh sách học viên', path: '/instructor/students', icon: GraduationCap },
 
@@ -51,7 +51,6 @@ export const INSTRUCTOR_MENU = [
   { name: 'Thống kê doanh thu', path: '/instructor/revenue', icon: DollarSign },
 
   { section: 'Khác' },
-  { name: 'Khám phá', path: '/explore', icon: Compass },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 

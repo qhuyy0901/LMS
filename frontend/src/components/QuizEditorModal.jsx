@@ -9,7 +9,7 @@ export default function QuizEditorModal({ lessonId, lessonTitle, onClose }) {
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [passingScore, setPassingScore] = useState(80);
+  const [passingScore, setPassingScore] = useState(50);
   const [questions, setQuestions] = useState([]);
 
   // Fetch Quiz nếu đã tồn tại
@@ -22,13 +22,13 @@ export default function QuizEditorModal({ lessonId, lessonTitle, onClose }) {
           const quiz = response.data;
           setTitle(quiz.title || '');
           setDescription(quiz.description || '');
-          setPassingScore(quiz.passingScore || 80);
+          setPassingScore(quiz.passingScore || 50);
           setQuestions(quiz.questions || []);
         } else {
           // Khởi tạo Quiz trống mặc định
           setTitle(`Bài kiểm tra: ${lessonTitle}`);
           setDescription('Hãy hoàn thành bài kiểm tra trắc nghiệm dưới đây để ôn tập kiến thức.');
-          setPassingScore(80);
+          setPassingScore(50);
           setQuestions([
             {
               questionText: '',
@@ -127,13 +127,17 @@ export default function QuizEditorModal({ lessonId, lessonTitle, onClose }) {
       await axios.post(`/api/quizzes/lesson/${lessonId}`, {
         title,
         description,
-        passingScore: Number(passingScore) || 80,
+        passingScore: Number(passingScore) || 50,
         questions
       });
       alert('Đã lưu bài trắc nghiệm thành công!');
       onClose();
     } catch (err) {
-      alert(err.response?.data?.message || 'Có lỗi xảy ra khi lưu Quiz');
+      const serverMessage =
+        err.response?.data?.message ||
+        (typeof err.response?.data === 'string' ? err.response.data : '') ||
+        err.message;
+      alert(serverMessage || 'Có lỗi xảy ra khi lưu Quiz');
     } finally {
       setSaving(false);
     }

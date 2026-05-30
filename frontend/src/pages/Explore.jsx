@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { Bookmark, Flame, Hash, MoreHorizontal, Play, Route, SlidersHorizontal, Sparkles, Star } from 'lucide-react';
 import CourseCard, { CourseSkeleton } from '../components/CourseCard';
+import { useAuth } from '../context/AuthContext';
 
 const Explore = () => {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
@@ -53,6 +55,10 @@ const Explore = () => {
 
     fetchCourses();
   }, [q, category, page, sort, price, tier]);
+
+  if (user?.role === 'INSTRUCTOR') {
+    return <Navigate to="/instructor/dashboard" replace />;
+  }
 
   const handleCategoryChange = (catValue) => {
     const newParams = new URLSearchParams(searchParams);

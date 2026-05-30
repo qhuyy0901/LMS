@@ -53,14 +53,13 @@ public class DichVuBaiKiemTra(LmsDbContext db, IDichVuGhiDanh dichVuGhiDanh) : I
                 return Results.BadRequest(new { message = $"Câu hỏi thứ {i + 1} có đáp án đúng không hợp lệ" });
         }
 
-        await using var trans = await db.Database.BeginTransactionAsync();
         var now = DateTime.UtcNow;
         var quiz = await db.Quizzes.Include(q => q.Questions).FirstOrDefaultAsync(q => q.LessonId == lessonId);
         if (quiz is null) { quiz = new BaiKiemTra { Id = TaoId.Moi(), LessonId = lessonId, CreatedAt = now }; db.Quizzes.Add(quiz); }
 
         quiz.Title = tieuDe.Trim();
         quiz.Description = moTa;
-        quiz.PassingScore = diemDat ?? 80;
+        quiz.PassingScore = Math.Clamp(diemDat ?? 50, 1, 100);
         quiz.UpdatedAt = now;
 
         db.QuizQuestions.RemoveRange(quiz.Questions);
@@ -71,7 +70,6 @@ public class DichVuBaiKiemTra(LmsDbContext db, IDichVuGhiDanh dichVuGhiDanh) : I
         }
 
         await db.SaveChangesAsync();
-        await trans.CommitAsync();
 
         var daLuu = await db.Quizzes.AsNoTracking().Include(q => q.Questions.OrderBy(c => c.Position)).FirstAsync(q => q.Id == quiz.Id);
         return Results.Ok(BaiKiemTraDto.TuQuiz(daLuu, [], hienDapAn: true));
@@ -104,7 +102,8 @@ public class DichVuBaiKiemTra(LmsDbContext db, IDichVuGhiDanh dichVuGhiDanh) : I
         var diem = tongCauHoi == 0 ? 0 : Math.Round((soDung / (double)tongCauHoi) * 100);
         var dat = diem >= quiz.PassingScore;
 
-        db.QuizSubmissions.Add(new NopBaiKiemTra { Id = TaoId.Moi(), UserId = userId, QuizId = quiz.Id, Score = diem, Passed = dat, Answers = JsonSerializer.Serialize(dapAn), CreatedAt = DateTime.UtcNow });
+        var baiNop = new NopBaiKiemTra { Id = TaoId.Moi(), UserId = userId, QuizId = quiz.Id, Score = diem, Passed = dat, Answers = JsonSerializer.Serialize(dapAn), CreatedAt = DateTime.UtcNow };
+        db.QuizSubmissions.Add(baiNop);
         await db.SaveChangesAsync();
 
         double? tienDoKhoaHoc = null;
@@ -113,8 +112,9 @@ public class DichVuBaiKiemTra(LmsDbContext db, IDichVuGhiDanh dichVuGhiDanh) : I
             await dichVuGhiDanh.HoanThanhBaiHocAsync(userId, baiHoc.CourseId, lessonId);
             tienDoKhoaHoc = await db.Enrollments.Where(e => e.UserId == userId && e.CourseId == baiHoc.CourseId).Select(e => (double?)e.Progress).FirstOrDefaultAsync();
         }
+        var chungChi = await dichVuGhiDanh.KiemTraVaCapChungChiAsync(userId, baiHoc.CourseId);
 
-        return Results.Ok(new { submissionId = TaoId.Moi(), score = diem, passed = dat, passingScore = quiz.PassingScore, correctCount = soDung, totalQuestions = tongCauHoi, detailedResults = chiTiet, progress = tienDoKhoaHoc });
+        return Results.Ok(new { submissionId = baiNop.Id, score = diem, passed = dat, passingScore = quiz.PassingScore, correctCount = soDung, totalQuestions = tongCauHoi, detailedResults = chiTiet, progress = tienDoKhoaHoc, certificate = chungChi });
     }
 
     public async Task<IResult> XoaBaiKiemTraAsync(string quizId, string userId, bool laAdmin)

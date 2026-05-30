@@ -73,3 +73,10 @@ ConnectionStrings__DefaultConnection=Server=127.0.0.1,11433;Database=lms;User Id
 JWT_SECRET=change-me-to-a-long-random-secret
 FRONTEND_URL=http://localhost:5173
 ```
+cd D:\WEB\LMS
+dotnet run --project backend-dotnet/LMS.Api.csproj --urls http://localhost:5000
+
+
+
+cd D:\WEB\LMS\frontend
+npm run dev

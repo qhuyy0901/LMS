@@ -16,6 +16,10 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu) : ControllerBase
     public async Task<IResult> DanhSach(int page = 1, int pageSize = 20, bool paginate = false)
         => Results.Ok(await dichVu.LayDanhSachAsync(page, pageSize, paginate));
 
+    [HttpGet("/api/explore/insights")]
+    public async Task<IResult> DuLieuKhamPha()
+        => Results.Ok(await dichVu.LayExploreInsightsAsync());
+
     /// <summary>Chi tiết một khóa học</summary>
     [HttpGet("/api/courses/{id}")]
     [HttpGet("/api/student/courses/{id}")]

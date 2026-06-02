@@ -493,12 +493,51 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
         var khoaHocIds = await db.Courses.AsNoTracking().Where(c => c.InstructorId == userId).Select(c => c.Id).ToListAsync();
-        var ds = await db.Enrollments.AsNoTracking()
+        var ghiDanh = await db.Enrollments.AsNoTracking()
             .Where(e => khoaHocIds.Contains(e.CourseId)).Include(e => e.User).Include(e => e.Course)
             .OrderByDescending(e => e.CreatedAt).Take(100)
-            .Select(e => new { e.Id, e.Progress, e.CompletedAt, e.CreatedAt, user = e.User == null ? null : new { e.User.Id, e.User.Name, e.User.Email }, course = e.Course == null ? null : new { e.Course.Id, e.Course.Title } })
             .ToListAsync();
-        return Results.Ok(ds);
+
+        var hocViens = ghiDanh
+            .Where(e => e.User is not null)
+            .GroupBy(e => e.UserId)
+            .Select(group =>
+            {
+                var moiNhat = group.OrderByDescending(e => e.CreatedAt).First();
+                var courses = group
+                    .OrderByDescending(e => e.CreatedAt)
+                    .Select(e => new
+                    {
+                        id = e.CourseId,
+                        title = e.Course?.Title ?? "Khóa học",
+                        progress = e.Progress,
+                        completedAt = e.CompletedAt,
+                        enrolledAt = e.CreatedAt
+                    })
+                    .ToList();
+
+                return new
+                {
+                    id = moiNhat.UserId,
+                    name = moiNhat.User?.Name ?? "Học viên",
+                    email = moiNhat.User?.Email,
+                    avatar = moiNhat.User?.Avatar,
+                    courses,
+                    courseCount = courses.Count,
+                    averageProgress = Math.Round(group.Average(e => e.Progress)),
+                    latestEnrollmentAt = moiNhat.CreatedAt
+                };
+            })
+            .OrderByDescending(student => student.latestEnrollmentAt)
+            .ToList();
+
+        return Results.Ok(new
+        {
+            students = hocViens,
+            totalStudents = hocViens.Count,
+            totalEnrollments = ghiDanh.Count,
+            averageProgress = hocViens.Count == 0 ? 0 : Math.Round(hocViens.Average(student => student.averageProgress))
+        });
     }
 
     private async Task<IResult> UpdateSection(ChuongHoc chuong, LuuChuongForm yeuCau)

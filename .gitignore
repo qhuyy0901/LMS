@@ -1,16 +1,18 @@
+bin/
+obj/
+TestResults/
 node_modules/
-dist/
-generated/
+**/node_modules/
+*.user
+*.suo
+*.rsuser
+
 .env
 .env.*
 !.env.example
 
-frontend/node_modules/
-frontend/dist/
-frontend/.env
-frontend/.env.*
-!frontend/.env.example
-
+generated/
 backend-dotnet/bin/
 backend-dotnet/obj/
+backend-dotnet/build-check/
 backend-dotnet/appsettings.Development.json

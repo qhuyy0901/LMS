@@ -17,6 +17,7 @@ const CourseEditor = lazy(() => import('./pages/CourseEditor'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Events = lazy(() => import('./pages/Events'));
 const Explore = lazy(() => import('./pages/Explore'));
+const InstructorCourses = lazy(() => import('./pages/InstructorCourses'));
 const InstructorDashboard = lazy(() => import('./pages/InstructorDashboard'));
 const InstructorRevenue = lazy(() => import('./pages/InstructorRevenue'));
 const InstructorStudents = lazy(() => import('./pages/InstructorStudents'));
@@ -68,8 +69,24 @@ function App() {
                   <Route
                     path="instructor"
                     element={
-                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                      <RoleRoute roles={['INSTRUCTOR']}>
+                        <Navigate to="/instructor/dashboard" replace />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/dashboard"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR']}>
                         <InstructorDashboard />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/courses"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR']}>
+                        <InstructorCourses />
                       </RoleRoute>
                     }
                   />
@@ -91,6 +108,14 @@ function App() {
                   />
                   <Route
                     path="instructor/courses/new"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <CourseEditor />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/courses/:id/edit"
                     element={
                       <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
                         <CourseEditor />

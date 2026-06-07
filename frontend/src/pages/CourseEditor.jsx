@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { api } from '../api/client';
 import QuizEditorModal from '../components/QuizEditorModal';
+import { getFileUrl } from '../utils/fileUtils';
 
 const STEPS = [
   { id: 1, title: 'Th\u00f4ng tin chung', hint: 'Ti\u00eau \u0111\u1ec1, m\u00f4 t\u1ea3, \u1ea3nh b\u00eca' },
@@ -39,6 +40,7 @@ const emptyCourseForm = {
   thumbnail: '',
   price: 0,
   minimumMemberTier: 'BRONZE',
+  coverImageFile: null,
 };
 
 const moveArrayItem = (items, fromIndex, toIndex) => {
@@ -60,6 +62,48 @@ const formatDuration = (seconds = 0) => {
     return `${minutes}m ${remainSeconds}s`;
   }
   return `${remainSeconds}s`;
+};
+
+const getLessonImages = (lesson) => {
+  const source = lesson.illustrationUrl || lesson.anhMinhHoa || '';
+  return source
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const buildLessonFormData = (lesson, payload = {}, files = {}) => {
+  const nextLesson = { ...lesson, ...payload };
+  const formData = new FormData();
+  formData.append('TieuDe', nextLesson.title || 'Bài học');
+  formData.append('NoiDung', nextLesson.content || '');
+  formData.append('ThoiLuongGiay', String(nextLesson.durationSeconds || 0));
+  formData.append('ChoPhepHocThu', String(Boolean(nextLesson.isPreview)));
+  formData.append('ThuTu', String(nextLesson.position || nextLesson.thuTu || 1));
+  formData.append('TrangThai', nextLesson.isPublished ? 'PUBLIC' : 'DRAFT');
+  formData.append('VideoUrl', nextLesson.videoUrl || '');
+  formData.append('RemoveVideo', String(Boolean(payload.removeVideo)));
+  formData.append('RemoveImage', String(Boolean(payload.removeImage)));
+  formData.append('RemoveDocument', String(Boolean(payload.removeDocument)));
+  formData.append('FileUrl', nextLesson.fileUrl || '');
+
+  if (Object.prototype.hasOwnProperty.call(payload, 'imageUrls')) {
+    formData.append('ImageUrls', payload.imageUrls || '');
+  }
+
+  if (files.videoFile) {
+    formData.append('VideoFile', files.videoFile);
+  }
+
+  if (files.imageFiles?.length) {
+    Array.from(files.imageFiles).forEach((file) => formData.append('ImageFiles', file));
+  }
+
+  if (files.documentFile) {
+    formData.append('DocumentFile', files.documentFile);
+  }
+
+  return formData;
 };
 
 const buildReorderPayload = (sections) => ({
@@ -104,6 +148,7 @@ const CourseEditor = () => {
         thumbnail: data.thumbnail || '',
         price: data.price || 0,
         minimumMemberTier: data.minimumMemberTier || 'BRONZE',
+        coverImageFile: null,
       });
       if (data.sections?.length > 0) {
         setExpandedSectionId((prev) => prev || data.sections[0].id);
@@ -154,11 +199,19 @@ const CourseEditor = () => {
   const saveCourse = async () => {
     setSaving(true);
     try {
+      const formData = new FormData();
+      if (courseForm.title) formData.append('TieuDe', courseForm.title);
+      if (courseForm.description) formData.append('MoTa', courseForm.description);
+      if (courseForm.thumbnail && !courseForm.coverImageFile) formData.append('Thumbnail', courseForm.thumbnail);
+      if (courseForm.price !== undefined) formData.append('Gia', courseForm.price);
+      if (courseForm.minimumMemberTier) formData.append('MinimumMemberTier', courseForm.minimumMemberTier);
+      if (courseForm.coverImageFile) formData.append('CoverImageFile', courseForm.coverImageFile);
+
       if (course?.id || id) {
-        const updated = await api.put(`/api/instructor/courses/${course?.id || id}`, courseForm);
+        const updated = await api.uploadPut(`/api/instructor/courses/${course?.id || id}`, formData);
         setCourse(updated);
       } else {
-        const created = await api.post('/api/instructor/courses', courseForm);
+        const created = await api.upload('/api/instructor/courses', formData);
         setCourse(created);
         navigate(`/instructor/courses/${created.id}`, { replace: true });
       }
@@ -223,21 +276,28 @@ const CourseEditor = () => {
     if (!window.confirm('Bạn chắc chắn muốn xóa chương này?')) {
       return;
     }
-    const courseId = course?.id || id;
-    await api.delete(`/api/instructor/courses/${courseId}/sections/${sectionId}`);
-    const nextSections = sections.filter((section) => section.id !== sectionId);
-    setSections(nextSections);
-    setExpandedSectionId(nextSections[0]?.id || null);
+    try {
+      const courseId = course?.id || id;
+      await api.delete(`/api/instructor/courses/${courseId}/sections/${sectionId}`);
+      const nextSections = sections.filter((section) => section.id !== sectionId);
+      setSections(nextSections);
+      setExpandedSectionId(nextSections[0]?.id || null);
+      await fetchCourse(courseId);
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể xóa chương này.');
+    }
   };
 
   const addLesson = async (sectionId) => {
-    const courseId = course?.id || id;
     try {
-      const lesson = await api.post(`/api/instructor/courses/${courseId}/sections/${sectionId}/lessons`, {
-        title: 'Bài giảng mới',
-        isPublished: true,
-        isPreview: false,
-      });
+      const formData = new FormData();
+      formData.append('TieuDe', 'Bài giảng mới');
+      formData.append('NoiDung', 'Nội dung bài học đang được cập nhật.');
+      formData.append('ThoiLuongGiay', '0');
+      formData.append('ChoPhepHocThu', 'false');
+      formData.append('ThuTu', '1');
+      formData.append('TrangThai', 'PUBLIC');
+      const lesson = await api.upload(`/api/instructor/sections/${sectionId}/lessons`, formData);
       setSections((prev) =>
         prev.map((section) =>
           section.id === sectionId
@@ -251,23 +311,28 @@ const CourseEditor = () => {
     }
   };
 
-  const updateLesson = async (lessonId, payload) => {
-    const courseId = course?.id || id;
-    const updated = await api.put(`/api/instructor/courses/${courseId}/lessons/${lessonId}`, payload);
+  const applyUpdatedLesson = (updated) => {
     setSections((prev) =>
       prev.map((section) => ({
         ...section,
-        lessons: (section.lessons || []).map((lesson) => (lesson.id === lessonId ? updated : lesson)),
+        lessons: (section.lessons || []).map((lesson) => (lesson.id === updated.id ? updated : lesson)),
       }))
     );
+  };
+
+  const updateLesson = async (lesson, payload = {}, files = {}) => {
+    const updated = await api.uploadPut(
+      `/api/instructor/lessons/${lesson.id}`,
+      buildLessonFormData(lesson, payload, files)
+    );
+    applyUpdatedLesson(updated);
   };
 
   const removeLesson = async (lessonId) => {
     if (!window.confirm('Bạn chắc chắn muốn xóa bài giảng này?')) {
       return;
     }
-    const courseId = course?.id || id;
-    await api.delete(`/api/instructor/courses/${courseId}/lessons/${lessonId}`);
+    await api.delete(`/api/instructor/lessons/${lessonId}`);
     setSections((prev) =>
       prev.map((section) => ({
         ...section,
@@ -276,32 +341,89 @@ const CourseEditor = () => {
     );
   };
 
-  const uploadLessonVideo = async (lessonId, file) => {
+  const uploadLessonVideo = async (lesson, file) => {
     if (!file) {
       return;
     }
-    const courseId = course?.id || id;
-    const formData = new FormData();
-    formData.append('video', file);
     try {
       setSaving(true);
-      const response = await api.upload(`/api/instructor/courses/${courseId}/lessons/${lessonId}/video`, formData);
-      setSections((prev) =>
-        prev.map((section) => ({
-          ...section,
-          lessons: (section.lessons || []).map((lesson) =>
-            lesson.id === lessonId
-              ? {
-                  ...lesson,
-                  videoUrl: response.videoUrl,
-                  durationSeconds: response.durationSeconds,
-                }
-              : lesson
-          ),
-        }))
-      );
+      await updateLesson(lesson, {}, { videoFile: file });
     } catch (error) {
       window.alert(error?.data?.message || 'Tải video thất bại.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadLessonImages = async (lesson, files) => {
+    if (!files?.length) {
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateLesson(lesson, {}, { imageFiles: files });
+    } catch (error) {
+      window.alert(error?.data?.message || 'Tải ảnh thất bại.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const uploadLessonDocument = async (lesson, file) => {
+    if (!file) {
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateLesson(lesson, {}, { documentFile: file });
+    } catch (error) {
+      window.alert(error?.data?.message || 'Tải tài liệu thất bại.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeLessonVideo = async (lesson) => {
+    if (!window.confirm('Bạn có chắc muốn xóa video bài học này không?')) {
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateLesson(lesson, { videoUrl: '', removeVideo: true });
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể xóa video.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeLessonImage = async (lesson, imageUrl) => {
+    if (!window.confirm('Bạn có chắc muốn xóa ảnh này không?')) {
+      return;
+    }
+    const remainingImages = getLessonImages(lesson).filter((item) => item !== imageUrl);
+    try {
+      setSaving(true);
+      await updateLesson(lesson, {
+        imageUrls: remainingImages.join(','),
+        removeImage: remainingImages.length === 0,
+      });
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể xóa ảnh.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeLessonDocument = async (lesson) => {
+    if (!window.confirm('Bạn có chắc muốn xóa tài liệu này không?')) {
+      return;
+    }
+    try {
+      setSaving(true);
+      await updateLesson(lesson, { fileUrl: '', removeDocument: true });
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể xóa tài liệu.');
     } finally {
       setSaving(false);
     }
@@ -381,7 +503,7 @@ const CourseEditor = () => {
   const publishCourse = async () => {
     const courseId = course?.id || id;
     try {
-      const updated = await api.post(`/api/instructor/courses/${courseId}/publish`, {});
+      const updated = await api.patch(`/api/instructor/courses/${courseId}/publish`, { isPublished: true });
       setCourse(updated);
       setSections(updated.sections || []);
       window.alert('Khóa học đã được xuất bản.');
@@ -393,7 +515,7 @@ const CourseEditor = () => {
   const unpublishCourse = async () => {
     const courseId = course?.id || id;
     try {
-      const updated = await api.post(`/api/instructor/courses/${courseId}/unpublish`, {});
+      const updated = await api.patch(`/api/instructor/courses/${courseId}/publish`, { isPublished: false });
       setCourse(updated);
       setSections(updated.sections || []);
       window.alert('Khóa học đã được chuyển về bản nháp.');
@@ -433,9 +555,24 @@ const CourseEditor = () => {
             name="thumbnail"
             value={courseForm.thumbnail}
             onChange={handleCourseFieldChange}
-            placeholder="Dán URL ảnh bìa"
+            placeholder="Dán URL ảnh bìa hoặc tải ảnh lên"
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
           />
+          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
+            <Upload className="h-4 w-4" />
+            Tải ảnh từ máy tính
+            <input 
+              type="file" 
+              accept="image/*" 
+              className="hidden" 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  setCourseForm(prev => ({ ...prev, coverImageFile: file, thumbnail: URL.createObjectURL(file) }));
+                }
+              }} 
+            />
+          </label>
         </div>
       </section>
 
@@ -444,7 +581,7 @@ const CourseEditor = () => {
           <p className="text-sm font-medium text-slate-900">Xem trước thông tin</p>
           <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white">
             {courseForm.thumbnail ? (
-              <img src={courseForm.thumbnail} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
+              <img src={getFileUrl(courseForm.thumbnail)} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
             ) : (
               <div className="text-center text-slate-400">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-500">
@@ -558,7 +695,7 @@ const CourseEditor = () => {
                         <GripVertical className="h-5 w-5" />
                       </button>
                       <div className="grid flex-1 gap-3 md:grid-cols-[1.2fr_1fr]">
-                        <div className="space-y-3">
+                        <div className="flex min-h-[260px] flex-col space-y-3 md:min-h-[520px]">
                           <div>
                             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Bài {lessonIndex + 1}</p>
                             <input
@@ -573,7 +710,7 @@ const CourseEditor = () => {
                                   }))
                                 )
                               }
-                              onBlur={(event) => updateLesson(lesson.id, { title: event.target.value })}
+                              onBlur={(event) => updateLesson(lesson, { title: event.target.value })}
                               className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
                             />
                           </div>
@@ -589,10 +726,10 @@ const CourseEditor = () => {
                                 }))
                               )
                             }
-                            onBlur={(event) => updateLesson(lesson.id, { content: event.target.value })}
+                            onBlur={(event) => updateLesson(lesson, { content: event.target.value })}
                             rows={3}
                             placeholder="Mô tả bài học, tài liệu đính kèm, kết quả cần đạt..."
-                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                            className="min-h-[180px] w-full flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 md:min-h-[420px]"
                           />
                         </div>
 
@@ -614,15 +751,107 @@ const CourseEditor = () => {
                                   }))
                                 )
                               }
-                              onBlur={(event) => updateLesson(lesson.id, { videoUrl: event.target.value })}
+                              onBlur={(event) => updateLesson(lesson, { videoUrl: event.target.value })}
                               placeholder="Dán video URL nếu cần"
                               className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
                             />
                             <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
                               <Upload className="h-4 w-4" />
                               Tải video
-                              <input type="file" accept="video/*" className="hidden" onChange={(event) => uploadLessonVideo(lesson.id, event.target.files?.[0])} />
+                              <input type="file" accept="video/*" className="hidden" onChange={(event) => uploadLessonVideo(lesson, event.target.files?.[0])} />
                             </label>
+                            {lesson.videoUrl && (
+                              <button
+                                type="button"
+                                onClick={() => removeLessonVideo(lesson)}
+                                className="ml-2 mt-3 inline-flex items-center gap-2 rounded-full border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                              >
+                                Xóa video
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-slate-900">Ảnh minh họa bài học</p>
+                              <span className="text-xs text-slate-500">{getLessonImages(lesson).length} ảnh</span>
+                            </div>
+                            {getLessonImages(lesson).length > 0 && (
+                              <div className="mt-3 grid grid-cols-3 gap-2">
+                                {getLessonImages(lesson).map((imageUrl) => (
+                                  <div
+                                    key={imageUrl}
+                                    className="group relative aspect-video overflow-hidden rounded-lg border border-slate-100 bg-slate-50"
+                                  >
+                                    <a href={getFileUrl(imageUrl)} target="_blank" rel="noreferrer" className="block h-full w-full">
+                                      <img src={getFileUrl(imageUrl)} alt="Ảnh minh họa bài học" className="h-full w-full object-cover" />
+                                    </a>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeLessonImage(lesson, imageUrl)}
+                                      className="absolute right-1 top-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-rose-600 shadow-sm opacity-0 transition group-hover:opacity-100"
+                                    >
+                                      Xóa
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
+                              <ImageIcon className="h-4 w-4" />
+                              Tải nhiều ảnh
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                onChange={(event) => uploadLessonImages(lesson, event.target.files)}
+                              />
+                            </label>
+                            <p className="mt-2 text-xs text-slate-500">Có thể chọn nhiều ảnh từ máy tính cùng lúc.</p>
+                          </div>
+
+                          <div className="rounded-xl border border-slate-200 bg-white p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-slate-900">Tài liệu đính kèm</p>
+                              {lesson.fileUrl && (
+                                <a
+                                  href={getFileUrl(lesson.fileUrl)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-xs font-semibold text-purple-600 hover:underline"
+                                >
+                                  Xem tài liệu
+                                </a>
+                              )}
+                            </div>
+                            {lesson.fileUrl && (
+                              <p className="mt-2 truncate rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                                {lesson.fileUrl}
+                              </p>
+                            )}
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
+                                <Upload className="h-4 w-4" />
+                                Tải tài liệu
+                                <input
+                                  type="file"
+                                  accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                  className="hidden"
+                                  onChange={(event) => uploadLessonDocument(lesson, event.target.files?.[0])}
+                                />
+                              </label>
+                              {lesson.fileUrl && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeLessonDocument(lesson)}
+                                  className="inline-flex items-center gap-2 rounded-full border border-rose-200 px-3 py-2 text-sm font-medium text-rose-600 hover:bg-rose-50"
+                                >
+                                  Xóa tài liệu
+                                </button>
+                              )}
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">Hỗ trợ PDF, Word và PowerPoint.</p>
                           </div>
 
                           <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
@@ -631,7 +860,7 @@ const CourseEditor = () => {
                               <input
                                 type="checkbox"
                                 checked={Boolean(lesson.isPreview)}
-                                onChange={(event) => updateLesson(lesson.id, { isPreview: event.target.checked })}
+                                onChange={(event) => updateLesson(lesson, { isPreview: event.target.checked })}
                                 className="h-4 w-4"
                               />
                             </label>
@@ -640,7 +869,7 @@ const CourseEditor = () => {
                               <input
                                 type="checkbox"
                                 checked={Boolean(lesson.isPublished)}
-                                onChange={(event) => updateLesson(lesson.id, { isPublished: event.target.checked })}
+                                onChange={(event) => updateLesson(lesson, { isPublished: event.target.checked })}
                                 className="h-4 w-4"
                               />
                             </label>
@@ -946,19 +1175,26 @@ const CourseEditor = () => {
         >
           {activeStep === 1 ? 'Quay lại bảng điều khiển' : 'Quay lại'}
         </button>
-        <button
-          onClick={handleContinue}
-          className="rounded-full bg-purple-600 px-5 py-2.5 text-sm font-medium text-white"
-        >
-          {activeStep === STEPS.length ? 'Hoàn tất' : 'Tiếp tục'}
-        </button>
+        {activeStep < STEPS.length && (
+          <button
+            onClick={handleContinue}
+            className="rounded-full bg-purple-600 px-5 py-2.5 text-sm font-medium text-white"
+          >
+            Tiếp tục
+          </button>
+        )}
       </div>
 
       {selectedLessonForQuiz && (
         <QuizEditorModal
           lessonId={selectedLessonForQuiz.id}
           lessonTitle={selectedLessonForQuiz.title}
-          onClose={() => setSelectedLessonForQuiz(null)}
+          onClose={() => {
+            setSelectedLessonForQuiz(null);
+            if (course?.id || id) {
+              fetchCourse(course?.id || id);
+            }
+          }}
         />
       )}
     </div>

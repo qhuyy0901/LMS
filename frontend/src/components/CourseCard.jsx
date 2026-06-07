@@ -1,5 +1,6 @@
 import { Star, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getFileUrl } from '../utils/fileUtils';
 
 export default function CourseCard({ course }) {
   const navigate = useNavigate();
@@ -13,11 +14,12 @@ export default function CourseCard({ course }) {
     }
   }
 
-  const instructorName = course.instructor?.name || 'Giảng viên';
-  const lessonsCount = course._count?.lessons || 0;
-  const enrollmentsCount = course._count?.enrollments || 0;
-  const averageRating = Number(course.averageRating || 0);
-  const reviewCount = Number(course.reviewCount || 0);
+  const instructorName = course.instructor?.name || course.instructorName || 'Giảng viên';
+  const lessonsCount = course._count?.lessons ?? course.lessonCount ?? course.totalLessons ?? 0;
+  const enrollmentsCount = course._count?.enrollments ?? course.studentCount ?? course.enrollments ?? course.students ?? 0;
+  const averageRating = Number(course.averageRating || course.rating || 0);
+  const reviewCount = Number(course.reviewCount || course.reviews || 0);
+  const category = course.category || meta.category || 'Chung';
 
   const formatNumber = (num) => {
     if (!num) return 0;
@@ -35,12 +37,12 @@ export default function CourseCard({ course }) {
         }`}
       >
         {course.thumbnail ? (
-          <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
+          <img src={getFileUrl(course.thumbnail)} alt={course.title} className="h-full w-full object-cover" />
         ) : (
           <div className="text-6xl">{meta.icon || '📚'}</div>
         )}
         <span className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-medium text-slate-700">
-          {meta.category || 'Chung'}
+          {category}
         </span>
         {meta.badge ? (
           <span

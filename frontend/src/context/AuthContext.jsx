@@ -2,7 +2,8 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import axios from 'axios';
 
 const AuthContext = createContext();
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl;
 
 axios.defaults.baseURL = API_URL;
 

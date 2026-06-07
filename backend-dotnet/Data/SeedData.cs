@@ -1,5 +1,5 @@
 using LMS.Api.Models;
-using LMS.Api.Security;
+using LMS.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Api.Data;
@@ -16,9 +16,9 @@ public static class SeedData
         var now = DateTime.UtcNow;
         var password = BCrypt.Net.BCrypt.HashPassword("123456");
 
-        var admin = new User
+        var admin = new NguoiDung
         {
-            Id = Cuid.New(),
+            Id = TaoId.Moi(),
             Email = "admin@gmail.com",
             Name = "Quản trị viên",
             Password = password,
@@ -28,9 +28,9 @@ public static class SeedData
             UpdatedAt = now
         };
 
-        var instructor = new User
+        var instructor = new NguoiDung
         {
-            Id = Cuid.New(),
+            Id = TaoId.Moi(),
             Email = "instructor@gmail.com",
             Name = "GV. Kim",
             Password = password,
@@ -41,9 +41,9 @@ public static class SeedData
             UpdatedAt = now
         };
 
-        var student = new User
+        var student = new NguoiDung
         {
-            Id = Cuid.New(),
+            Id = TaoId.Moi(),
             Email = "student@gmail.com",
             Name = "Học viên Demo",
             Password = password,
@@ -54,14 +54,16 @@ public static class SeedData
             UpdatedAt = now
         };
 
-        var course = new Course
+        var course = new KhoaHoc
         {
-            Id = Cuid.New(),
-            Title = "Lập trình React nâng cao",
-            Slug = "lap-trinh-react-nang-cao",
-            Description = "Khóa học thực hành giúp học viên xây dựng giao diện hiện đại, quản lý trạng thái và tối ưu trải nghiệm người dùng.",
-            Thumbnail = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80",
-            Price = 399000,
+            Id = TaoId.Moi(),
+            Title = "CCNA 200-301 cho người mới bắt đầu",
+            Slug = "ccna-200-301-cho-nguoi-moi-bat-dau",
+            Description = "Mạng máy tính là hệ thống kết nối từ hai hoặc nhiều thiết bị lại với nhau để trao đổi dữ liệu, chia sẻ tài nguyên và giao tiếp thông qua các giao thức mạng.",
+            Thumbnail = "/uploads/images/ccna-cover.png",
+            Category = "Mạng máy tính",
+            Level = "BEGINNER",
+            Price = 3999000,
             AverageRating = 4.8,
             ReviewCount = 1,
             MinimumMemberTier = "BRONZE",
@@ -73,12 +75,31 @@ public static class SeedData
             UpdatedAt = now
         };
 
-        var section = new Section
+        var section1 = new ChuongHoc
         {
-            Id = Cuid.New(),
-            Title = "Bắt đầu với kiến trúc React",
-            Description = "Thiết lập nền tảng dự án và tư duy component.",
+            Id = TaoId.Moi(),
+            Title = "GIỚI THIỆU MẠNG MÁY TÍNH",
             Position = 1,
+            CourseId = course.Id,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var section2 = new ChuongHoc
+        {
+            Id = TaoId.Moi(),
+            Title = "SWITCHING",
+            Position = 2,
+            CourseId = course.Id,
+            CreatedAt = now,
+            UpdatedAt = now
+        };
+
+        var section3 = new ChuongHoc
+        {
+            Id = TaoId.Moi(),
+            Title = "SECURITY",
+            Position = 3,
             CourseId = course.Id,
             CreatedAt = now,
             UpdatedAt = now
@@ -86,51 +107,32 @@ public static class SeedData
 
         var lessons = new[]
         {
-            new Lesson
-            {
-                Id = Cuid.New(),
-                Title = "Tổ chức cấu trúc dự án",
-                Content = "Các nguyên tắc chia thư mục, tách component và giữ code dễ mở rộng.",
-                DurationSeconds = 900,
-                Position = 1,
-                IsPublished = true,
-                IsPreview = true,
-                CourseId = course.Id,
-                SectionId = section.Id,
-                CreatedAt = now,
-                UpdatedAt = now
-            },
-            new Lesson
-            {
-                Id = Cuid.New(),
-                Title = "Quản lý trạng thái trong ứng dụng",
-                Content = "Kết hợp state cục bộ, context và truy vấn dữ liệu để giao diện phản hồi mượt.",
-                DurationSeconds = 1800,
-                Position = 2,
-                IsPublished = true,
-                IsPreview = false,
-                CourseId = course.Id,
-                SectionId = section.Id,
-                CreatedAt = now,
-                UpdatedAt = now
-            }
+            // Section 1
+            new BaiHoc { Id = TaoId.Moi(), Title = "Mạng máy tính là gì?", Content = "Mạng máy tính là hệ thống kết nối từ hai hoặc nhiều thiết bị lại với nhau để trao đổi dữ liệu, chia sẻ tài nguyên và giao tiếp thông qua các giao thức mạng.", VideoUrl = "/uploads/videos/ccna-bai-1.mp4", DurationSeconds = 900, Position = 1, IsPublished = true, IsPreview = true, CourseId = course.Id, SectionId = section1.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Các loại mạng: LAN, WAN, MAN", Content = "LAN, WAN và MAN là ba loại mạng phổ biến được phân loại theo phạm vi kết nối. LAN là mạng cục bộ, MAN là mạng đô thị, còn WAN là mạng diện rộng.", VideoUrl = "/uploads/videos/ccna-bai-2.mp4", DurationSeconds = 1800, Position = 2, IsPublished = true, IsPreview = true, CourseId = course.Id, SectionId = section1.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Thiết bị mạng cơ bản: Router, Switch, Access Point", DurationSeconds = 600, Position = 3, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section1.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Mô hình OSI và TCP/IP", DurationSeconds = 600, Position = 4, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section1.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "LAB: Kiểm tra kết nối mạng cơ bản", DurationSeconds = 600, Position = 5, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section1.Id, CreatedAt = now, UpdatedAt = now },
+
+            // Section 2
+            new BaiHoc { Id = TaoId.Moi(), Title = "Switch là gì và cách hoạt động", DurationSeconds = 600, Position = 1, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section2.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Địa chỉ MAC và bảng MAC Address Table", DurationSeconds = 600, Position = 2, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section2.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "VLAN là gì?", DurationSeconds = 600, Position = 3, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section2.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Cấu hình VLAN cơ bản", DurationSeconds = 600, Position = 4, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section2.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Trunking và chuẩn 802.1Q", DurationSeconds = 600, Position = 5, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section2.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "LAB: Cấu hình VLAN và Trunk trên Cisco Packet Tracer", DurationSeconds = 600, Position = 6, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section2.Id, CreatedAt = now, UpdatedAt = now },
+
+            // Section 3
+            new BaiHoc { Id = TaoId.Moi(), Title = "Key security concepts", DurationSeconds = 600, Position = 1, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section3.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "Port Security, VLAN Hopping, SPAN, BPDU Guard", DurationSeconds = 600, Position = 2, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section3.Id, CreatedAt = now, UpdatedAt = now },
+            new BaiHoc { Id = TaoId.Moi(), Title = "LAB: Port Security, SPAN, BPDU Guard", DurationSeconds = 600, Position = 3, IsPublished = true, IsPreview = false, CourseId = course.Id, SectionId = section3.Id, CreatedAt = now, UpdatedAt = now }
         };
 
         db.Users.AddRange(admin, instructor, student);
         db.Courses.Add(course);
-        db.Sections.Add(section);
+        db.Sections.AddRange(section1, section2, section3);
         db.Lessons.AddRange(lessons);
-        db.CourseReviews.Add(new CourseReview
-        {
-            Id = Cuid.New(),
-            Rating = 5,
-            Comment = "Nội dung rõ ràng, dễ áp dụng vào dự án thật.",
-            UserId = student.Id,
-            CourseId = course.Id,
-            CreatedAt = now,
-            UpdatedAt = now
-        });
-
+        
         await db.SaveChangesAsync();
     }
 }

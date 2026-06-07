@@ -16,6 +16,7 @@ import {
   Wallet,
   X,
 } from 'lucide-react';
+import { getFileUrl } from '../utils/fileUtils';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -254,7 +255,10 @@ export default function CourseDetails() {
     );
   }
 
-  const totalLessons = course.lessons?.length || course._count?.lessons || 0;
+  const totalLessons = course.sections
+    ? course.sections.reduce((acc, sec) => acc + (sec.lessons?.length || 0), 0)
+    : course.lessons?.length || course._count?.lessons || 0;
+  const hasPreview = course.sections?.some(s => s.lessons?.some(l => l.isPreview)) || course.lessons?.some(l => l.isPreview);
   const isEnrolled = course.isEnrolled;
   const averageRating = Number(course.averageRating || 0);
   const reviewCount = Number(course.reviewCount || 0);
@@ -278,7 +282,7 @@ export default function CourseDetails() {
               }`}
             >
               {course.thumbnail ? (
-                <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
+                <img src={getFileUrl(course.thumbnail)} alt={course.title} className="h-full w-full object-cover" />
               ) : (
                 <div className="text-8xl">{meta.icon || '🎓'}</div>
               )}
@@ -369,7 +373,7 @@ export default function CourseDetails() {
                                 {lesson.durationSeconds ? <span>{formatDuration(lesson.durationSeconds)}</span> : null}
                                 {lesson.isPreview ? (
                                   <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-600">
-                                    Preview
+                                    Học thử
                                   </span>
                                 ) : null}
                               </div>
@@ -510,44 +514,6 @@ export default function CourseDetails() {
               </div>
             ) : null}
 
-            {/* Coupon Input */}
-            {!isEnrolled && course.price > 0 && (
-              <div className="mb-5">
-                {couponResult?.valid ? (
-                  <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
-                    <Tag className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    <span className="flex-1 text-sm font-semibold text-green-800 tracking-wider">{couponResult.couponCode}</span>
-                    <button onClick={handleRemoveCoupon} className="rounded-full p-1 hover:bg-green-100 transition">
-                      <X className="h-3.5 w-3.5 text-green-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      value={couponCode}
-                      onChange={(e) => {
-                        setCouponCode(e.target.value);
-                        if (couponResult) setCouponResult(null);
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && handleValidateCoupon()}
-                      placeholder="Nhập mã giảm giá"
-                      className="flex-1 rounded-xl border border-slate-200 px-4 py-2.5 text-sm uppercase tracking-wider font-medium outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100 transition-all"
-                    />
-                    <button
-                      onClick={handleValidateCoupon}
-                      disabled={validatingCoupon || !couponCode.trim()}
-                      className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:opacity-50"
-                    >
-                      {validatingCoupon ? '...' : 'Áp dụng'}
-                    </button>
-                  </div>
-                )}
-                {couponResult && !couponResult.valid && (
-                  <p className="mt-2 text-xs text-rose-600">{couponResult.error}</p>
-                )}
-              </div>
-            )}
-
             {isEnrolled ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 rounded-2xl bg-green-50 p-4 text-green-700">
@@ -577,13 +543,23 @@ export default function CourseDetails() {
                 </button>
               </div>
             ) : (
-              <button
-                onClick={handleEnroll}
-                disabled={enrolling}
-                className="w-full rounded-2xl bg-purple-600 px-6 py-4 font-semibold text-white transition-all hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {enrolling ? 'Đang xử lý...' : course.price > 0 ? (couponResult?.valid ? `Mua với ${formatCurrency(couponResult.finalPrice)}` : 'Mua bằng ví nội bộ') : 'Đăng ký học ngay'}
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={handleEnroll}
+                  disabled={enrolling}
+                  className="w-full rounded-2xl bg-purple-600 px-6 py-4 font-semibold text-white transition-all hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-200 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {enrolling ? 'Đang xử lý...' : course.price > 0 ? (couponResult?.valid ? `Mua với ${formatCurrency(couponResult.finalPrice)}` : 'Mua khóa học') : 'Đăng ký học miễn phí'}
+                </button>
+                {hasPreview && (
+                  <button
+                    onClick={() => navigate(`/learn/${id}`)}
+                    className="w-full rounded-2xl border-2 border-purple-600 bg-white px-6 py-4 font-semibold text-purple-600 transition-all hover:bg-purple-50"
+                  >
+                    Học thử
+                  </button>
+                )}
+              </div>
             )}
 
             <div className="mt-8 space-y-4">

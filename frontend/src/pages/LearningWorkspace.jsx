@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { 
   ChevronLeft, PlayCircle, CheckCircle, Circle, 
-  MessageSquare, FileText, Download, Share2,
+  MessageSquare, FileText, Download,
   ChevronDown, ChevronUp, BookOpen, Send, X, CornerDownRight,
-  Clock, HelpCircle, Award, AlertCircle, ArrowRight, RotateCcw, Check, Loader2
+  Clock, HelpCircle, Award, AlertCircle, ArrowRight, RotateCcw, Check, Loader2, Lock
 } from 'lucide-react';
+import { getFileUrl } from '../utils/fileUtils';
 
 export default function LearningWorkspace() {
   const { courseId } = useParams();
@@ -41,7 +42,8 @@ export default function LearningWorkspace() {
         const response = await axios.get(`/api/courses/${courseId}`);
         const data = response.data;
         
-        if (!data.isEnrolled) {
+        const hasPreview = data.sections?.some(s => s.lessons?.some(l => l.isPreview)) || data.lessons?.some(l => l.isPreview);
+        if (!data.isEnrolled && !hasPreview) {
           navigate(`/course/${courseId}`);
           return;
         }
@@ -72,8 +74,18 @@ export default function LearningWorkspace() {
     fetchCourse();
   }, [courseId, navigate]);
 
-  const lessons = course?.lessons || [];
+  const lessons = course?.lessons || (course?.sections ? course.sections.flatMap(s => s.lessons) : []);
   const activeLesson = lessons[activeLessonIndex];
+  const derivedProgress = lessons.length > 0 ? Math.round((completedLessons.length / lessons.length) * 100) : 0;
+  const displayedProgress = Math.max(Number(course?.progress || 0), derivedProgress);
+  
+  const isLessonLocked = (lesson) => {
+    if (!lesson) return true;
+    if (course?.isEnrolled) return false;
+    return !lesson.isPreview;
+  };
+  
+  const locked = isLessonLocked(activeLesson);
 
   // Tải Quiz khi đổi bài học
   useEffect(() => {
@@ -153,11 +165,19 @@ export default function LearningWorkspace() {
     if (!activeLesson || isCompleted(activeLessonIndex)) return;
     try {
       const res = await axios.post(`/api/courses/${courseId}/lessons/${activeLesson.id}/complete`);
-      setCompletedLessons([...completedLessons, activeLesson.id]);
-      setCourse({ ...course, progress: res.data.progress });
+      setCompletedLessons((prev) => (prev.includes(activeLesson.id) ? prev : [...prev, activeLesson.id]));
+      setCourse((prev) => ({
+        ...prev,
+        progress: res.data.progress ?? res.data.courseProgress ?? prev.progress,
+        certificate: res.data.certificate || prev.certificate,
+      }));
+      if (res.data.certificate) {
+        window.alert(`Bạn đã đủ điều kiện nhận chứng chỉ khóa học. Mã chứng chỉ: ${res.data.certificate.certificateNo}`);
+      }
       handleNextLesson();
     } catch (err) {
       console.error('Lỗi khi lưu tiến độ:', err);
+      alert(err.response?.data?.message || 'Không thể lưu tiến độ bài học.');
     }
   };
 
@@ -249,6 +269,11 @@ export default function LearningWorkspace() {
         }
       }
 
+      if (response.data.certificate) {
+        setCourse(prev => ({ ...prev, certificate: response.data.certificate }));
+        window.alert(`Bạn đã đủ điều kiện nhận chứng chỉ khóa học. Mã chứng chỉ: ${response.data.certificate.certificateNo}`);
+      }
+
       // Tải lại Quiz để cập nhật lịch sử làm bài trắc nghiệm
       const updatedQuizResponse = await axios.get(`/api/quizzes/lesson/${activeLesson.id}`);
       setQuiz(updatedQuizResponse.data);
@@ -311,20 +336,16 @@ export default function LearningWorkspace() {
           <div className="hidden lg:flex items-center gap-3">
             <div className="flex flex-col items-end">
               <span className="text-[10px] text-slate-400">Tiến độ khóa học</span>
-              <span className="text-xs font-semibold text-white">{course.progress}%</span>
+              <span className="text-xs font-semibold text-white">{displayedProgress}%</span>
             </div>
             <div className="w-32 h-2 bg-slate-800 rounded-full overflow-hidden">
               <div 
                 className="h-full bg-purple-500 rounded-full transition-all duration-500"
-                style={{ width: `${course.progress}%` }}
+                style={{ width: `${displayedProgress}%` }}
               ></div>
             </div>
           </div>
           
-          <button className="flex items-center gap-2 text-sm font-medium bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-full transition-colors">
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Chia sẻ</span>
-          </button>
         </div>
       </header>
 
@@ -332,10 +353,10 @@ export default function LearningWorkspace() {
       <div className="flex flex-1 overflow-hidden">
         
         {/* Left Column: Media Player & Content Details */}
-        <div className="flex-1 flex flex-col h-full bg-white overflow-y-auto custom-scrollbar relative">
+          <div className="flex-1 flex flex-col h-full bg-white overflow-y-auto custom-scrollbar relative">
           
           {/* Video Player Area (Chỉ render nếu bài học có Video URL) */}
-          {activeLesson?.videoUrl ? (
+          {activeLesson?.videoUrl && !locked ? (
             <div className="w-full bg-black aspect-video relative group flex shrink-0 items-center justify-center shadow-inner">
               {isYoutubeVideo ? (
                 <iframe 
@@ -347,24 +368,34 @@ export default function LearningWorkspace() {
                 ></iframe>
               ) : (
                 <video 
-                  src={activeLesson.videoUrl} 
+                  src={getFileUrl(activeLesson.videoUrl)} 
                   className="w-full h-full object-contain"
                   controls
                   autoPlay
                 />
               )}
             </div>
+          ) : locked ? (
+            <div className="w-full bg-slate-900 aspect-video relative flex flex-col items-center justify-center shadow-inner text-white p-6 text-center">
+              <Lock className="w-16 h-16 text-slate-500 mb-4" />
+              <h3 className="text-xl font-bold mb-2">Bài học bị khóa</h3>
+              <p className="text-slate-400 mb-4 max-w-md">
+                Bài học này thuộc nội dung trả phí. Vui lòng mua khóa học để tiếp tục học.
+              </p>
+              <button onClick={() => navigate(`/course/${courseId}`)} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all">
+                Mua khóa học
+              </button>
+            </div>
           ) : null}
 
           {/* Lesson Content & Workspace Tabs */}
-          <div className="flex-1 bg-white flex flex-col min-h-0">
+          <div className="bg-white flex flex-col shrink-0">
             {/* Tabs Header */}
-            <div className="flex items-center gap-8 px-8 border-b border-slate-100 shrink-0 bg-slate-50/50">
+            <div className="sticky top-0 z-20 flex items-center gap-8 overflow-x-auto border-b border-slate-100 bg-white/95 px-8 shadow-sm backdrop-blur">
               {[
                 'overview',
                 ...(activeLesson?.quiz ? ['quiz'] : []),
                 'qna',
-                'notes',
                 'resources'
               ].map((tab) => (
                 <button
@@ -379,7 +410,6 @@ export default function LearningWorkspace() {
                   {tab === 'overview' && 'Tổng quan'}
                   {tab === 'quiz' && 'Trắc nghiệm'}
                   {tab === 'qna' && 'Hỏi đáp'}
-                  {tab === 'notes' && 'Ghi chú'}
                   {tab === 'resources' && 'Tài liệu'}
                   
                   {tab === 'qna' && comments.length > 0 && (
@@ -393,7 +423,7 @@ export default function LearningWorkspace() {
             </div>
 
             {/* Tab Contents */}
-            <div className="p-8 flex-1 overflow-y-auto custom-scrollbar">
+            <div className="p-8">
               
               {/* Tab: TỔNG QUAN */}
               {activeTab === 'overview' && (
@@ -430,7 +460,11 @@ export default function LearningWorkspace() {
                   </h2>
                   
                   <div className="prose prose-slate max-w-none">
-                    {activeLesson?.content ? (
+                    {locked ? (
+                      <div className="text-slate-500 italic flex items-center gap-2 bg-slate-50/50 border border-slate-100 p-6 rounded-2xl">
+                        <Lock className="w-5 h-5" /> Nội dung bài học bị khóa.
+                      </div>
+                    ) : activeLesson?.content ? (
                       <div className="text-slate-700 leading-relaxed text-base whitespace-pre-line bg-slate-50/50 border border-slate-100 p-6 rounded-2xl">
                         {activeLesson.content}
                       </div>
@@ -765,6 +799,14 @@ export default function LearningWorkspace() {
                                 </span>
                               </div>
                             </div>
+                            {quizResult.certificate && (
+                              <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900">
+                                <p className="font-bold">Bạn đã đủ điều kiện nhận chứng nhận khóa học.</p>
+                                <p className="mt-1 text-xs">
+                                  Mã chứng nhận: {quizResult.certificate.certificateNo}. Bạn có thể xem lại trong mục Chứng chỉ.
+                                </p>
+                              </div>
+                            )}
                           </div>
 
                           {/* Chi tiết đáp án */}
@@ -1042,21 +1084,6 @@ export default function LearningWorkspace() {
                 </div>
               )}
 
-              {/* Tab: GHI CHÚ */}
-              {activeTab === 'notes' && (
-                <div className="max-w-3xl animate-fade-in-up flex flex-col items-center justify-center py-12 text-center">
-                  <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center mb-4 border border-amber-100">
-                    <FileText className="w-8 h-8" />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900 mb-2">Sổ tay ghi chú cá nhân</h3>
-                  <p className="text-sm text-slate-500 mb-6 max-w-sm">
-                    Lưu nhanh kiến thức, dòng code quan trọng khi học. Ghi chú cá nhân tự động lưu lại và chỉ mình bạn xem được.
-                  </p>
-                  <button className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors">
-                    Tạo ghi chú mới
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>

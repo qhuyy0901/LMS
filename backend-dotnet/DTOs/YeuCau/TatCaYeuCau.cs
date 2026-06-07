@@ -11,6 +11,9 @@ public record DangNhapRequest(string Email, string Password);
 /// <summary>Yêu cầu cập nhật thông tin người dùng</summary>
 public record CapNhatNguoiDungRequest(string? Name, string? Phone, string? Bio, JsonElement? Settings);
 
+/// <summary>Yêu cầu đổi mật khẩu người dùng</summary>
+public record DoiMatKhauRequest(string CurrentPassword, string NewPassword);
+
 /// <summary>Yêu cầu thay đổi vai trò người dùng (admin)</summary>
 public record DoiVaiTroRequest(string Role);
 

@@ -481,10 +481,65 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocIds = await db.Courses.AsNoTracking().Where(c => c.InstructorId == userId).Select(c => c.Id).ToListAsync();
-        var tongDoanhThu = await db.Purchases.Where(p => khoaHocIds.Contains(p.CourseId)).SumAsync(p => p.FinalAmount);
-        var soMua = await db.Purchases.CountAsync(p => khoaHocIds.Contains(p.CourseId));
-        return Results.Ok(new { totalRevenue = tongDoanhThu, totalPurchases = soMua, courseCount = khoaHocIds.Count });
+        var khoaHocs = await db.Courses.AsNoTracking()
+            .Where(c => c.InstructorId == userId)
+            .Include(c => c.Enrollments)
+            .Include(c => c.Purchases)
+                .ThenInclude(p => p.User)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
+        var giaoDichHoanTat = await db.Purchases.AsNoTracking()
+            .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
+            .Include(p => p.User)
+            .Include(p => p.Course)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+
+        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.FinalAmount);
+        var soMua = giaoDichHoanTat.Count;
+        var soHocVienMua = giaoDichHoanTat.Select(p => p.UserId).Distinct().Count();
+        var giaTriTrungBinh = soMua == 0 ? 0 : (int)Math.Round(tongDoanhThu / (double)soMua);
+
+        return Results.Ok(new
+        {
+            totalRevenue = tongDoanhThu,
+            totalPurchases = soMua,
+            totalStudents = soHocVienMua,
+            averageOrderValue = giaTriTrungBinh,
+            courseCount = khoaHocs.Count,
+            courses = khoaHocs.Select(c =>
+            {
+                var purchases = c.Purchases.Where(p => p.Status == "COMPLETED").ToList();
+                return new
+                {
+                    c.Id,
+                    title = c.Title,
+                    price = c.Price,
+                    isPublished = IsCoursePublished(c),
+                    status = c.Status,
+                    enrollments = c.Enrollments.Count,
+                    purchases = purchases.Count,
+                    revenue = purchases.Sum(p => p.FinalAmount),
+                    averageRating = c.AverageRating,
+                    reviewCount = c.ReviewCount,
+                    createdAt = c.CreatedAt,
+                    updatedAt = c.UpdatedAt
+                };
+            }),
+            recentPurchases = giaoDichHoanTat.Take(10).Select(p => new
+            {
+                p.Id,
+                amount = p.FinalAmount,
+                originalAmount = p.OriginalAmount,
+                discountAmount = p.DiscountAmount,
+                status = p.Status,
+                createdAt = p.CreatedAt,
+                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
+                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }
+            })
+        });
     }
 
     [HttpGet("/api/instructor/students")]

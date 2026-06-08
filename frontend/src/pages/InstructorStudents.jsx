@@ -4,8 +4,65 @@ import { BookOpen, GraduationCap, Search, Users } from 'lucide-react';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
+const emptyStudentsData = {
+  students: [],
+  totalStudents: 0,
+  totalEnrollments: 0,
+  averageProgress: 0,
+};
+
+const normalizeStudentsResponse = (payload) => {
+  if (Array.isArray(payload)) {
+    const grouped = new Map();
+
+    payload.forEach((enrollment) => {
+      const user = enrollment.user || {};
+      const course = enrollment.course || {};
+      const studentId = user.id || enrollment.userId || enrollment.hocVienId || enrollment.id;
+      if (!studentId) return;
+
+      const current = grouped.get(studentId) || {
+        id: studentId,
+        name: user.name || enrollment.tenHocVien || 'Học viên',
+        email: user.email || enrollment.emailHocVien || '',
+        avatar: user.avatar || null,
+        courses: [],
+      };
+
+      current.courses.push({
+        id: course.id || enrollment.courseId || enrollment.khoaHocId,
+        title: course.title || enrollment.tenKhoaHoc || 'Khóa học',
+        progress: enrollment.progress || enrollment.tienDo || 0,
+        completedAt: enrollment.completedAt,
+        enrolledAt: enrollment.createdAt || enrollment.ngayDangKy,
+      });
+
+      grouped.set(studentId, current);
+    });
+
+    const students = Array.from(grouped.values()).map((student) => ({
+      ...student,
+      courseCount: student.courses.length,
+      averageProgress: averageCourseProgress(student.courses),
+    }));
+
+    return {
+      students,
+      totalStudents: students.length,
+      totalEnrollments: payload.length,
+      averageProgress: averageProgress(students),
+    };
+  }
+
+  return {
+    ...emptyStudentsData,
+    ...(payload || {}),
+    students: Array.isArray(payload?.students) ? payload.students : [],
+  };
+};
+
 const InstructorStudents = () => {
-  const [data, setData] = useState({ students: [], totalStudents: 0, totalEnrollments: 0 });
+  const [data, setData] = useState(emptyStudentsData);
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -13,7 +70,7 @@ const InstructorStudents = () => {
     const fetchStudents = async () => {
       try {
         const response = await axios.get('/api/instructor/students');
-        setData(response.data || { students: [], totalStudents: 0, totalEnrollments: 0 });
+        setData(normalizeStudentsResponse(response.data));
       } catch (error) {
         console.error('Instructor students fetch error:', error);
       } finally {
@@ -128,6 +185,13 @@ const initials = (value = '') =>
     .join('')
     .slice(0, 2)
     .toUpperCase();
+
+const averageCourseProgress = (courses = []) => {
+  if (!courses.length) {
+    return 0;
+  }
+  return Math.round(courses.reduce((sum, course) => sum + (course.progress || 0), 0) / courses.length);
+};
 
 const averageProgress = (students) => {
   if (!students.length) {

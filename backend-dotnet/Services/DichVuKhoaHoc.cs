@@ -24,6 +24,7 @@ public interface IDichVuKhoaHoc
         string? gia,
         string? hangThanhVien,
         string? loaiTruCuaNguoiDungId = null);
+    Task<object> LayExploreInsightsAsync();
     Task<object?> LayChiTietAsync(string khoaHocId, ClaimsPrincipal? nguoiDung);
     Task<object?> LayBaiHocThuAsync(string khoaHocId);
     Task<object?> LayKhoaHocDangHocAsync(string khoaHocId, ClaimsPrincipal nguoiDung);
@@ -117,6 +118,110 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
             .Select(kh => KhoaHocDto.TuKhoaHoc(kh)).ToListAsync();
 
         return TroGiup.PhanTrang(items, tong, trang, soLuong);
+    }
+
+    public async Task<object> LayExploreInsightsAsync()
+    {
+        var courses = await db.Courses.AsNoTracking()
+            .Where(kh => kh.IsPublished)
+            .Include(kh => kh.Instructor)
+            .Include(kh => kh.Sections)
+                .ThenInclude(section => section.Lessons)
+            .Include(kh => kh.Enrollments)
+            .Include(kh => kh.Reviews)
+            .OrderByDescending(kh => kh.Enrollments.Count)
+            .ThenByDescending(kh => kh.AverageRating)
+            .ThenByDescending(kh => kh.CreatedAt)
+            .ToListAsync();
+
+        var featuredCourse = courses.FirstOrDefault();
+        var recommendedCourses = courses.Skip(featuredCourse is null ? 0 : 1).Take(3).Select(kh => new
+        {
+            id = kh.Id,
+            title = kh.Title,
+            thumbnail = kh.Thumbnail,
+            instructorName = kh.Instructor?.Name ?? "Giảng viên",
+            lessons = kh.Sections.Sum(section => section.Lessons.Count),
+            students = kh.Enrollments.Count,
+            rating = Math.Round(kh.AverageRating, 1)
+        });
+
+        var topInstructors = courses
+            .Where(kh => kh.Instructor is not null)
+            .GroupBy(kh => kh.InstructorId)
+            .Select(group =>
+            {
+                var instructor = group.First().Instructor!;
+                return new
+                {
+                    id = instructor.Id,
+                    name = instructor.Name,
+                    avatar = instructor.Avatar,
+                    courseCount = group.Count(),
+                    studentCount = group.Sum(kh => kh.Enrollments.Count),
+                    averageRating = group.SelectMany(kh => kh.Reviews).Any()
+                        ? Math.Round(group.SelectMany(kh => kh.Reviews).Average(review => review.Rating), 1)
+                        : 0
+                };
+            })
+            .OrderByDescending(item => item.studentCount)
+            .ThenByDescending(item => item.averageRating)
+            .Take(4)
+            .ToList();
+
+        var trendingTopics = courses
+            .Where(kh => !string.IsNullOrWhiteSpace(kh.Category))
+            .GroupBy(kh => kh.Category.Trim())
+            .Select(group => new
+            {
+                name = group.Key,
+                courseCount = group.Count(),
+                studentCount = group.Sum(kh => kh.Enrollments.Count),
+                growth = Math.Min(99, Math.Max(8, group.Count() * 7 + group.Sum(kh => kh.Enrollments.Count) * 3))
+            })
+            .OrderByDescending(item => item.studentCount)
+            .ThenByDescending(item => item.courseCount)
+            .Take(5)
+            .ToList();
+
+        var learningPaths = courses
+            .Where(kh => !string.IsNullOrWhiteSpace(kh.Category))
+            .GroupBy(kh => kh.Category.Trim())
+            .Select(group => new
+            {
+                id = TaoSlug(group.Key),
+                title = $"Lộ trình {group.Key}",
+                category = group.Key,
+                courseCount = group.Count(),
+                lessonCount = group.Sum(kh => kh.Sections.Sum(section => section.Lessons.Count)),
+                estimatedMonths = Math.Clamp((int)Math.Ceiling(group.Sum(kh => kh.Sections.Sum(section => section.Lessons.Count)) / 12.0), 1, 12),
+                progress = 0
+            })
+            .OrderByDescending(item => item.courseCount)
+            .ThenByDescending(item => item.lessonCount)
+            .Take(3)
+            .ToList();
+
+        return new
+        {
+            featuredCourse = featuredCourse is null ? null : new
+            {
+                id = featuredCourse.Id,
+                title = featuredCourse.Title,
+                description = featuredCourse.ShortDescription ?? featuredCourse.Description,
+                thumbnail = featuredCourse.Thumbnail,
+                category = featuredCourse.Category,
+                lessons = featuredCourse.Sections.Sum(section => section.Lessons.Count),
+                sections = featuredCourse.Sections.Count,
+                students = featuredCourse.Enrollments.Count,
+                rating = Math.Round(featuredCourse.AverageRating, 1),
+                instructorName = featuredCourse.Instructor?.Name ?? "Giảng viên"
+            },
+            recommendedCourses,
+            topInstructors,
+            trendingTopics,
+            learningPaths
+        };
     }
 
     public async Task<object?> LayChiTietAsync(string khoaHocId, ClaimsPrincipal? nguoiDung)
@@ -337,6 +442,20 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
     }
 
     // ── Hàm nội bộ ──────────────────────────────────────────
+
+    private static string TaoSlug(string value)
+    {
+        var normalized = value.ToLowerInvariant().Normalize(NormalizationForm.FormD);
+        var builder = new StringBuilder();
+        foreach (var character in normalized)
+        {
+            var category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category == UnicodeCategory.NonSpacingMark) continue;
+            if (char.IsLetterOrDigit(character)) builder.Append(character);
+            else if (char.IsWhiteSpace(character) || character is '-' or '_') builder.Append('-');
+        }
+        return string.Join("-", builder.ToString().Split('-', StringSplitOptions.RemoveEmptyEntries));
+    }
 
     private async Task DongBoThongKeDanhGia(string khoaHocId)
     {

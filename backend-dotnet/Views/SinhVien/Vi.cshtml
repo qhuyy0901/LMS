@@ -1,0 +1,577 @@
+@model ViSinhVienViewModel
+@{
+    ViewData["Title"] = "Ví của tôi";
+
+    static string DinhDangTien(int soTien)
+    {
+        return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0} đ", soTien);
+    }
+
+    static string NhanPhuongThuc(string phuongThuc)
+    {
+        return phuongThuc switch
+        {
+            "BANK_TRANSFER" => "Chuyển khoản ngân hàng",
+            "QR" => "Quét mã QR",
+            _ => phuongThuc
+        };
+    }
+
+    static string NhanTrangThai(string trangThai)
+    {
+        return trangThai switch
+        {
+            "COMPLETED" => "Thành công",
+            "PENDING" => "Đang xử lý",
+            "FAILED" => "Thất bại",
+            _ => trangThai
+        };
+    }
+
+    static string LopTrangThai(string trangThai)
+    {
+        return trangThai switch
+        {
+            "COMPLETED" => "status success",
+            "PENDING" => "status pending",
+            "FAILED" => "status failed",
+            _ => "status"
+        };
+    }
+}
+
+@section Styles {
+    <style>
+        .wallet-header {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 360px;
+            gap: 20px;
+            align-items: stretch;
+            margin-bottom: 22px;
+        }
+
+        .hero, .panel {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            box-shadow: 0 18px 45px rgba(15, 23, 42, .06);
+        }
+
+        .hero {
+            padding: 30px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8fafc 56%, #eef2ff 100%);
+        }
+
+        .eyebrow {
+            margin: 0 0 10px;
+            color: #7c3aed;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: clamp(30px, 4vw, 46px);
+            line-height: 1.05;
+            letter-spacing: 0;
+        }
+
+        .hero-copy {
+            max-width: 650px;
+            margin: 12px 0 0;
+            color: #64748b;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .balance-card {
+            padding: 24px;
+            color: #fff;
+            background: linear-gradient(135deg, #0f172a, #312e81);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 185px;
+        }
+
+        .balance-label {
+            margin: 0;
+            color: #c4b5fd;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .balance-value {
+            margin: 12px 0 0;
+            font-size: clamp(30px, 4vw, 42px);
+            font-weight: 850;
+        }
+
+        .balance-note {
+            margin: 18px 0 0;
+            color: #e0e7ff;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 420px minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .stack {
+            display: grid;
+            gap: 20px;
+        }
+
+        .panel {
+            padding: 22px;
+        }
+
+        .panel h2 {
+            margin: 0 0 16px;
+            font-size: 20px;
+            letter-spacing: 0;
+        }
+
+        .alert {
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
+        .alert-success {
+            background: #dcfce7;
+            color: #166534;
+            border: 1px solid #bbf7d0;
+        }
+
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .quick-btn, .method-card {
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 13px 12px;
+            text-align: left;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .quick-btn:hover, .quick-btn.active {
+            border-color: #7c3aed;
+            background: #f3e8ff;
+            color: #6d28d9;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .field label, .field-label {
+            color: #475569;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        .amount-input {
+            width: 100%;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 13px 14px;
+            font: inherit;
+            font-weight: 700;
+            outline: none;
+        }
+
+        .amount-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 3px rgba(124, 58, 237, .16);
+        }
+
+        .method-grid {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .method-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .method-card input {
+            width: 16px;
+            height: 16px;
+            accent-color: #7c3aed;
+        }
+
+        .submit-btn, .confirm-btn {
+            width: 100%;
+            border: 0;
+            border-radius: 999px;
+            background: #7c3aed;
+            color: #fff;
+            padding: 14px 18px;
+            font: inherit;
+            font-weight: 850;
+            cursor: pointer;
+        }
+
+        .submit-btn:hover, .confirm-btn:hover {
+            background: #6d28d9;
+        }
+
+        .confirm-btn {
+            background: #16a34a;
+            margin-top: 16px;
+        }
+
+        .confirm-btn:hover {
+            background: #15803d;
+        }
+
+        .hint {
+            margin: 12px 0 0;
+            color: #64748b;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .payment-box {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 180px;
+            gap: 18px;
+            padding: 18px;
+            border: 1px solid #d8b4fe;
+            border-radius: 8px;
+            background: #faf5ff;
+        }
+
+        .payment-row {
+            display: grid;
+            grid-template-columns: 170px minmax(0, 1fr);
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid #eadcff;
+            font-size: 14px;
+        }
+
+        .payment-row:last-child {
+            border-bottom: 0;
+        }
+
+        .payment-label {
+            color: #64748b;
+            font-weight: 700;
+        }
+
+        .payment-value {
+            color: #0f172a;
+            font-weight: 850;
+            word-break: break-word;
+        }
+
+        .qr-demo {
+            min-height: 180px;
+            border: 2px dashed #7c3aed;
+            border-radius: 8px;
+            background: #fff;
+            display: grid;
+            place-items: center;
+            color: #6d28d9;
+            font-weight: 900;
+            letter-spacing: .1em;
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 900px;
+        }
+
+        th, td {
+            border-bottom: 1px solid #e2e8f0;
+            padding: 13px 10px;
+            text-align: left;
+            vertical-align: top;
+            font-size: 14px;
+        }
+
+        th {
+            color: #64748b;
+            font-size: 12px;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            font-weight: 850;
+            color: #6d28d9;
+        }
+
+        .money-plus {
+            color: #16a34a;
+            font-weight: 850;
+        }
+
+        .status {
+            display: inline-flex;
+            border-radius: 999px;
+            padding: 5px 9px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status.failed {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .empty {
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 34px;
+            text-align: center;
+            color: #64748b;
+            background: #f8fafc;
+        }
+
+        @@media (max-width: 1080px) {
+            .wallet-header, .grid, .payment-box {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @@media (max-width: 560px) {
+            .hero, .panel, .balance-card {
+                padding: 18px;
+            }
+
+            .quick-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .payment-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+}
+
+<section class="wallet-header">
+    <div class="hero">
+        <p class="eyebrow">Ví sinh viên</p>
+        <h1>Ví của tôi</h1>
+        <p class="hero-copy">
+            Nạp ví demo cho đồ án. Hệ thống chỉ tạo thông tin thanh toán mock, không kết nối VNPay, Momo, ZaloPay hoặc ngân hàng thật.
+        </p>
+    </div>
+
+    <div class="balance-card">
+        <div>
+            <p class="balance-label">Số dư hiện tại</p>
+            <div class="balance-value">@DinhDangTien(Model.SoDuHienTai)</div>
+        </div>
+        <p class="balance-note">Số dư sẽ cập nhật ngay sau khi bấm Xác nhận thanh toán demo.</p>
+    </div>
+</section>
+
+<section class="grid">
+    <div class="panel">
+        <h2>Tạo yêu cầu nạp ví</h2>
+
+        @if (TempData["Success"] is string thongBaoThanhCong)
+        {
+            <div class="alert alert-success">@thongBaoThanhCong</div>
+        }
+
+        @if (TempData["Error"] is string thongBaoLoi)
+        {
+            <div class="alert alert-error">@thongBaoLoi</div>
+        }
+
+        <form asp-controller="SinhVien" asp-action="TaoYeuCauNapVi" method="post" novalidate>
+            @Html.AntiForgeryToken()
+            <div class="field">
+                <label>Chọn mệnh giá nạp</label>
+                <div class="quick-grid">
+                    @foreach (var menhGia in Model.MenhGiaNapNhanh)
+                    {
+                        <button class="quick-btn" type="button" data-amount="@menhGia">@DinhDangTien(menhGia)</button>
+                    }
+                </div>
+            </div>
+
+            <div class="field">
+                <label for="soTien">Nhập số tiền tùy chọn</label>
+                <input id="soTien"
+                       name="soTien"
+                       class="amount-input"
+                       inputmode="numeric"
+                       autocomplete="off"
+                       value="@Model.SoTienNap"
+                       placeholder="Ví dụ: 100.000" />
+            </div>
+
+            <div class="field">
+                <span class="field-label">Chọn phương thức</span>
+                <div class="method-grid">
+                    <label class="method-card">
+                        <input type="radio" name="phuongThucNap" value="BANK_TRANSFER" checked="@(Model.PhuongThucNap == "BANK_TRANSFER")" />
+                        <span>Chuyển khoản ngân hàng</span>
+                    </label>
+                    <label class="method-card">
+                        <input type="radio" name="phuongThucNap" value="QR" checked="@(Model.PhuongThucNap == "QR")" />
+                        <span>Quét mã QR</span>
+                    </label>
+                </div>
+            </div>
+
+            <button class="submit-btn" type="submit">Tạo yêu cầu nạp ví</button>
+            <p class="hint">Số tiền tối thiểu là 10.000 đ. Không nhập số âm hoặc chữ.</p>
+        </form>
+    </div>
+
+    <div class="stack">
+        @if (Model.GiaoDichDangXuLy is not null)
+        {
+            var giaoDich = Model.GiaoDichDangXuLy;
+            <div class="panel">
+                <h2>Thông tin thanh toán demo</h2>
+                <div class="payment-box">
+                    <div>
+                        <div class="payment-row">
+                            <div class="payment-label">Ngân hàng</div>
+                            <div class="payment-value">@giaoDich.NganHang</div>
+                        </div>
+                        <div class="payment-row">
+                            <div class="payment-label">Chủ tài khoản</div>
+                            <div class="payment-value">@giaoDich.ChuTaiKhoan</div>
+                        </div>
+                        <div class="payment-row">
+                            <div class="payment-label">Số tài khoản</div>
+                            <div class="payment-value">@giaoDich.SoTaiKhoan</div>
+                        </div>
+                        <div class="payment-row">
+                            <div class="payment-label">Số tiền cần nạp</div>
+                            <div class="payment-value">@DinhDangTien(giaoDich.SoTien)</div>
+                        </div>
+                        <div class="payment-row">
+                            <div class="payment-label">Nội dung chuyển khoản</div>
+                            <div class="payment-value">@giaoDich.NoiDung</div>
+                        </div>
+                    </div>
+
+                    @if (giaoDich.PhuongThuc == "QR")
+                    {
+                        <div class="qr-demo">QR DEMO</div>
+                    }
+                </div>
+
+                <form asp-controller="SinhVien" asp-action="XacNhanThanhToanDemo" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="id" value="@giaoDich.Id" />
+                    <button class="confirm-btn" type="submit">Xác nhận thanh toán demo</button>
+                </form>
+            </div>
+        }
+
+        <div class="panel">
+            <h2>Lịch sử giao dịch</h2>
+
+            @if (Model.LichSuGiaoDich.Count == 0)
+            {
+                <div class="empty">Chưa có giao dịch nào</div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Mã giao dịch</th>
+                                <th>Thời gian</th>
+                                <th>Phương thức</th>
+                                <th>Nội dung</th>
+                                <th>Số tiền</th>
+                                <th>Trạng thái</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var giaoDich in Model.LichSuGiaoDich)
+                            {
+                                <tr>
+                                    <td class="code">@giaoDich.MaGiaoDich</td>
+                                    <td>@giaoDich.NgayTao.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>@NhanPhuongThuc(giaoDich.PhuongThuc)</td>
+                                    <td>@giaoDich.NoiDung</td>
+                                    <td class="money-plus">+@DinhDangTien(giaoDich.SoTien)</td>
+                                    <td><span class="@LopTrangThai(giaoDich.TrangThai)">@NhanTrangThai(giaoDich.TrangThai)</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@section Scripts {
+    <script>
+        const amountInput = document.getElementById('soTien');
+        const quickButtons = document.querySelectorAll('.quick-btn');
+        const formatVndNumber = (value) => new Intl.NumberFormat('vi-VN').format(value);
+
+        quickButtons.forEach((button) => {
+            button.addEventListener('click', () => {
+                quickButtons.forEach((item) => item.classList.remove('active'));
+                button.classList.add('active');
+                amountInput.value = formatVndNumber(Number(button.dataset.amount));
+                amountInput.focus();
+            });
+        });
+
+        amountInput?.addEventListener('input', () => {
+            quickButtons.forEach((item) => item.classList.remove('active'));
+        });
+    </script>
+}

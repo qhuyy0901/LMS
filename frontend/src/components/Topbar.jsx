@@ -49,6 +49,8 @@ const Topbar = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState(null);
   const notificationPanelRef = useRef(null);
+  const hideCourseSearch =
+    location.pathname === '/certificates' || location.pathname === '/student/certificates';
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
@@ -150,40 +152,46 @@ const Topbar = () => {
 
   return (
     <div className="mb-6 flex flex-wrap items-center gap-4 md:flex-nowrap">
-      <div className="order-last flex w-full min-w-0 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-300 hover:shadow-md focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-200 md:order-none md:flex-1">
-        <Search className="h-4 w-4 text-slate-400 cursor-pointer" onClick={() => triggerSearch(searchQuery)} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Tìm kiếm khóa học, chủ đề..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
-        />
-      </div>
+      {user?.role !== 'INSTRUCTOR' && !hideCourseSearch && (
+        <div className="order-last flex w-full min-w-0 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-300 hover:shadow-md focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-200 md:order-none md:flex-1">
+          <Search className="h-4 w-4 cursor-pointer text-slate-400" onClick={() => triggerSearch(searchQuery)} />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Tìm kiếm khóa học, chủ đề..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400"
+          />
+        </div>
+      )}
 
       {canImpersonate && !isImpersonating && (
         <button
           onClick={enterStudentView}
           title={'Xem th\u1eed giao di\u1ec7n h\u1ecdc vi\u00ean'}
-          className="hidden items-center gap-2 rounded-full border border-purple-200 bg-white px-4 py-2 text-sm font-medium text-purple-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-purple-300 hover:bg-purple-50 hover:shadow-md lg:inline-flex"
+          className={`hidden items-center gap-2 rounded-full border border-purple-200 bg-white px-4 py-2 text-sm font-medium text-purple-700 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-purple-300 hover:bg-purple-50 hover:shadow-md lg:inline-flex ${
+            user?.role === 'INSTRUCTOR' ? 'ml-auto' : ''
+          }`}
         >
           <Eye className="h-4 w-4" />
           {'Xem th\u1eed'}
         </button>
       )}
 
-      <div className="hidden items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm xl:flex">
-        <div className="flex items-center gap-2 text-amber-700">
-          <BadgeCheck className="h-4 w-4" />
-          <span className="text-xs font-semibold uppercase tracking-wide">{tierLabel}</span>
+      {user?.role !== 'INSTRUCTOR' && (
+        <div className="hidden items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm xl:flex">
+          <div className="flex items-center gap-2 text-amber-700">
+            <BadgeCheck className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase tracking-wide">{tierLabel}</span>
+          </div>
+          <div className="h-5 w-px bg-slate-200" />
+          <div className="flex items-center gap-2 text-slate-700">
+            <Wallet className="h-4 w-4" />
+            <span className="text-sm font-semibold">{formatCurrency(user?.walletBalance || 0)}</span>
+          </div>
         </div>
-        <div className="h-5 w-px bg-slate-200" />
-        <div className="flex items-center gap-2 text-slate-700">
-          <Wallet className="h-4 w-4" />
-          <span className="text-sm font-semibold">{formatCurrency(user?.walletBalance || 0)}</span>
-        </div>
-      </div>
+      )}
 
       <div className="ml-auto flex items-center gap-1 rounded-full border border-slate-200 bg-white p-1 shadow-sm transition-all duration-300 hover:shadow-md md:ml-0">
         <button className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 transition-transform duration-300 hover:scale-110 hover:bg-slate-200">

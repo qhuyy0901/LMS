@@ -1,15 +1,53 @@
 using LMS.Api.DTOs.YeuCau;
+using LMS.Api.Data;
 using LMS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Api.Controllers;
 
 /// <summary>Controller người dùng — hồ sơ, avatar, ví, thông báo, chứng chỉ</summary>
 [ApiController]
 [Authorize]
-public class NguoiDungController(IDichVuNguoiDung dichVu) : ControllerBase
+public class NguoiDungController(IDichVuNguoiDung dichVu, LmsDbContext db) : ControllerBase
 {
+    [AllowAnonymous]
+    [HttpGet("/api/instructors")]
+    public async Task<IResult> DanhSachGiangVien(int limit = 4)
+    {
+        limit = Math.Clamp(limit, 1, 20);
+
+        var truyVan = db.Users.AsNoTracking()
+            .Where(user => user.Role == "INSTRUCTOR");
+
+        var tongGiangVien = await truyVan.CountAsync();
+        var giangVien = await truyVan
+            .Select(user => new
+            {
+                user.Id,
+                user.Name,
+                user.Avatar,
+                user.Bio,
+                courseCount = user.Courses.Count(course => course.IsPublished),
+                studentCount = user.Courses
+                    .Where(course => course.IsPublished)
+                    .SelectMany(course => course.Enrollments)
+                    .Count(),
+                averageRating = user.Courses
+                    .Where(course => course.IsPublished && course.ReviewCount > 0)
+                    .Select(course => course.AverageRating)
+                    .DefaultIfEmpty()
+                    .Average()
+            })
+            .OrderByDescending(item => item.studentCount)
+            .ThenByDescending(item => item.courseCount)
+            .Take(limit)
+            .ToListAsync();
+
+        return Results.Ok(new { total = tongGiangVien, items = giangVien });
+    }
+
     /// <summary>Lấy thông tin hồ sơ cá nhân</summary>
     [HttpGet("/api/user/me")]
     public async Task<IResult> LayHoSo()

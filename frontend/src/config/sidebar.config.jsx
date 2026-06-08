@@ -7,7 +7,6 @@ import {
   BarChart2,
   Users,
   Settings,
-  Wallet,
   Briefcase,
   GraduationCap,
   Award,
@@ -33,7 +32,6 @@ export const STUDENT_MENU = [
   { name: 'Chứng chỉ', path: '/certificates', icon: Award },
 
   { section: 'Tài khoản' },
-  { name: 'Ví hội viên', path: '/upgrade', icon: Wallet },
   { name: 'Giảng viên', path: '/instructors', icon: Users },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
@@ -46,6 +44,7 @@ export const INSTRUCTOR_MENU = [
   { name: 'Khóa học của tôi', path: '/instructor/courses', icon: Briefcase },
   { name: 'Tạo khóa học mới', path: '/instructor/courses/new', icon: PlusCircle },
   { name: 'Danh sách học viên', path: '/instructor/students', icon: GraduationCap },
+  { name: 'Quản lý sự kiện', path: '/instructor/events', icon: Calendar },
 
   { section: 'Doanh thu' },
   { name: 'Thống kê doanh thu', path: '/instructor/revenue', icon: DollarSign },

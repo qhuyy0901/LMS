@@ -38,6 +38,7 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
             CompletedAt = now, CreatedAt = now, UpdatedAt = now
         };
         user.WalletBalance += soTien;
+        TroGiup.DongBoHangThanhVien(user);
         user.UpdatedAt = now;
 
         db.ExternalPayments.Add(thanhToanNgoai);
@@ -57,6 +58,7 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng" });
+        TroGiup.DongBoHangThanhVien(user);
         if (!TroGiup.DuHangYeuCau(user.MemberTier, kh.MinimumMemberTier))
             return Results.Json(new { message = "Danh hiệu hội viên hiện tại chưa đủ để mua khóa học này", requiredTier = kh.MinimumMemberTier }, statusCode: 403);
 
@@ -81,7 +83,16 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
 
         user.WalletBalance -= giaCuoi;
         user.TotalSpent += giaCuoi;
-        user.MemberTier = TroGiup.TinhHangThanhVien(user.TotalSpent).Hang;
+        var homNay = TroGiup.LayNgayDiaPhuong();
+        var tuanHienTai = TroGiup.LayMaTuan(homNay);
+        var diemNhanDuoc = 0;
+        if (user.LastPurchaseRewardWeek != tuanHienTai)
+        {
+            diemNhanDuoc = Math.Min(15, 100 - user.RewardPoints);
+            user.RewardPoints += diemNhanDuoc;
+            user.LastPurchaseRewardWeek = tuanHienTai;
+        }
+        TroGiup.DongBoHangThanhVien(user);
         user.UpdatedAt = now;
 
         var muaHang = new GiaoDichMua { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, OriginalAmount = kh.Price, DiscountAmount = soTienGiam, FinalAmount = giaCuoi, CouponId = coupon?.Id, Status = "COMPLETED", CreatedAt = now, UpdatedAt = now };
@@ -94,8 +105,8 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
 
         await db.SaveChangesAsync();
 
-        var hang = TroGiup.TinhHangThanhVien(user.TotalSpent);
-        return Results.Ok(new { message = "Mua khóa học thành công", walletBalance = user.WalletBalance, totalSpent = user.TotalSpent, memberTier = user.MemberTier, memberTierLabel = hang.NhanHieu, discountAmount = soTienGiam, finalPrice = giaCuoi, successUrl = $"{frontendUrl}/course/{khoaHocId}?success=true" });
+        var hang = TroGiup.TinhHangThanhVien(user.WalletBalance);
+        return Results.Ok(new { message = "Mua khóa học thành công", walletBalance = user.WalletBalance, totalSpent = user.TotalSpent, memberTier = user.MemberTier, memberTierLabel = hang.NhanHieu, discountAmount = soTienGiam, finalPrice = giaCuoi, earnedPoints = diemNhanDuoc, rewardPoints = user.RewardPoints, successUrl = $"{frontendUrl}/course/{khoaHocId}?success=true" });
     }
 
     public async Task<(bool HopLe, MaGiamGia? MaGiam, int SoTienGiam, string? Loi)> KiemTraMaGiamGiaAsync(string? code, string khoaHocId, int giaKhoaHoc)

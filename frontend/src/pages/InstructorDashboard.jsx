@@ -110,7 +110,6 @@ const InstructorDashboard = () => {
   const courses = data?.khoaHocCuaToi || [];
   const newStudents = data?.hocVienMoi || [];
   const recentRevenue = data?.doanhThuGanDay || [];
-  const topCourse = data?.khoaHocNhieuHocVienNhat;
   const hasCourses = Number(data?.tongKhoaHoc || 0) > 0;
 
   if (loading) {
@@ -196,22 +195,6 @@ const InstructorDashboard = () => {
         </section>
 
         <div className="space-y-6">
-          <InfoPanel title="Khóa học nổi bật">
-            {topCourse ? (
-              <button
-                onClick={() => navigate(`/instructor/courses/${topCourse.id}/edit`)}
-                className="w-full rounded-xl bg-purple-50 p-4 text-left transition-colors hover:bg-purple-100"
-              >
-                <p className="line-clamp-2 font-semibold text-slate-900">{topCourse.tenKhoaHoc || topCourse.title}</p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {formatNumber(topCourse.hocVien || topCourse.studentCount)} học viên đang theo học
-                </p>
-              </button>
-            ) : (
-              <EmptyText>Chưa có khóa học có học viên.</EmptyText>
-            )}
-          </InfoPanel>
-
           <InfoPanel title="Doanh thu gần đây">
             {recentRevenue.length > 0 ? (
               <div className="space-y-3">
@@ -276,11 +259,7 @@ const InstructorDashboard = () => {
 };
 
 const HeaderActions = () => (
-  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Dashboard Giảng viên</h1>
-      <p className="mt-1 text-sm text-slate-500">Theo dõi khóa học, học viên, doanh thu và đánh giá của bạn.</p>
-    </div>
+  <div className="flex justify-end">
     <div className="flex flex-wrap gap-3">
       <Link
         to="/instructor/courses"

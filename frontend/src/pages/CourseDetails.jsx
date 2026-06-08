@@ -4,6 +4,7 @@ import axios from 'axios';
 import {
   ArrowRight,
   BookOpen,
+  CalendarDays,
   CheckCircle,
   ChevronLeft,
   Clock,
@@ -36,6 +37,15 @@ const formatDuration = (seconds = 0) => {
 };
 
 const formatReviewDate = (value) => {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
+};
+
+const formatCourseDate = (value) => {
   if (!value) return '';
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
@@ -304,6 +314,12 @@ export default function CourseDetails() {
                 <Clock className="h-4 w-4" />
                 {formatDuration(course.totalDurationSeconds || 0)}
               </span>
+              {course.startDate && course.endDate && (
+                <span className="flex items-center gap-1 text-sm text-slate-500">
+                  <CalendarDays className="h-4 w-4" />
+                  {formatCourseDate(course.startDate)} - {formatCourseDate(course.endDate)}
+                </span>
+              )}
             </div>
 
             <h1 className="mb-4 text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">{course.title}</h1>

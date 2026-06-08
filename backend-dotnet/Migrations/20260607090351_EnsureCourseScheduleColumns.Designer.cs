@@ -4,6 +4,7 @@ using LMS.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LMS.Api.Migrations
 {
     [DbContext(typeof(LmsDbContext))]
-    partial class LmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260607090351_EnsureCourseScheduleColumns")]
+    partial class EnsureCourseScheduleColumns
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -327,41 +330,6 @@ namespace LMS.Api.Migrations
                     b.HasIndex("CourseId");
 
                     b.ToTable("Section", (string)null);
-                });
-
-            modelBuilder.Entity("LMS.Api.Models.DangKySuKien", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("EventId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("RegisteredAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("REGISTERED");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EventId", "UserId")
-                        .IsUnique();
-
-                    b.HasIndex("UserId", "RegisteredAt");
-
-                    b.ToTable("EventRegistration", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Models.DanhGiaKhoaHoc", b =>
@@ -907,76 +875,6 @@ namespace LMS.Api.Migrations
                     b.ToTable("QuizSubmission", (string)null);
                 });
 
-            modelBuilder.Entity("LMS.Api.Models.SuKien", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("Capacity")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(50);
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("EndAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Format")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("OFFLINE");
-
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("InstructorId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Location")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("OnlineUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("StartAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(450)")
-                        .HasDefaultValue("DRAFT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("WORKSHOP");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("InstructorId");
-
-                    b.HasIndex("Status", "StartAt");
-
-                    b.ToTable("Event", (string)null);
-                });
-
             modelBuilder.Entity("LMS.Api.Models.ThanhToanNgoai", b =>
                 {
                     b.Property<string>("Id")
@@ -1251,25 +1149,6 @@ namespace LMS.Api.Migrations
                     b.Navigation("Course");
                 });
 
-            modelBuilder.Entity("LMS.Api.Models.DangKySuKien", b =>
-                {
-                    b.HasOne("LMS.Api.Models.SuKien", "Event")
-                        .WithMany("Registrations")
-                        .HasForeignKey("EventId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("LMS.Api.Models.NguoiDung", "User")
-                        .WithMany("EventRegistrations")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Event");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("LMS.Api.Models.DanhGiaKhoaHoc", b =>
                 {
                     b.HasOne("LMS.Api.Models.KhoaHoc", "Course")
@@ -1410,17 +1289,6 @@ namespace LMS.Api.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("LMS.Api.Models.SuKien", b =>
-                {
-                    b.HasOne("LMS.Api.Models.NguoiDung", "Instructor")
-                        .WithMany("OrganizedEvents")
-                        .HasForeignKey("InstructorId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Instructor");
-                });
-
             modelBuilder.Entity("LMS.Api.Models.ThanhToanNgoai", b =>
                 {
                     b.HasOne("LMS.Api.Models.NguoiDung", "User")
@@ -1528,8 +1396,6 @@ namespace LMS.Api.Migrations
 
                     b.Navigation("Enrollments");
 
-                    b.Navigation("EventRegistrations");
-
                     b.Navigation("EventRewardRedemptions");
 
                     b.Navigation("ExternalPayments");
@@ -1538,18 +1404,11 @@ namespace LMS.Api.Migrations
 
                     b.Navigation("Notifications");
 
-                    b.Navigation("OrganizedEvents");
-
                     b.Navigation("Purchases");
 
                     b.Navigation("QuizSubmissions");
 
                     b.Navigation("WalletTransactions");
-                });
-
-            modelBuilder.Entity("LMS.Api.Models.SuKien", b =>
-                {
-                    b.Navigation("Registrations");
                 });
 
             modelBuilder.Entity("LMS.Api.Models.ThanhToanNgoai", b =>

@@ -6,6 +6,7 @@ const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const API_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl;
 
 axios.defaults.baseURL = API_URL;
+axios.defaults.withCredentials = true;
 
 // Khởi tạo Authorization header ngay lập tức nếu có token trong localStorage
 const initialToken = localStorage.getItem('token');
@@ -27,6 +28,8 @@ const normalizeUser = (user) => {
     totalSpent: user.totalSpent ?? 0,
     memberTier: user.memberTier ?? 'BRONZE',
     memberTierLabel: user.memberTierLabel,
+    rewardPoints: user.rewardPoints ?? 0,
+    loginStreak: user.loginStreak ?? 0,
   };
 };
 
@@ -55,6 +58,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    axios.post('/api/auth/logout').catch(() => null);
     persistUser(null);
     localStorage.removeItem('token');
     delete axios.defaults.headers.common.Authorization;

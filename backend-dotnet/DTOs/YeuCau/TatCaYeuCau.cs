@@ -37,7 +37,7 @@ public record TaoMaGiamGiaRequest(
 public record LuuKhoaHocRequest(string? Title, string? Description, string? Thumbnail, int? Price, string? MinimumMemberTier);
 
 /// <summary>Yêu cầu thay đổi trạng thái xuất bản</summary>
-public record XuatBanRequest(bool IsPublished);
+public record XuatBanRequest(bool IsPublished, DateTime? StartDate = null, DateTime? EndDate = null);
 
 /// <summary>Yêu cầu tạo/cập nhật chương</summary>
 public record LuuChuongRequest(string? Title, string? Description);

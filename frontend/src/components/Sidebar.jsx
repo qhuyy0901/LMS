@@ -64,16 +64,14 @@ const Sidebar = () => {
                 : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
           const Icon = item.icon;
 
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+          const itemClassName = `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                 isActive
                   ? 'bg-purple-50 text-purple-700 shadow-sm font-semibold'
                   : 'text-slate-600 hover:bg-purple-50/60 hover:text-purple-700 hover:translate-x-1'
-              }`}
-            >
+              }`;
+
+          const content = (
+            <>
               <Icon
                 className={`w-[18px] h-[18px] transition-transform duration-200 ${
                   isActive ? '' : 'group-hover:scale-110'
@@ -86,6 +84,20 @@ const Sidebar = () => {
                   {item.badge}
                 </span>
               )}
+            </>
+          );
+
+          if (item.externalUrl) {
+            return (
+              <a key={item.path} href={item.externalUrl} className={itemClassName}>
+                {content}
+              </a>
+            );
+          }
+
+          return (
+            <Link key={item.path} to={item.path} className={itemClassName}>
+              {content}
             </Link>
           );
         })}

@@ -59,6 +59,26 @@ public class DichVuXacThuc(IConfiguration cauHinh, LmsDbContext db) : IDichVuXac
         if (nguoiDung is null || !BCrypt.Net.BCrypt.Verify(matKhau, nguoiDung.Password))
             return (false, null);
 
+        var daThayDoi = TroGiup.DongBoHangThanhVien(nguoiDung);
+        var homNay = TroGiup.LayNgayDiaPhuong();
+        var ngayGanNhat = nguoiDung.LastRewardLoginDate?.Date;
+
+        if (ngayGanNhat != homNay)
+        {
+            nguoiDung.LoginStreak = ngayGanNhat == homNay.AddDays(-1)
+                ? Math.Max(1, nguoiDung.LoginStreak) + 1
+                : 1;
+
+            var diemTheoChuoi = Math.Min(10, 2 + nguoiDung.LoginStreak);
+            nguoiDung.RewardPoints = Math.Min(100, nguoiDung.RewardPoints + diemTheoChuoi);
+            nguoiDung.LastRewardLoginDate = homNay;
+            nguoiDung.UpdatedAt = DateTime.UtcNow;
+            daThayDoi = true;
+        }
+
+        if (daThayDoi)
+            await db.SaveChangesAsync();
+
         return (true, XacThucPhanHoi.TuUser(nguoiDung, TaoToken(nguoiDung)));
     }
 

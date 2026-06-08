@@ -85,7 +85,20 @@ public class DichVuGhiDanh(LmsDbContext db) : IDichVuGhiDanh
         ghiDanh.UpdatedAt = now;
         await db.SaveChangesAsync();
 
-        var diemNhanDuoc = canHoanThanh && !daHoanThanhTruocDo && tienDo.IsCompleted ? 5 : 0;
+        var diemNhanDuoc = 0;
+        if (canHoanThanh && !daHoanThanhTruocDo && tienDo.IsCompleted)
+        {
+            var nguoiDung = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            var homNay = TroGiup.LayNgayDiaPhuong();
+            if (nguoiDung is not null && nguoiDung.LastLessonRewardDate?.Date != homNay)
+            {
+                diemNhanDuoc = Math.Min(5, 100 - nguoiDung.RewardPoints);
+                nguoiDung.RewardPoints += diemNhanDuoc;
+                nguoiDung.LastLessonRewardDate = homNay;
+                nguoiDung.UpdatedAt = now;
+                await db.SaveChangesAsync();
+            }
+        }
         var chungChi = await KiemTraVaCapChungChiAsync(userId, khoaHocId);
 
         return Results.Ok(new

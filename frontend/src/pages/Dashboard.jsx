@@ -6,13 +6,14 @@ import {
   Award,
   BarChart2,
   BookOpen,
+  CalendarDays,
   Check,
   DollarSign,
   FileCheck,
-  Gem,
+  Flame,
   GraduationCap,
-  MoreHorizontal,
   Play,
+  ShoppingCart,
   TrendingUp,
   Users,
   Wallet,
@@ -20,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { StatCard } from '../components/StatCard';
+import { getFileUrl } from '../utils/fileUtils';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -27,6 +29,87 @@ const formatCurrency = (amount = 0) =>
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(amount);
+
+const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const MVC_BASE_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl.replace(/\/$/, '');
+
+const formatDate = (value) =>
+  value
+    ? new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      }).format(new Date(value))
+    : 'Không giới hạn';
+
+const getDashboardEndpoint = (view) => {
+  if (view === 'ADMIN') return '/api/admin/dashboard';
+  if (view === 'INSTRUCTOR') return '/api/instructor/dashboard';
+  return '/api/dashboard';
+};
+
+const normalizeDashboardData = (view, payload) => {
+  if (view === 'ADMIN') {
+    return {
+      stats: {
+        totalUsers: payload.totalUsers ?? 0,
+        totalCourses: payload.totalCourses ?? 0,
+        totalEnrollments: payload.totalEnrollments ?? 0,
+        totalRevenue: payload.totalRevenue ?? 0,
+        totalRevenueFormatted: formatCurrency(payload.totalRevenue ?? 0),
+        pendingPayments: payload.pendingPayments ?? 0,
+      },
+      recentUsers: payload.recentUsers ?? [],
+    };
+  }
+
+  if (view === 'INSTRUCTOR') {
+    return {
+      stats: {
+        totalRevenue: payload.tongDoanhThu ?? payload.totalRevenue ?? 0,
+        totalRevenueFormatted: formatCurrency(payload.tongDoanhThu ?? payload.totalRevenue ?? 0),
+        totalStudents: payload.tongHocVien ?? payload.totalStudents ?? 0,
+        publishedCourses: payload.khoaHocCongKhai ?? payload.publishedCourses ?? 0,
+        draftCourses: payload.khoaHocBanNhap ?? payload.draftCourses ?? 0,
+      },
+      courses: (payload.khoaHocCuaToi ?? payload.courses ?? []).map((course) => ({
+        id: course.id,
+        title: course.title ?? course.tieuDe ?? course.tenKhoaHoc,
+        enrollments: course.enrollments ?? course.soHocVien ?? course.studentCount ?? 0,
+        lessons: course.lessons ?? course.soBaiHoc ?? course.lessonCount ?? 0,
+        isPublished: course.isPublished ?? course.congKhai ?? course.status === 'PUBLISHED',
+      })),
+      recentEnrollments: (payload.hocVienMoi ?? payload.recentEnrollments ?? []).map((enrollment) => ({
+        studentName: enrollment.studentName ?? enrollment.tenHocVien,
+        courseTitle: enrollment.courseTitle ?? enrollment.tenKhoaHoc,
+        enrolledAt: enrollment.enrolledAt ?? enrollment.ngayDangKy,
+      })),
+    };
+  }
+
+  return {
+    stats: {
+      totalEnrolled: payload.totalCourses ?? payload.totalEnrolled ?? 0,
+      completedCourses: payload.completedCourses ?? 0,
+      completedLessons: payload.completedLessons ?? 0,
+      certificates: payload.certificates ?? 0,
+      participatedEvents: payload.participatedEvents ?? 0,
+      avgProgress: payload.averageProgress ?? payload.avgProgress ?? 0,
+      walletBalance: payload.walletBalance ?? 0,
+      totalSpent: payload.totalSpent ?? 0,
+      rewardPoints: payload.rewardPoints ?? 0,
+      loginStreak: payload.loginStreak ?? 0,
+      nextLoginReward: payload.nextLoginReward ?? 3,
+      dailyLessonCompleted: payload.dailyLessonCompleted ?? false,
+      weeklyPurchaseCompleted: payload.weeklyPurchaseCompleted ?? false,
+    },
+    recentCourses: (payload.recentCourses ?? []).map((course) => ({
+      ...course,
+      progress: Math.min(100, Math.max(0, Math.round(course.progress ?? 0))),
+      startedAt: course.purchasedAt ?? course.enrolledAt ?? course.courseStartDate,
+    })),
+  };
+};
 
 // ─── Student Dashboard ──────────────────────────────────────────────────────
 
@@ -85,30 +168,14 @@ const StudentDashboard = ({ data, loading }) => {
             color="bg-amber-100 text-amber-600"
             loading={loading}
           />
-          <div className="bg-white rounded-2xl p-5 border border-slate-100 flex items-center justify-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1 cursor-pointer group">
-            {loading ? (
-              <div className="w-24 h-24 rounded-full bg-slate-100 animate-pulse" />
-            ) : (
-              <div className="relative w-24 h-24 transition-transform duration-500 group-hover:scale-105">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#f1f5f9" strokeWidth="8" />
-                  <circle
-                    cx="50" cy="50" r="42" fill="none" stroke="#a855f7" strokeWidth="8"
-                    strokeDasharray="263.89"
-                    strokeDashoffset={263.89 - (263.89 * (stats?.avgProgress ?? 0)) / 100}
-                    strokeLinecap="round"
-                    className="transition-all duration-1000 ease-out"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <span className="text-xl font-semibold text-slate-900 transition-colors duration-300 group-hover:text-purple-600">
-                    {stats?.avgProgress ?? 0}%
-                  </span>
-                  <span className="text-xs text-slate-400">Tiến độ</span>
-                </div>
-              </div>
-            )}
-          </div>
+          <StatCard
+            icon={CalendarDays}
+            label="Sự kiện"
+            value={loading ? '...' : stats?.participatedEvents ?? 0}
+            subtitle="Đã tham gia"
+            color="bg-purple-100 text-purple-600"
+            loading={loading}
+          />
         </div>
 
         {/* Continue Watching */}
@@ -130,18 +197,20 @@ const StudentDashboard = ({ data, loading }) => {
               ))}
             </div>
           ) : recentCourses.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {recentCourses.map((course) => (
                 <Link
                   key={course.courseId}
                   to={`/learn/${course.courseId}`}
-                  className="group cursor-pointer"
+                  className="group cursor-pointer rounded-xl border border-slate-100 p-3 transition hover:-translate-y-1 hover:shadow-md"
                 >
                   <div className="relative aspect-video rounded-xl overflow-hidden bg-gradient-to-br from-purple-200 to-violet-300 mb-3 transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1">
                     {course.thumbnail ? (
-                      <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
+                      <img src={getFileUrl(course.thumbnail)} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-5xl">📖</div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <BookOpen className="h-10 w-10 text-purple-500" />
+                      </div>
                     )}
                     <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 text-xs text-white opacity-90">
                       <Play className="w-3 h-3 fill-white" />
@@ -154,10 +223,32 @@ const StudentDashboard = ({ data, loading }) => {
                       <span>{course.progress}%</span>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400 mb-1">{course.totalLessons} bài học</p>
+                  <p className="mb-1 text-xs text-slate-400">
+                    {course.category} · {course.totalLessons} bài học
+                  </p>
                   <p className="text-sm font-medium text-slate-900 line-clamp-2 transition-colors group-hover:text-purple-600">
                     {course.title}
                   </p>
+                  <p className="mt-1 truncate text-xs text-slate-400">{course.instructorName}</p>
+                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                    <div className="h-full rounded-full bg-purple-600" style={{ width: `${course.progress}%` }} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+                    <div>
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <CalendarDays className="h-3 w-3" />
+                        Bắt đầu
+                      </span>
+                      <span className="mt-0.5 block font-medium text-slate-700">{formatDate(course.startedAt)}</span>
+                    </div>
+                    <div>
+                      <span className="flex items-center gap-1 text-slate-400">
+                        <CalendarDays className="h-3 w-3" />
+                        Kết thúc
+                      </span>
+                      <span className="mt-0.5 block font-medium text-slate-700">{formatDate(course.courseEndDate)}</span>
+                    </div>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -191,13 +282,13 @@ const StudentDashboard = ({ data, loading }) => {
               <p className="text-xs text-slate-400 mb-4">
                 Đã chi: {formatCurrency(stats?.totalSpent ?? 0)}
               </p>
-              <Link
-                to="/upgrade"
+              <a
+                href={`${MVC_BASE_URL}/student/wallet`}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-all hover:shadow-lg"
               >
                 <Wallet className="w-4 h-4" />
                 Nạp ví
-              </Link>
+              </a>
             </>
           )}
         </div>
@@ -205,27 +296,78 @@ const StudentDashboard = ({ data, loading }) => {
         {/* Daily Quest */}
         <div className="bg-white rounded-2xl p-6 border border-slate-100 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
           <div className="flex items-center justify-between mb-5">
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Nhiệm vụ hàng ngày</h3>
-            <button className="text-slate-400"><MoreHorizontal className="w-5 h-5" /></button>
+            <div>
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Nhiệm vụ hằng ngày</h3>
+            </div>
+            <Link to="/events" className="text-sm font-medium text-purple-600 hover:text-purple-700">Đổi điểm</Link>
           </div>
           <div className="space-y-5">
             <div>
               <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                  <Gem className="w-5 h-5 text-purple-600" />
+                <div className="w-10 h-10 rounded-lg bg-orange-50 flex items-center justify-center shrink-0">
+                  <Flame className="w-5 h-5 text-orange-500" />
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Hoàn thành 1 bài học</p>
-                  <p className="text-xs text-purple-600">+5 Điểm</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900">Đăng nhập học mỗi ngày</p>
+                  <p className="text-xs text-orange-600">
+                    Chuỗi {stats?.loginStreak ?? 0} ngày · Ngày kế tiếp +{stats?.nextLoginReward ?? 3} điểm
+                  </p>
                 </div>
+                <span className="text-lg font-bold text-purple-700">{stats?.rewardPoints ?? 0}/100</span>
               </div>
               <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-purple-500 rounded-full transition-all duration-500"
                   style={{
-                    width: `${Math.min(100, ((stats?.completedLessons ?? 0) > 0 ? 100 : 0))}%`,
+                    width: `${Math.min(100, stats?.rewardPoints ?? 0)}%`,
                   }}
                 />
+              </div>
+              <div className="mt-4 grid grid-cols-8 gap-1.5">
+                {[3, 4, 5, 6, 7, 8, 9, 10].map((points, index) => (
+                  <div key={points} className="text-center">
+                    <div className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold ${
+                      (stats?.loginStreak ?? 0) > index ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-400'
+                    }`}>
+                      +{points}
+                    </div>
+                    <span className="mt-1 block text-[9px] text-slate-400">N{index + 1}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center shrink-0">
+                  <BookOpen className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900">Hoàn thành 1 bài học mỗi ngày</p>
+                  <p className="text-xs text-green-600">+5 điểm</p>
+                </div>
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                  stats?.dailyLessonCompleted ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-400'
+                }`}>
+                  {stats?.dailyLessonCompleted ? <Check className="h-4 w-4" /> : <span className="text-xs">0/1</span>}
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                  <ShoppingCart className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-900">Mua 1 khóa học bất kỳ mỗi tuần</p>
+                  <p className="text-xs text-blue-600">+15 điểm</p>
+                </div>
+                <div className={`flex h-7 w-7 items-center justify-center rounded-full ${
+                  stats?.weeklyPurchaseCompleted ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-400'
+                }`}>
+                  {stats?.weeklyPurchaseCompleted ? <Check className="h-4 w-4" /> : <span className="text-xs">0/1</span>}
+                </div>
               </div>
             </div>
           </div>
@@ -473,8 +615,8 @@ const Dashboard = () => {
 
     const fetchStats = async () => {
       try {
-        const response = await axios.get('/api/dashboard/stats');
-        setData(response.data);
+        const response = await axios.get(getDashboardEndpoint(activeView));
+        setData(normalizeDashboardData(activeView, response.data));
       } catch (error) {
         console.error('Dashboard fetch error:', error);
       } finally {
@@ -490,23 +632,18 @@ const Dashboard = () => {
 
   return (
     <div>
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
-          {viewToRender === 'ADMIN'
-            ? 'Dashboard Quản trị'
-            : viewToRender === 'INSTRUCTOR'
-            ? 'Dashboard Giảng viên'
-            : 'Bảng điều khiển'}
-        </h1>
-        <p className="text-sm text-slate-500">
-          {viewToRender === 'ADMIN'
-            ? 'Tổng quan hoạt động toàn hệ thống Skillio'
-            : viewToRender === 'INSTRUCTOR'
-            ? 'Tổng quan hiệu suất và quản lý khóa học của bạn'
-            : 'Chào mừng quay trở lại! Tiếp tục hành trình học tập nào.'}
-        </p>
-      </div>
+      {viewToRender !== 'INSTRUCTOR' && (
+        <div className="mb-6">
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
+            {viewToRender === 'ADMIN' ? 'Dashboard Quản trị' : 'Bảng điều khiển'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {viewToRender === 'ADMIN'
+              ? 'Tổng quan hoạt động toàn hệ thống Skillio'
+              : 'Chào mừng quay trở lại! Tiếp tục hành trình học tập nào.'}
+          </p>
+        </div>
+      )}
 
       {viewToRender === 'ADMIN' ? (
         <AdminDashboard data={data} loading={loading} />

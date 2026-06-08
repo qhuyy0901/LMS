@@ -233,6 +233,20 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
 
+        if (yeuCau.IsPublished)
+        {
+            kh.StartDate = yeuCau.StartDate;
+            kh.EndDate = yeuCau.EndDate;
+
+            if (kh.StartDate is null || kh.EndDate is null || kh.EndDate.Value.Date <= kh.StartDate.Value.Date)
+            {
+                return Results.BadRequest(new
+                {
+                    message = "Vui lòng chọn ngày bắt đầu và ngày kết thúc hợp lệ. Ngày kết thúc phải sau ngày bắt đầu."
+                });
+            }
+        }
+
         var errors = PublishErrors(kh);
         if (yeuCau.IsPublished && errors.Count > 0)
         {
@@ -701,6 +715,8 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             enrollments = kh.Enrollments.Count,
             createdAt = kh.CreatedAt,
             updatedAt = kh.UpdatedAt,
+            startDate = kh.StartDate,
+            endDate = kh.EndDate,
             instructorId = kh.InstructorId,
             sections,
             publishValidationErrors = errors,

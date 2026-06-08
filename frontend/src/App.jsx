@@ -59,6 +59,14 @@ function App() {
                   <Route index element={<Dashboard />} />
                   <Route path="events" element={<Events />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route
+                    path="instructor/settings"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <Settings />
+                      </RoleRoute>
+                    }
+                  />
                   <Route path="my-courses" element={<MyCourses />} />
                   <Route path="explore" element={<Explore />} />
                   <Route path="course/:id" element={<CourseDetails />} />

@@ -506,13 +506,79 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocIds = await db.Courses.AsNoTracking().Where(c => c.InstructorId == userId).Select(c => c.Id).ToListAsync();
-        var ds = await db.Enrollments.AsNoTracking()
-            .Where(e => khoaHocIds.Contains(e.CourseId)).Include(e => e.User).Include(e => e.Course)
-            .OrderByDescending(e => e.CreatedAt).Take(100)
-            .Select(e => new { e.Id, e.Progress, e.CompletedAt, e.CreatedAt, user = e.User == null ? null : new { e.User.Id, e.User.Name, e.User.Email }, course = e.Course == null ? null : new { e.Course.Id, e.Course.Title } })
+        var khoaHocsCuaGiangVien = await db.Courses.AsNoTracking()
+            .Where(c => c.InstructorId == userId)
+            .OrderBy(c => c.Title)
+            .Select(c => new { c.Id, c.Title })
             .ToListAsync();
-        return Results.Ok(ds);
+        var khoaHocIds = khoaHocsCuaGiangVien.Select(c => c.Id).ToList();
+        var ghiDanhs = await db.Enrollments.AsNoTracking()
+            .Where(e => khoaHocIds.Contains(e.CourseId) && e.User != null && e.Course != null)
+            .OrderByDescending(e => e.CreatedAt)
+            .Select(e => new
+            {
+                e.Id,
+                e.Progress,
+                e.CompletedAt,
+                e.CreatedAt,
+                e.UpdatedAt,
+                UserId = e.User!.Id,
+                e.User.Name,
+                e.User.Email,
+                e.User.Avatar,
+                e.User.Phone,
+                CourseId = e.Course!.Id,
+                e.Course.Title,
+                e.Course.Thumbnail
+            })
+            .ToListAsync();
+
+        var hocViens = ghiDanhs
+            .GroupBy(e => new { e.UserId, e.Name, e.Email, e.Avatar, e.Phone })
+            .Select(nhom =>
+            {
+                var khoaHocs = nhom
+                    .OrderByDescending(e => e.UpdatedAt)
+                    .Select(e => new
+                    {
+                        id = e.CourseId,
+                        e.Title,
+                        e.Thumbnail,
+                        progress = Math.Round(e.Progress, 1),
+                        enrolledAt = e.CreatedAt,
+                        e.CompletedAt,
+                        updatedAt = e.UpdatedAt,
+                        status = e.CompletedAt is not null || e.Progress >= 100 ? "COMPLETED" : "LEARNING"
+                    })
+                    .ToList();
+
+                return new
+                {
+                    id = nhom.Key.UserId,
+                    name = nhom.Key.Name,
+                    email = nhom.Key.Email,
+                    avatar = nhom.Key.Avatar,
+                    phone = nhom.Key.Phone,
+                    enrollmentCount = khoaHocs.Count,
+                    completedCourses = khoaHocs.Count(khoaHoc => khoaHoc.status == "COMPLETED"),
+                    averageProgress = Math.Round(khoaHocs.Average(khoaHoc => khoaHoc.progress), 1),
+                    lastEnrollmentAt = khoaHocs.Max(khoaHoc => khoaHoc.enrolledAt),
+                    lastActivityAt = khoaHocs.Max(khoaHoc => khoaHoc.updatedAt),
+                    courses = khoaHocs
+                };
+            })
+            .OrderByDescending(hocVien => hocVien.lastActivityAt)
+            .ToList();
+
+        return Results.Ok(new
+        {
+            students = hocViens,
+            totalStudents = hocViens.Count,
+            totalEnrollments = ghiDanhs.Count,
+            completedEnrollments = ghiDanhs.Count(e => e.CompletedAt is not null || e.Progress >= 100),
+            averageProgress = ghiDanhs.Count == 0 ? 0 : Math.Round(ghiDanhs.Average(e => e.Progress), 1),
+            courses = khoaHocsCuaGiangVien.Select(khoaHoc => new { id = khoaHoc.Id, title = khoaHoc.Title })
+        });
     }
 
     private async Task<IResult> UpdateSection(ChuongHoc chuong, LuuChuongForm yeuCau)

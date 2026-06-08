@@ -10,6 +10,9 @@ public record DangNhapRequest(string Email, string Password);
 
 /// <summary>Yêu cầu cập nhật thông tin người dùng</summary>
 public record CapNhatNguoiDungRequest(string? Name, string? Phone, string? Bio, JsonElement? Settings);
+public record CapNhatHoSoTaiKhoanRequest(string? Name, string? Email, string? Phone, string? Bio, JsonElement? Settings);
+public record DoiMatKhauTaiKhoanRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
+public record CapNhatCaiDatRequest(JsonElement Settings);
 
 /// <summary>Yêu cầu thay đổi vai trò người dùng (admin)</summary>
 public record DoiVaiTroRequest(string Role);

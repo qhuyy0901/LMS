@@ -116,9 +116,10 @@ public class SuKienController(LmsDbContext db) : ControllerBase
     {
         var item = await LoadOwnedEvent(id);
         if (item is null) return Results.Json(new { message = "Bạn không có quyền xóa sự kiện này." }, statusCode: 403);
-        if (item.Registrations.Count != 0)
+        if (item.Registrations.Any(registration => registration.Status == "REGISTERED"))
             return Results.BadRequest(new { message = "Sự kiện đã có người đăng ký nên không thể xóa. Bạn có thể hủy sự kiện." });
 
+        db.EventRegistrations.RemoveRange(item.Registrations);
         db.Events.Remove(item);
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã xóa sự kiện." });

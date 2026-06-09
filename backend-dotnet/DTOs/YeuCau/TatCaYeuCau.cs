@@ -14,6 +14,9 @@ public record CapNhatHoSoTaiKhoanRequest(string? Name, string? Email, string? Ph
 public record DoiMatKhauTaiKhoanRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
 public record CapNhatCaiDatRequest(JsonElement Settings);
 
+/// <summary>Yêu cầu đổi mật khẩu người dùng</summary>
+public record DoiMatKhauRequest(string CurrentPassword, string NewPassword);
+
 /// <summary>Yêu cầu thay đổi vai trò người dùng (admin)</summary>
 public record DoiVaiTroRequest(string Role);
 

@@ -98,8 +98,6 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
                 emailHocVien = e.User?.Email,
                 khoaHocId = e.CourseId,
                 tenKhoaHoc = e.Course?.Title ?? "Khóa học",
-                ngayBatDau = e.Course?.StartDate,
-                ngayKetThuc = e.Course?.EndDate,
                 tienDo = e.Progress,
                 ngayDangKy = e.CreatedAt
             }),
@@ -499,69 +497,62 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         var userId = TroGiup.LayUserId(User)!;
         var khoaHocs = await db.Courses.AsNoTracking()
             .Where(c => c.InstructorId == userId)
-            .OrderByDescending(c => c.UpdatedAt)
-            .Select(c => new
-            {
-                c.Id,
-                c.Title,
-                c.Thumbnail,
-                c.Price,
-                c.IsPublished,
-                c.Status,
-                enrollments = c.Enrollments.Count
-            })
+            .Include(c => c.Enrollments)
+            .Include(c => c.Purchases)
+                .ThenInclude(p => p.User)
+            .OrderByDescending(c => c.CreatedAt)
             .ToListAsync();
+
         var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
-
-        var giaoDichs = await db.Purchases.AsNoTracking()
+        var giaoDichHoanTat = await db.Purchases.AsNoTracking()
             .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
+            .Include(p => p.User)
+            .Include(p => p.Course)
             .OrderByDescending(p => p.CreatedAt)
-            .Select(p => new
-            {
-                p.Id,
-                p.CourseId,
-                p.UserId,
-                p.OriginalAmount,
-                p.DiscountAmount,
-                amount = p.FinalAmount,
-                p.Status,
-                p.CreatedAt,
-                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title },
-                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email }
-            })
             .ToListAsync();
 
-        var tongDoanhThu = giaoDichs.Sum(p => p.amount);
-        var soMua = giaoDichs.Count;
-        var tongHocVien = giaoDichs.Select(p => p.UserId).Distinct().Count();
-
-        var doanhThuTheoKhoaHoc = khoaHocs.Select(khoaHoc =>
-        {
-            var mua = giaoDichs.Where(giaoDich => giaoDich.CourseId == khoaHoc.Id).ToList();
-            return new
-            {
-                id = khoaHoc.Id,
-                title = khoaHoc.Title,
-                thumbnail = khoaHoc.Thumbnail,
-                price = khoaHoc.Price,
-                isPublished = khoaHoc.IsPublished,
-                status = khoaHoc.Status,
-                purchases = mua.Count,
-                students = mua.Select(item => item.UserId).Distinct().Count(),
-                enrollments = khoaHoc.enrollments,
-                revenue = mua.Sum(item => item.amount)
-            };
-        }).ToList();
+        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.FinalAmount);
+        var soMua = giaoDichHoanTat.Count;
+        var soHocVienMua = giaoDichHoanTat.Select(p => p.UserId).Distinct().Count();
+        var giaTriTrungBinh = soMua == 0 ? 0 : (int)Math.Round(tongDoanhThu / (double)soMua);
 
         return Results.Ok(new
         {
             totalRevenue = tongDoanhThu,
             totalPurchases = soMua,
-            totalStudents = tongHocVien,
-            averageOrderValue = soMua == 0 ? 0 : (int)Math.Round((double)tongDoanhThu / soMua),
+            totalStudents = soHocVienMua,
+            averageOrderValue = giaTriTrungBinh,
             courseCount = khoaHocs.Count,
-            courses = doanhThuTheoKhoaHoc,
-            recentPurchases = giaoDichs.Take(8)
+            courses = khoaHocs.Select(c =>
+            {
+                var purchases = c.Purchases.Where(p => p.Status == "COMPLETED").ToList();
+                return new
+                {
+                    c.Id,
+                    title = c.Title,
+                    price = c.Price,
+                    isPublished = IsCoursePublished(c),
+                    status = c.Status,
+                    enrollments = c.Enrollments.Count,
+                    purchases = purchases.Count,
+                    revenue = purchases.Sum(p => p.FinalAmount),
+                    averageRating = c.AverageRating,
+                    reviewCount = c.ReviewCount,
+                    createdAt = c.CreatedAt,
+                    updatedAt = c.UpdatedAt
+                };
+            }),
+            recentPurchases = giaoDichHoanTat.Take(10).Select(p => new
+            {
+                p.Id,
+                amount = p.FinalAmount,
+                originalAmount = p.OriginalAmount,
+                discountAmount = p.DiscountAmount,
+                status = p.Status,
+                createdAt = p.CreatedAt,
+                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
+                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }
+            })
         });
     }
 
@@ -570,78 +561,51 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocsCuaGiangVien = await db.Courses.AsNoTracking()
-            .Where(c => c.InstructorId == userId)
-            .OrderBy(c => c.Title)
-            .Select(c => new { c.Id, c.Title })
-            .ToListAsync();
-        var khoaHocIds = khoaHocsCuaGiangVien.Select(c => c.Id).ToList();
-        var ghiDanhs = await db.Enrollments.AsNoTracking()
-            .Where(e => khoaHocIds.Contains(e.CourseId) && e.User != null && e.Course != null)
-            .OrderByDescending(e => e.CreatedAt)
-            .Select(e => new
-            {
-                e.Id,
-                e.Progress,
-                e.CompletedAt,
-                e.CreatedAt,
-                e.UpdatedAt,
-                UserId = e.User!.Id,
-                e.User.Name,
-                e.User.Email,
-                e.User.Avatar,
-                e.User.Phone,
-                CourseId = e.Course!.Id,
-                e.Course.Title,
-                e.Course.Thumbnail
-            })
+        var khoaHocIds = await db.Courses.AsNoTracking().Where(c => c.InstructorId == userId).Select(c => c.Id).ToListAsync();
+        var ghiDanh = await db.Enrollments.AsNoTracking()
+            .Where(e => khoaHocIds.Contains(e.CourseId)).Include(e => e.User).Include(e => e.Course)
+            .OrderByDescending(e => e.CreatedAt).Take(100)
             .ToListAsync();
 
-        var hocViens = ghiDanhs
-            .GroupBy(e => new { e.UserId, e.Name, e.Email, e.Avatar, e.Phone })
-            .Select(nhom =>
+        var hocViens = ghiDanh
+            .Where(e => e.User is not null)
+            .GroupBy(e => e.UserId)
+            .Select(group =>
             {
-                var khoaHocs = nhom
-                    .OrderByDescending(e => e.UpdatedAt)
+                var moiNhat = group.OrderByDescending(e => e.CreatedAt).First();
+                var courses = group
+                    .OrderByDescending(e => e.CreatedAt)
                     .Select(e => new
                     {
                         id = e.CourseId,
-                        e.Title,
-                        e.Thumbnail,
-                        progress = Math.Round(e.Progress, 1),
-                        enrolledAt = e.CreatedAt,
-                        e.CompletedAt,
-                        updatedAt = e.UpdatedAt,
-                        status = e.CompletedAt is not null || e.Progress >= 100 ? "COMPLETED" : "LEARNING"
+                        title = e.Course?.Title ?? "Khóa học",
+                        progress = e.Progress,
+                        completedAt = e.CompletedAt,
+                        enrolledAt = e.CreatedAt
                     })
                     .ToList();
 
                 return new
                 {
-                    id = nhom.Key.UserId,
-                    name = nhom.Key.Name,
-                    email = nhom.Key.Email,
-                    avatar = nhom.Key.Avatar,
-                    phone = nhom.Key.Phone,
-                    enrollmentCount = khoaHocs.Count,
-                    completedCourses = khoaHocs.Count(khoaHoc => khoaHoc.status == "COMPLETED"),
-                    averageProgress = Math.Round(khoaHocs.Average(khoaHoc => khoaHoc.progress), 1),
-                    lastEnrollmentAt = khoaHocs.Max(khoaHoc => khoaHoc.enrolledAt),
-                    lastActivityAt = khoaHocs.Max(khoaHoc => khoaHoc.updatedAt),
-                    courses = khoaHocs
+                    id = moiNhat.UserId,
+                    name = moiNhat.User?.Name ?? "Học viên",
+                    email = moiNhat.User?.Email,
+                    avatar = moiNhat.User?.Avatar,
+                    courses,
+                    courseCount = courses.Count,
+                    averageProgress = Math.Round(group.Average(e => e.Progress)),
+                    latestEnrollmentAt = moiNhat.CreatedAt
                 };
             })
-            .OrderByDescending(hocVien => hocVien.lastActivityAt)
+            .OrderByDescending(student => student.latestEnrollmentAt)
             .ToList();
 
         return Results.Ok(new
         {
             students = hocViens,
             totalStudents = hocViens.Count,
-            totalEnrollments = ghiDanhs.Count,
-            completedEnrollments = ghiDanhs.Count(e => e.CompletedAt is not null || e.Progress >= 100),
-            averageProgress = ghiDanhs.Count == 0 ? 0 : Math.Round(ghiDanhs.Average(e => e.Progress), 1),
-            courses = khoaHocsCuaGiangVien.Select(khoaHoc => new { id = khoaHoc.Id, title = khoaHoc.Title })
+            totalEnrollments = ghiDanh.Count,
+            averageProgress = hocViens.Count == 0 ? 0 : Math.Round(hocViens.Average(student => student.averageProgress))
         });
     }
 

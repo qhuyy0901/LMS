@@ -113,6 +113,10 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, LmsDbContext db) : Control
         return Results.Ok(khoaHoc);
     }
 
+    [HttpGet("/api/explore/insights")]
+    public async Task<IResult> DuLieuKhamPha()
+        => Results.Ok(await dichVu.LayExploreInsightsAsync());
+
     /// <summary>Chi tiết một khóa học</summary>
     [HttpGet("/api/courses/{id}")]
     [HttpGet("/api/student/courses/{id}")]

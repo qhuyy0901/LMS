@@ -27,6 +27,7 @@ const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
 const Login = lazy(() => import('./pages/Login'));
 const MyClasses = lazy(() => import('./pages/MyClasses'));
 const MyCourses = lazy(() => import('./pages/MyCourses'));
+const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const PaymentCancel = lazy(() => import('./pages/PaymentCancel'));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const Pricing = lazy(() => import('./pages/Pricing'));
@@ -49,6 +50,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/oauth-callback" element={<OAuthCallback />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/learn/:courseId" element={<LearningWorkspace />} />

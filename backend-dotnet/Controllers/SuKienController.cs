@@ -159,6 +159,22 @@ public class SuKienController(LmsDbContext db) : ControllerBase
             registration.UpdatedAt = now;
         }
 
+        var studentName = await db.Users.AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.Name)
+            .FirstOrDefaultAsync() ?? "Một học viên";
+        db.Notifications.Add(new ThongBao
+        {
+            Id = TaoId.Moi(),
+            UserId = item.InstructorId,
+            Type = "INSTRUCTOR_EVENT_REGISTRATION",
+            Title = "Có học viên đăng ký sự kiện",
+            Body = $"{studentName} vừa đăng ký sự kiện {item.Title}.",
+            Link = "/instructor/events",
+            Metadata = System.Text.Json.JsonSerializer.Serialize(new { eventId = item.Id, studentId = userId }),
+            CreatedAt = now
+        });
+
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đăng ký sự kiện thành công." });
     }

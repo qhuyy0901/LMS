@@ -100,6 +100,17 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
         db.Enrollments.Add(new GhiDanh { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, Progress = 0, CreatedAt = now, UpdatedAt = now });
         db.WalletTransactions.Add(new GiaoDichVi { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, PurchaseId = muaHang.Id, Type = "COURSE_PURCHASE", Amount = -giaCuoi, BalanceAfter = user.WalletBalance, Note = $"Mua khóa học: {kh.Title}", CreatedAt = now });
         db.Notifications.Add(new ThongBao { Id = TaoId.Moi(), UserId = userId, Type = "COURSE_PURCHASED", Title = "Mua khóa học thành công", Body = $"Bạn đã mua khóa học {kh.Title}.", Link = $"/course/{khoaHocId}", Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, purchaseId = muaHang.Id }), CreatedAt = now });
+        db.Notifications.Add(new ThongBao
+        {
+            Id = TaoId.Moi(),
+            UserId = kh.InstructorId,
+            Type = "INSTRUCTOR_COURSE_PURCHASE",
+            Title = "Có học viên mua khóa học",
+            Body = $"{user.Name} vừa mua khóa học {kh.Title} với giá {TroGiup.DinhDangTienVND(giaCuoi)}.",
+            Link = "/instructor/revenue",
+            Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, purchaseId = muaHang.Id, studentId = userId }),
+            CreatedAt = now
+        });
 
         if (coupon is not null) { coupon.UsageCount += 1; coupon.UpdatedAt = now; }
 

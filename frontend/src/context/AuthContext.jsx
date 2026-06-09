@@ -65,7 +65,9 @@ export function AuthProvider({ children }) {
     axios.post('/api/auth/logout').catch(() => null);
     persistUser(null);
     localStorage.removeItem('token');
+    sessionStorage.removeItem('skillio_student_preview');
     delete axios.defaults.headers.common.Authorization;
+    delete axios.defaults.headers.common['X-Student-Preview'];
 
     if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
       window.location.href = '/login';
@@ -97,6 +99,24 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', token);
     axios.defaults.headers.common.Authorization = `Bearer ${token}`;
     return persistUser(userData);
+  }, [persistUser]);
+
+  const startSocialLogin = useCallback(async (provider) => {
+    const normalizedProvider = provider.toLowerCase();
+    const response = await axios.get('/api/auth/providers');
+    if (!response.data?.[normalizedProvider]) {
+      throw new Error(`Đăng nhập ${provider} chưa được cấu hình. Vui lòng thêm Client ID và Client Secret.`);
+    }
+    window.location.href = `${API_URL}/api/auth/social/${normalizedProvider}`;
+  }, []);
+
+  const completeSocialLogin = useCallback(async (token) => {
+    if (token) {
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+    }
+    const response = await axios.get('/api/user/me');
+    return persistUser(response.data);
   }, [persistUser]);
 
   useEffect(() => {
@@ -135,10 +155,12 @@ export function AuthProvider({ children }) {
       token,
       login,
       register,
+      startSocialLogin,
+      completeSocialLogin,
       logout,
       refreshUser,
     }),
-    [user, token, login, register, logout, refreshUser]
+    [user, token, login, register, startSocialLogin, completeSocialLogin, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

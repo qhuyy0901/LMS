@@ -133,7 +133,9 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
         if (kh is null) return null;
 
         var userId = TroGiup.LayUserId(nguoiDung!);
-        var laChuSoHuu = userId is not null && kh.InstructorId == userId;
+        var laXemThuSinhVien = nguoiDung?.HasClaim("StudentPreview", "true") == true;
+        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien && userId is not null && kh.InstructorId == userId;
+        var laChuSoHuu = !laXemThuSinhVien && userId is not null && kh.InstructorId == userId;
         if (!kh.IsPublished && !laChuSoHuu) return null;
 
         GhiDanh? ghiDanh = null;
@@ -150,6 +152,12 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
                     .Select(p => p.LessonId).ToListAsync();
                 danhGiaCuaToi = await db.CourseReviews.AsNoTracking().FirstOrDefaultAsync(r => r.UserId == userId && r.CourseId == khoaHocId);
             }
+        }
+        if (laKhoaHocCuaGiangVienXemThu && kh.IsPublished)
+        {
+            ghiDanh = new GhiDanh { Id = "student-preview", UserId = userId ?? string.Empty, CourseId = khoaHocId, Progress = 0 };
+            baiHoanThanh = [];
+            danhGiaCuaToi = null;
         }
 
         return ChiTietKhoaHocDto.TuKhoaHoc(kh, ghiDanh, baiHoanThanh, danhGiaCuaToi, laChuSoHuu);
@@ -197,9 +205,12 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
     {
         var userId = TroGiup.LayUserId(nguoiDung);
         if (userId is null) return null;
+        var laXemThuSinhVien = nguoiDung.HasClaim("StudentPreview", "true");
 
         var ghiDanh = await db.Enrollments.AsNoTracking().FirstOrDefaultAsync(e => e.UserId == userId && e.CourseId == khoaHocId);
-        if (ghiDanh is null) return null;
+        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien &&
+            await db.Courses.AnyAsync(course => course.Id == khoaHocId && course.InstructorId == userId && course.IsPublished);
+        if (ghiDanh is null && !laKhoaHocCuaGiangVienXemThu) return null;
 
         var kh = await db.Courses.AsNoTracking()
             .Include(c => c.Sections.OrderBy(s => s.Position))
@@ -209,7 +220,7 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
 
         if (kh is null) return null;
 
-        var completedLessonIds = await db.LessonProgresses.AsNoTracking()
+        var completedLessonIds = laKhoaHocCuaGiangVienXemThu ? new List<string>() : await db.LessonProgresses.AsNoTracking()
             .Where(progress => progress.UserId == userId && progress.IsCompleted && progress.Lesson != null && progress.Lesson.CourseId == khoaHocId)
             .Select(progress => progress.LessonId)
             .ToListAsync();
@@ -234,7 +245,7 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
             id = kh.Id,
             tieuDe = kh.Title,
             title = kh.Title,
-            progress = ghiDanh.Progress,
+            progress = ghiDanh?.Progress ?? 0,
             sections
         };
     }
@@ -253,8 +264,10 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
         if (baiHoc is null) return null;
 
         var daGhiDanh = await db.Enrollments.AsNoTracking().AnyAsync(e => e.UserId == userId && e.CourseId == baiHoc.CourseId);
-        var isLocked = !daGhiDanh && !baiHoc.IsPreview;
-        var isCompleted = await db.LessonProgresses.AsNoTracking().AnyAsync(p => p.UserId == userId && p.LessonId == baiHocId && p.IsCompleted);
+        var laXemThuSinhVien = nguoiDung.HasClaim("StudentPreview", "true");
+        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien && baiHoc.Course?.InstructorId == userId;
+        var isLocked = !laKhoaHocCuaGiangVienXemThu && !daGhiDanh && !baiHoc.IsPreview;
+        var isCompleted = !laKhoaHocCuaGiangVienXemThu && await db.LessonProgresses.AsNoTracking().AnyAsync(p => p.UserId == userId && p.LessonId == baiHocId && p.IsCompleted);
 
         return MapStudentLesson(baiHoc, isLocked, isCompleted, includeContent: !isLocked);
     }
@@ -292,6 +305,22 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
         dg.Rating = soSao;
         dg.Comment = string.IsNullOrWhiteSpace(binhLuan) ? null : binhLuan.Trim();
         dg.UpdatedAt = now;
+
+        var studentName = await db.Users.AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.Name)
+            .FirstOrDefaultAsync() ?? "Một học viên";
+        db.Notifications.Add(new ThongBao
+        {
+            Id = TaoId.Moi(),
+            UserId = kh.InstructorId,
+            Type = "INSTRUCTOR_COURSE_REVIEW",
+            Title = "Khóa học có đánh giá mới",
+            Body = $"{studentName} vừa đánh giá {soSao} sao cho khóa học {kh.Title}.",
+            Link = $"/course/{khoaHocId}",
+            Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, reviewId = dg.Id, studentId = userId }),
+            CreatedAt = now
+        });
 
         await db.SaveChangesAsync();
         await DongBoThongKeDanhGia(khoaHocId);

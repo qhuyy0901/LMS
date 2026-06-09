@@ -21,6 +21,8 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
+import { applyAppearance } from '../utils/appearance';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const MVC_BASE_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl.replace(/\/$/, '');
@@ -33,6 +35,12 @@ const defaultSettings = {
   notifyWallet: true,
   notifyCertificates: true,
   notifyEmail: true,
+  notificationEmail: 'qhuyy0901@gmail.com',
+  notifyEnrollments: true,
+  notifyCourseFeedback: true,
+  notifyEventRegistrations: true,
+  notifyRevenue: true,
+  notifySystemImportant: true,
   theme: 'auto',
   primaryColor: 'purple',
   fontSize: 'medium',
@@ -98,9 +106,11 @@ const Settings = () => {
 
   useEffect(() => {
     const settings = formData.settings;
-    localStorage.setItem('skillio-theme', settings.theme);
-    localStorage.setItem('skillio-primary-color', settings.primaryColor);
-    localStorage.setItem('skillio-font-size', settings.fontSize);
+    applyAppearance({
+      theme: settings.theme,
+      primaryColor: settings.primaryColor,
+      fontSize: settings.fontSize,
+    });
   }, [formData.settings]);
 
   const tabs = useMemo(() => ([
@@ -111,7 +121,7 @@ const Settings = () => {
     { id: 'learning', icon: GraduationCap, label: 'Học tập' },
     { id: 'billing', icon: CreditCard, label: 'Thanh toán' },
     { id: 'integrations', icon: Plug, label: 'Tích hợp' },
-    { id: 'danger', icon: AlertTriangle, label: 'Vùng nguy hiểm', danger: true },
+    { id: 'danger', icon: AlertTriangle, label: isInstructor ? 'Quản lý tài khoản' : 'Vùng nguy hiểm', danger: true },
   ].filter((tab) => !isInstructor || !['learning', 'billing'].includes(tab.id))), [isInstructor]);
 
   const fetchSettings = async () => {
@@ -160,6 +170,7 @@ const Settings = () => {
   const validateProfile = () => {
     if (!formData.name.trim()) return 'Họ tên không được rỗng.';
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email.trim())) return 'Email phải đúng định dạng.';
+    if (formData.settings.notifyEmail && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test((formData.settings.notificationEmail || '').trim())) return 'Email nhận thông báo không hợp lệ.';
     const phoneDigits = formData.phone.replace(/\D/g, '').length;
     if (formData.phone.trim() && (!/^\+?[0-9\s]+$/.test(formData.phone.trim()) || phoneDigits < 8 || phoneDigits > 15)) return 'Số điện thoại không hợp lệ.';
     if (formData.bio.length > 500) return 'Giới thiệu tối đa 500 ký tự.';
@@ -298,16 +309,24 @@ const Settings = () => {
     navigate('/login');
   };
 
-  const handleDisableDemo = async () => {
-    if (!window.confirm('Bạn muốn vô hiệu hóa tài khoản demo? Dữ liệu thật sẽ không bị xóa.')) return;
-    const response = await axios.post('/api/account/disable-demo');
-    setMessage({ type: 'success', text: response.data?.message || 'Đã vô hiệu hóa tài khoản demo.' });
+  const handlePauseInstructor = async () => {
+    if (!window.confirm('Gửi yêu cầu tạm ngưng hoạt động giảng dạy? Quản trị viên sẽ kiểm tra các khóa học và học viên đang hoạt động trước khi xử lý.')) return;
+    try {
+      const response = await axios.post('/api/account/disable-demo');
+      setMessage({ type: 'success', text: response.data?.message || 'Đã gửi yêu cầu tạm ngưng hoạt động giảng dạy.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể gửi yêu cầu tạm ngưng. Vui lòng thử lại.' });
+    }
   };
 
-  const handleDeleteDemo = async () => {
-    if (!window.confirm('Bạn muốn xóa tài khoản demo? Dữ liệu thật sẽ không bị xóa.')) return;
-    const response = await axios.delete('/api/account/delete-demo');
-    setMessage({ type: 'success', text: response.data?.message || 'Đã xóa tài khoản demo.' });
+  const handleCloseInstructorAccount = async () => {
+    if (!window.confirm('Gửi yêu cầu đóng tài khoản giảng viên? Yêu cầu sẽ được quản trị viên xem xét và tài khoản chưa bị xóa ngay.')) return;
+    try {
+      const response = await axios.delete('/api/account/delete-demo');
+      setMessage({ type: 'success', text: response.data?.message || 'Đã gửi yêu cầu đóng tài khoản giảng viên.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể gửi yêu cầu đóng tài khoản. Vui lòng thử lại.' });
+    }
   };
 
   if (loading) {
@@ -386,7 +405,7 @@ const Settings = () => {
             <Panel title={isInstructor ? 'Hồ sơ giảng viên' : 'Hồ sơ'} subtitle="Thông tin hiển thị công khai trên hệ thống Skillio.">
               <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-4 sm:flex-row sm:items-center">
                 {avatarUrl ? (
-                  <img src={avatarUrl} alt="Ảnh đại diện" className="h-16 w-16 rounded-2xl object-cover shadow-sm" />
+                  <img src={resolveMediaUrl(avatarUrl)} alt="Ảnh đại diện" className="h-16 w-16 rounded-2xl object-cover shadow-sm" />
                 ) : (
                   <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-300 to-purple-400 text-xl font-bold text-white shadow-sm">
                     {formData.name.charAt(0).toUpperCase() || 'U'}
@@ -454,14 +473,32 @@ const Settings = () => {
           )}
 
           {activeTab === 'notify' && (
-            <Panel title="Thông báo" subtitle="Chọn những loại thông báo bạn muốn nhận.">
+            <Panel title="Thông báo" subtitle={isInstructor ? 'Chọn thông báo quan trọng dành cho hoạt động giảng dạy.' : 'Chọn những loại thông báo bạn muốn nhận.'}>
               <div className="divide-y divide-slate-100">
-                <ToggleRow title="Thông báo khóa học" description="Bài học mới, cập nhật nội dung và nhắc lịch học." checked={formData.settings.notifyCourses} onChange={(value) => updateSetting('notifyCourses', value)} />
-                <ToggleRow title="Thông báo bình luận" description="Phản hồi mới trong bài học hoặc thảo luận." checked={formData.settings.notifyComments} onChange={(value) => updateSetting('notifyComments', value)} />
-                <ToggleRow title="Thông báo giao dịch ví" description="Nạp ví, mua khóa học và hoàn tiền." checked={formData.settings.notifyWallet} onChange={(value) => updateSetting('notifyWallet', value)} />
-                <ToggleRow title="Thông báo chứng chỉ" description="Khi chứng chỉ được cấp hoặc cập nhật." checked={formData.settings.notifyCertificates} onChange={(value) => updateSetting('notifyCertificates', value)} />
-                <ToggleRow title="Email thông báo" description="Gửi bản sao thông báo qua email." checked={formData.settings.notifyEmail} onChange={(value) => updateSetting('notifyEmail', value)} />
+                {isInstructor ? (
+                  <>
+                    <ToggleRow title="Học viên ghi danh mới" description="Thông báo khi có học viên mua hoặc tham gia khóa học của bạn." checked={formData.settings.notifyEnrollments} onChange={(value) => updateSetting('notifyEnrollments', value)} />
+                    <ToggleRow title="Đánh giá và bình luận khóa học" description="Thông báo khi học viên gửi đánh giá hoặc bình luận mới." checked={formData.settings.notifyCourseFeedback} onChange={(value) => updateSetting('notifyCourseFeedback', value)} />
+                    <ToggleRow title="Đăng ký sự kiện" description="Thông báo khi có học viên đăng ký workshop hoặc hội thảo." checked={formData.settings.notifyEventRegistrations} onChange={(value) => updateSetting('notifyEventRegistrations', value)} />
+                    <ToggleRow title="Doanh thu và giao dịch" description="Thông báo khi khóa học của bạn phát sinh giao dịch hoàn tất." checked={formData.settings.notifyRevenue} onChange={(value) => updateSetting('notifyRevenue', value)} />
+                    <ToggleRow title="Cảnh báo hệ thống quan trọng" description="Thông báo về bảo mật, trạng thái khóa học và sự kiện." checked={formData.settings.notifySystemImportant} onChange={(value) => updateSetting('notifySystemImportant', value)} />
+                  </>
+                ) : (
+                  <>
+                    <ToggleRow title="Thông báo khóa học" description="Bài học mới, cập nhật nội dung và nhắc lịch học." checked={formData.settings.notifyCourses} onChange={(value) => updateSetting('notifyCourses', value)} />
+                    <ToggleRow title="Thông báo bình luận" description="Phản hồi mới trong bài học hoặc thảo luận." checked={formData.settings.notifyComments} onChange={(value) => updateSetting('notifyComments', value)} />
+                    <ToggleRow title="Thông báo giao dịch ví" description="Nạp ví, mua khóa học và hoàn tiền." checked={formData.settings.notifyWallet} onChange={(value) => updateSetting('notifyWallet', value)} />
+                    <ToggleRow title="Thông báo chứng chỉ" description="Khi chứng chỉ được cấp hoặc cập nhật." checked={formData.settings.notifyCertificates} onChange={(value) => updateSetting('notifyCertificates', value)} />
+                  </>
+                )}
+                <ToggleRow title="Email thông báo quan trọng" description="Lưu địa chỉ email để nhận thông báo quan trọng khi hệ thống được cấu hình gửi Gmail." checked={formData.settings.notifyEmail} onChange={(value) => updateSetting('notifyEmail', value)} />
               </div>
+              {formData.settings.notifyEmail && (
+                <div className="mt-5 max-w-xl">
+                  <Field label="Email nhận thông báo quan trọng" type="email" value={formData.settings.notificationEmail || ''} onChange={(value) => updateSetting('notificationEmail', value)} />
+                  <p className="mt-2 text-xs text-slate-400">Email đang sử dụng: {formData.settings.notificationEmail || 'Chưa thiết lập'}. Thông báo trong ứng dụng vẫn luôn hiển thị tại nút chuông.</p>
+                </div>
+              )}
             </Panel>
           )}
 
@@ -553,21 +590,76 @@ const Settings = () => {
           )}
 
           {activeTab === 'integrations' && (
-            <Panel title="Tích hợp" subtitle="Bật/tắt kết nối demo với các công cụ hỗ trợ học tập và giảng dạy.">
+            <Panel title="Tích hợp" subtitle="">
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <ToggleRow title="GitHub" description="Đồng bộ bài tập lập trình demo." checked={formData.settings.integrations?.github || false} onChange={(value) => updateIntegration('github', value)} boxed />
-                <ToggleRow title="Google Meet" description="Tạo phòng học trực tuyến demo." checked={formData.settings.integrations?.googleMeet || false} onChange={(value) => updateIntegration('googleMeet', value)} boxed />
-                <ToggleRow title="Zoom" description="Kết nối hội thảo trực tuyến demo." checked={formData.settings.integrations?.zoom || false} onChange={(value) => updateIntegration('zoom', value)} boxed />
+                <ToggleRow
+                  title="Google Meet"
+                  description=""
+                  checked={formData.settings.integrations?.googleMeet || false}
+                  onChange={(value) => updateIntegration('googleMeet', value)}
+                  boxed
+                  action={formData.settings.integrations?.googleMeet ? (
+                    <button
+                      type="button"
+                      onClick={() => window.open('https://meet.google.com/new', '_blank', 'noopener,noreferrer')}
+                      className="rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                    >
+                      Mở phòng chuẩn bị
+                    </button>
+                  ) : null}
+                />
               </div>
             </Panel>
           )}
 
           {activeTab === 'danger' && (
-            <Panel title="Vùng nguy hiểm" subtitle="Các thao tác nhạy cảm cần xác nhận trước khi thực hiện." danger>
+            <Panel
+              title={isInstructor ? 'Quản lý tài khoản giảng viên' : 'Vùng nguy hiểm'}
+              subtitle={isInstructor ? 'Kiểm soát phiên đăng nhập và gửi yêu cầu thay đổi trạng thái tài khoản.' : 'Các thao tác nhạy cảm cần xác nhận trước khi thực hiện.'}
+              danger
+            >
+              {isInstructor && (
+                <div className="mb-5 flex gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Bảo vệ khóa học và quyền lợi học viên</p>
+                    <p className="mt-1 text-xs leading-5 text-amber-700">
+                      Yêu cầu tạm ngưng hoặc đóng tài khoản cần được quản trị viên kiểm tra khóa học đang xuất bản, học viên đang học, sự kiện và doanh thu trước khi xử lý.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="space-y-3">
-                <DangerAction title="Đăng xuất" description="Đăng xuất khỏi thiết bị hiện tại." button="Đăng xuất" onClick={handleLogoutDevice} />
-                <DangerAction title="Vô hiệu hóa tài khoản demo" description="Chỉ mô phỏng trạng thái vô hiệu hóa, không khóa tài khoản thật." button="Vô hiệu hóa demo" onClick={handleDisableDemo} />
-                <DangerAction title="Xóa tài khoản demo" description="Chỉ mô phỏng thao tác xóa, dữ liệu thật không bị xóa." button="Xóa demo" onClick={handleDeleteDemo} primary />
+                <DangerAction
+                  title="Đăng xuất khỏi thiết bị này"
+                  description="Kết thúc phiên đăng nhập hiện tại. Dữ liệu khóa học và cài đặt của bạn vẫn được giữ nguyên."
+                  button="Đăng xuất"
+                  onClick={handleLogoutDevice}
+                  tone="neutral"
+                />
+                {isInstructor ? (
+                  <>
+                    <DangerAction
+                      title="Tạm ngưng hoạt động giảng dạy"
+                      description="Gửi yêu cầu tạm dừng nhận học viên mới. Học viên hiện tại vẫn có thể tiếp tục học trong thời gian quản trị viên xem xét."
+                      button="Gửi yêu cầu tạm ngưng"
+                      onClick={handlePauseInstructor}
+                      tone="warning"
+                    />
+                    <DangerAction
+                      title="Đóng tài khoản giảng viên"
+                      description="Gửi yêu cầu đóng tài khoản. Tài khoản và dữ liệu sẽ không bị xóa ngay cho đến khi quản trị viên hoàn tất kiểm tra."
+                      button="Gửi yêu cầu đóng"
+                      onClick={handleCloseInstructorAccount}
+                      tone="danger"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <DangerAction title="Vô hiệu hóa tài khoản" description="Gửi yêu cầu tạm ngưng sử dụng tài khoản." button="Gửi yêu cầu" onClick={handlePauseInstructor} tone="warning" />
+                    <DangerAction title="Đóng tài khoản" description="Gửi yêu cầu đóng tài khoản để quản trị viên xem xét." button="Gửi yêu cầu đóng" onClick={handleCloseInstructorAccount} tone="danger" />
+                  </>
+                )}
               </div>
             </Panel>
           )}
@@ -620,11 +712,12 @@ const Toggle = ({ checked, onChange }) => (
   </label>
 );
 
-const ToggleRow = ({ title, description, checked, onChange, boxed = false }) => (
+const ToggleRow = ({ title, description, checked, onChange, boxed = false, action = null }) => (
   <div className={`flex items-center justify-between gap-4 py-4 ${boxed ? 'rounded-2xl border border-slate-100 px-4' : ''}`}>
     <div>
       <p className="text-sm font-medium text-slate-900">{title}</p>
-      <p className="mt-1 text-xs text-slate-400">{description}</p>
+      {description && <p className="mt-1 text-xs text-slate-400">{description}</p>}
+      {action && <div className="mt-3">{action}</div>}
     </div>
     <Toggle checked={checked} onChange={onChange} />
   </div>
@@ -658,20 +751,33 @@ const ChoiceCard = ({ icon: Icon, title, description, active, onClick, dark = fa
   </button>
 );
 
-const DangerAction = ({ title, description, button, onClick, primary = false }) => (
-  <div className="flex flex-col gap-3 rounded-2xl border border-rose-100 bg-rose-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+const DangerAction = ({ title, description, button, onClick, tone = 'danger' }) => {
+  const toneClasses = {
+    neutral: 'border-slate-200 bg-slate-50/70',
+    warning: 'border-amber-200 bg-amber-50/60',
+    danger: 'border-rose-200 bg-rose-50/60',
+  };
+  const buttonClasses = {
+    neutral: 'border border-slate-300 bg-white text-slate-700 hover:bg-slate-100',
+    warning: 'border border-amber-300 bg-white text-amber-700 hover:bg-amber-50',
+    danger: 'bg-rose-600 text-white hover:bg-rose-700',
+  };
+
+  return (
+  <div className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${toneClasses[tone]}`}>
     <div>
       <p className="text-sm font-medium text-slate-900">{title}</p>
-      <p className="mt-1 text-xs text-slate-500">{description}</p>
+      <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-500">{description}</p>
     </div>
     <button
       onClick={onClick}
-      className={`rounded-full px-4 py-2 text-sm font-medium transition ${primary ? 'bg-rose-600 text-white hover:bg-rose-700' : 'border border-rose-200 bg-white text-rose-600 hover:bg-rose-50'}`}
+      className={`shrink-0 rounded-xl px-4 py-2 text-sm font-medium transition ${buttonClasses[tone]}`}
     >
       {button}
     </button>
   </div>
-);
+  );
+};
 
 const createDisplayName = (name = '') => name.trim().toLowerCase().replace(/\s+/g, '.') || '';
 

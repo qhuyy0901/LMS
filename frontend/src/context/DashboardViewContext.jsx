@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import axios from 'axios';
 import { useAuth } from './AuthContext';
 
 /**
@@ -16,22 +17,38 @@ export function DashboardViewProvider({ children }) {
   const realRole = user?.role || 'STUDENT';
 
   // null means "use real role" — non-null means we are impersonating
-  const [impersonatedView, setImpersonatedView] = useState(null);
+  const [impersonatedView, setImpersonatedView] = useState(() =>
+    sessionStorage.getItem('skillio_student_preview') === 'true' ? 'STUDENT' : null
+  );
 
   const activeView = impersonatedView || realRole;
   const isImpersonating = impersonatedView !== null && impersonatedView !== realRole;
 
   const enterStudentView = useCallback(() => {
     if (realRole === 'INSTRUCTOR' || realRole === 'ADMIN') {
+      sessionStorage.setItem('skillio_student_preview', 'true');
       setImpersonatedView('STUDENT');
     }
   }, [realRole]);
 
   const exitImpersonation = useCallback(() => {
+    sessionStorage.removeItem('skillio_student_preview');
     setImpersonatedView(null);
   }, []);
 
   const canImpersonate = realRole === 'INSTRUCTOR' || realRole === 'ADMIN';
+
+  useEffect(() => {
+    if (isImpersonating) {
+      axios.defaults.headers.common['X-Student-Preview'] = 'true';
+    } else {
+      delete axios.defaults.headers.common['X-Student-Preview'];
+    }
+
+    return () => {
+      delete axios.defaults.headers.common['X-Student-Preview'];
+    };
+  }, [isImpersonating]);
 
   const value = useMemo(
     () => ({

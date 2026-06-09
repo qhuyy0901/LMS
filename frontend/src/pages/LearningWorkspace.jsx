@@ -8,10 +8,12 @@ import {
   Clock, HelpCircle, Award, AlertCircle, ArrowRight, RotateCcw, Check, Loader2, Lock
 } from 'lucide-react';
 import { getFileUrl } from '../utils/fileUtils';
+import { useDashboardView } from '../context/DashboardViewContext';
 
 export default function LearningWorkspace() {
   const { courseId } = useParams();
   const navigate = useNavigate();
+  const { isImpersonating } = useDashboardView();
   
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -162,7 +164,7 @@ export default function LearningWorkspace() {
   };
   
   const markAsComplete = async () => {
-    if (!activeLesson || isCompleted(activeLessonIndex)) return;
+    if (isImpersonating || !activeLesson || isCompleted(activeLessonIndex)) return;
     try {
       const res = await axios.post(`/api/courses/${courseId}/lessons/${activeLesson.id}/complete`);
       setCompletedLessons((prev) => (prev.includes(activeLesson.id) ? prev : [...prev, activeLesson.id]));
@@ -183,7 +185,7 @@ export default function LearningWorkspace() {
 
   const handlePostComment = async (e) => {
     e.preventDefault();
-    if (!newComment.trim() || !activeLesson) return;
+    if (isImpersonating || !newComment.trim() || !activeLesson) return;
     
     try {
       const response = await axios.post(`/api/courses/${courseId}/lessons/${activeLesson.id}/comments`, {
@@ -199,7 +201,7 @@ export default function LearningWorkspace() {
 
   const handlePostReply = async (e, parentId) => {
     e.preventDefault();
-    if (!replyText.trim() || !activeLesson) return;
+    if (isImpersonating || !replyText.trim() || !activeLesson) return;
     
     try {
       const response = await axios.post(`/api/courses/${courseId}/lessons/${activeLesson.id}/comments`, {
@@ -243,6 +245,7 @@ export default function LearningWorkspace() {
   };
 
   const handleQuizSubmit = async () => {
+    if (isImpersonating) return;
     const answeredCount = Object.keys(quizAnswers).length;
     const totalQuestions = quiz?.questions?.length || 0;
     if (answeredCount < totalQuestions) {
@@ -505,7 +508,11 @@ export default function LearningWorkspace() {
                         </button>
                       </div>
 
-                      {activeLesson?.quiz ? (
+                      {isImpersonating ? (
+                        <div className="rounded-xl border border-purple-200 bg-purple-50 px-4 py-3 text-sm font-medium text-purple-700">
+                          Nội dung đang được xem ở chế độ học viên
+                        </div>
+                      ) : activeLesson?.quiz ? (
                         <button 
                           onClick={() => setActiveTab('quiz')}
                           className={`px-6 py-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
@@ -930,7 +937,7 @@ export default function LearningWorkspace() {
               {/* Tab: HỎI ĐÁP (Q&A) */}
               {activeTab === 'qna' && (
                 <div className="max-w-3xl animate-fade-in-up">
-                  <form onSubmit={handlePostComment} className="flex items-center gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-200/60 focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-50 transition-all">
+                  {!isImpersonating && <form onSubmit={handlePostComment} className="flex items-center gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-200/60 focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-50 transition-all">
                     <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
                       <MessageSquare className="w-5 h-5 text-purple-600" />
                     </div>
@@ -950,7 +957,7 @@ export default function LearningWorkspace() {
                     >
                       <Send className="w-4 h-4" />
                     </button>
-                  </form>
+                  </form>}
 
                   <div className="space-y-6">
                     {loadingComments ? (

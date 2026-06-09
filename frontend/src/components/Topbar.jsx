@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Search, Bell, LogOut, Wallet, BadgeCheck, Eye, Loader2 } from 'lucide-react';
+import { Search, Bell, LogOut, Wallet, BadgeCheck, Eye, Loader2, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -35,8 +35,8 @@ const formatNotificationTime = (value) => {
 
 const Topbar = () => {
   const { user, logout } = useAuth();
-  const { activeView, canImpersonate, isImpersonating, enterStudentView } = useDashboardView();
-  const tierLabel = TIER_LABELS[user?.memberTier] || 'Đồng';
+  const { activeView, canImpersonate, isImpersonating, enterStudentView, exitImpersonation, realRole } = useDashboardView();
+  const tierLabel = isImpersonating ? 'Đồng' : TIER_LABELS[user?.memberTier] || 'Đồng';
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,7 +55,7 @@ const Topbar = () => {
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   const fetchNotifications = useCallback(async () => {
-    if (!user) {
+    if (!user || isImpersonating) {
       setNotifications([]);
       return;
     }
@@ -70,7 +70,7 @@ const Topbar = () => {
     } finally {
       setNotificationsLoading(false);
     }
-  }, [user]);
+  }, [user, isImpersonating]);
 
   useEffect(() => {
     if (location.pathname === '/explore') {
@@ -155,6 +155,11 @@ const Topbar = () => {
     navigate('/');
   };
 
+  const handleExitStudentPreview = () => {
+    exitImpersonation();
+    navigate(realRole === 'ADMIN' ? '/' : '/instructor/dashboard');
+  };
+
   return (
     <div className="mb-6 flex flex-wrap items-center gap-4 md:flex-nowrap">
       {activeView !== 'INSTRUCTOR' && !hideCourseSearch && (
@@ -184,6 +189,17 @@ const Topbar = () => {
         </button>
       )}
 
+      {isImpersonating && (
+        <button
+          type="button"
+          onClick={handleExitStudentPreview}
+          className="ml-auto inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white px-4 py-2 text-sm font-semibold text-purple-700 shadow-sm transition hover:border-purple-300 hover:bg-purple-50"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Trở về Dashboard giáo viên
+        </button>
+      )}
+
       {activeView !== 'INSTRUCTOR' && (
         <div className="hidden items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm xl:flex">
           <div className="flex items-center gap-2 text-amber-700">
@@ -193,7 +209,7 @@ const Topbar = () => {
           <div className="h-5 w-px bg-slate-200" />
           <div className="flex items-center gap-2 text-slate-700">
             <Wallet className="h-4 w-4" />
-            <span className="text-sm font-semibold">{formatCurrency(user?.walletBalance || 0)}</span>
+            <span className="text-sm font-semibold">{formatCurrency(isImpersonating ? 0 : user?.walletBalance || 0)}</span>
           </div>
         </div>
       )}

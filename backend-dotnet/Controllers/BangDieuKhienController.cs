@@ -19,6 +19,45 @@ public class BangDieuKhienController(LmsDbContext db) : ControllerBase
     {
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
+        if (LaXemThuSinhVien())
+        {
+            var khoaHocCuaGiangVien = await db.Courses.AsNoTracking()
+                .Where(course => course.InstructorId == userId && course.IsPublished)
+                .OrderByDescending(course => course.UpdatedAt)
+                .Take(6)
+                .Select(course => new
+                {
+                    courseId = course.Id,
+                    title = course.Title,
+                    thumbnail = course.Thumbnail,
+                    category = course.Category,
+                    instructorName = course.Instructor != null ? course.Instructor.Name : "Giảng viên",
+                    progress = 0,
+                    totalLessons = course.Lessons.Count,
+                    courseStartDate = course.StartDate,
+                    courseEndDate = course.EndDate,
+                    updatedAt = course.UpdatedAt
+                })
+                .ToListAsync();
+
+            return Results.Ok(new
+            {
+                totalCourses = khoaHocCuaGiangVien.Count,
+                completedCourses = 0,
+                completedLessons = 0,
+                certificates = 0,
+                participatedEvents = 0,
+                averageProgress = 0,
+                walletBalance = 0,
+                totalSpent = 0,
+                rewardPoints = 0,
+                loginStreak = 0,
+                nextLoginReward = 3,
+                dailyLessonCompleted = false,
+                weeklyPurchaseCompleted = false,
+                recentCourses = khoaHocCuaGiangVien
+            });
+        }
 
         var khoaHocSoHuuIds = db.Enrollments
             .Where(e => e.UserId == userId)
@@ -165,4 +204,7 @@ public class BangDieuKhienController(LmsDbContext db) : ControllerBase
     }
 
     private static string LayKeyNgay(DateTime ngay) => ngay.ToLocalTime().Date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+
+    private bool LaXemThuSinhVien() =>
+        Request.Headers["X-Student-Preview"] == "true" && (User.IsInRole("INSTRUCTOR") || User.IsInRole("ADMIN"));
 }

@@ -16,6 +16,7 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
     [HttpPost("/api/payments/create-checkout-session")]
     public async Task<IResult> TaoPhienThanhToan([FromBody] ThanhToanRequest yeuCau)
     {
+        if (LaXemThuSinhVien()) return Results.BadRequest(new { message = "Chế độ xem thử không thể phát sinh giao dịch." });
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
@@ -32,6 +33,7 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
     [HttpPost("/api/student/courses/{id}/purchase")]
     public async Task<IResult> MuaKhoaHocSinhVien(string id, [FromBody] MuaKhoaHocRequest? yeuCau)
     {
+        if (LaXemThuSinhVien()) return Results.BadRequest(new { message = "Chế độ xem thử không thể phát sinh giao dịch." });
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
         return await dichVu.MuaKhoaHocAsync(userId, id, FrontendUrl, yeuCau?.CouponCode);
@@ -46,4 +48,7 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
         // Dùng service thay vì truy cập DB trực tiếp — xem ghi chú bên dưới
         return Results.Ok(new { valid = false, error = "Tính năng đang được cập nhật" });
     }
+
+    private bool LaXemThuSinhVien() =>
+        Request.Headers["X-Student-Preview"] == "true" && (User.IsInRole("INSTRUCTOR") || User.IsInRole("ADMIN"));
 }

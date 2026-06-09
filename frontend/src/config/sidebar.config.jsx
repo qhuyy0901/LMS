@@ -70,12 +70,18 @@ export const ADMIN_MENU = [
 ];
 
 export const getMenuByRole = (role) => {
+  let menu;
   switch (role) {
     case 'INSTRUCTOR':
-      return INSTRUCTOR_MENU;
+      menu = INSTRUCTOR_MENU;
+      break;
     case 'ADMIN':
-      return ADMIN_MENU;
+      menu = ADMIN_MENU;
+      break;
     default:
-      return STUDENT_MENU;
+      menu = STUDENT_MENU;
   }
+
+  const visibleMenu = menu.filter((item) => item.path !== '/settings');
+  return visibleMenu.filter((item, index) => !item.section || (visibleMenu[index + 1] && !visibleMenu[index + 1].section));
 };

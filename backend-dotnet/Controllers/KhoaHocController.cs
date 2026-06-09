@@ -1,6 +1,7 @@
 using LMS.Api.Data;
 using LMS.Api.DTOs.YeuCau;
 using LMS.Api.Services;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -117,7 +118,7 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, LmsDbContext db) : Control
     [HttpGet("/api/student/courses/{id}")]
     public async Task<IResult> ChiTiet(string id)
     {
-        var kq = await dichVu.LayChiTietAsync(id, User);
+        var kq = await dichVu.LayChiTietAsync(id, LayNguoiDungTheoCheDoXem());
         return kq is null ? Results.NotFound(new { message = "Không tìm thấy khóa học" }) : Results.Ok(kq);
     }
 
@@ -132,7 +133,7 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, LmsDbContext db) : Control
     [HttpGet("/api/student/courses/{id}/learning")]
     public async Task<IResult> KhoaHocDangHoc(string id)
     {
-        var kq = await dichVu.LayKhoaHocDangHocAsync(id, User);
+        var kq = await dichVu.LayKhoaHocDangHocAsync(id, LayNguoiDungTheoCheDoXem());
         return kq is null
             ? Results.Json(new { message = "Bạn chưa ghi danh hoặc không có quyền truy cập khóa học này" }, statusCode: 403)
             : Results.Ok(kq);
@@ -142,8 +143,18 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, LmsDbContext db) : Control
     [HttpGet("/api/student/lessons/{lessonId}")]
     public async Task<IResult> ChiTietBaiHoc(string lessonId)
     {
-        var kq = await dichVu.LayChiTietBaiHocAsync(lessonId, User);
+        var kq = await dichVu.LayChiTietBaiHocAsync(lessonId, LayNguoiDungTheoCheDoXem());
         return kq is null ? Results.NotFound(new { message = "Không tìm thấy bài học" }) : Results.Ok(kq);
+    }
+
+    private ClaimsPrincipal LayNguoiDungTheoCheDoXem()
+    {
+        if (Request.Headers["X-Student-Preview"] != "true" || !(User.IsInRole("INSTRUCTOR") || User.IsInRole("ADMIN")))
+            return User;
+
+        var identity = new ClaimsIdentity(User.Claims, User.Identity?.AuthenticationType);
+        identity.AddClaim(new Claim("StudentPreview", "true"));
+        return new ClaimsPrincipal(identity);
     }
 
     /// <summary>Danh sách đánh giá khóa học</summary>

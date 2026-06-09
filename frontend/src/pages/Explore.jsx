@@ -4,6 +4,8 @@ import { Link, Navigate, useSearchParams } from 'react-router-dom';
 import { Hash, MoreHorizontal, Route, SlidersHorizontal, Sparkles, Star } from 'lucide-react';
 import CourseCard, { CourseSkeleton } from '../components/CourseCard';
 import { useAuth } from '../context/AuthContext';
+import { useDashboardView } from '../context/DashboardViewContext';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 import { EXPLORE_CATEGORIES } from '../config/courseCategories';
 import { getFileUrl } from '../utils/fileUtils';
 
@@ -17,6 +19,7 @@ const normalizeText = (value = '') =>
 
 const Explore = () => {
   const { user } = useAuth();
+  const { isImpersonating } = useDashboardView();
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
@@ -36,6 +39,11 @@ const Explore = () => {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
 
   const fetchRecommendedCourses = useCallback(async () => {
+    if (isImpersonating) {
+      setRecommendedCourses([]);
+      setRecommendationsLoading(false);
+      return;
+    }
     setRecommendationsLoading(true);
     try {
       const response = await axios.get('/api/student/courses/recommended?limit=3');
@@ -45,7 +53,7 @@ const Explore = () => {
     } finally {
       setRecommendationsLoading(false);
     }
-  }, []);
+  }, [isImpersonating]);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -58,7 +66,8 @@ const Explore = () => {
         if (tier && tier !== 'all') params.set('tier', tier);
         params.set('pageSize', '100');
 
-        const response = await axios.get(`/api/student/courses?${params.toString()}`);
+        const endpoint = isImpersonating ? '/api/courses' : '/api/student/courses';
+        const response = await axios.get(`${endpoint}?${params.toString()}`);
         const data = response.data;
         const allCourses = data && typeof data === 'object' && Array.isArray(data.items)
           ? data.items
@@ -82,7 +91,7 @@ const Explore = () => {
     };
 
     fetchCourses();
-  }, [q, category, page, sort, price, tier]);
+  }, [q, category, page, sort, price, tier, isImpersonating]);
 
   useEffect(() => {
     axios.get('/api/instructors?limit=4')
@@ -105,7 +114,7 @@ const Explore = () => {
     fetchRecommendedCourses();
   }, [fetchRecommendedCourses]);
 
-  if (user?.role === 'INSTRUCTOR') {
+  if (user?.role === 'INSTRUCTOR' && !isImpersonating) {
     return <Navigate to="/instructor/dashboard" replace />;
   }
 
@@ -579,7 +588,7 @@ const Explore = () => {
               {instructors.items.length > 0 ? instructors.items.map((instructor) => (
                 <div key={instructor.id} className="flex items-center gap-3">
                   {instructor.avatar ? (
-                    <img src={instructor.avatar} alt={instructor.name} className="h-10 w-10 rounded-full object-cover" />
+                    <img src={resolveMediaUrl(instructor.avatar)} alt={instructor.name} className="h-10 w-10 rounded-full object-cover" />
                   ) : (
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-purple-100 text-sm font-semibold text-purple-700">
                       {(instructor.name || 'GV').trim().charAt(0).toUpperCase()}

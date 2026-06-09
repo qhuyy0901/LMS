@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { BookOpen, CalendarDays, CheckCircle2, Filter, GraduationCap, Mail, Search, Users } from 'lucide-react';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
@@ -132,9 +133,6 @@ const InstructorStudents = () => {
       <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-5 py-4">
           <h2 className="font-semibold text-slate-900">Thông tin học viên</h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Hiển thị {students.length} học viên {selectedCourseId === 'ALL' ? 'trong tất cả khóa học' : 'thuộc khóa học đã chọn'}
-          </p>
         </div>
 
         {students.length === 0 ? (
@@ -159,7 +157,7 @@ const StudentRow = ({ student }) => (
   <article className="grid gap-5 px-5 py-5 transition hover:bg-slate-50/70 lg:grid-cols-[1fr_1.4fr_0.7fr] lg:items-center">
     <div className="flex min-w-0 items-center gap-3">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-purple-400 to-fuchsia-400 text-sm font-semibold text-white">
-        {student.avatar ? <img src={student.avatar} alt={student.name} className="h-full w-full object-cover" /> : initials(student.name || student.email)}
+        {student.avatar ? <img src={resolveMediaUrl(student.avatar)} alt={student.name} className="h-full w-full object-cover" /> : initials(student.name || student.email)}
       </div>
       <div className="min-w-0">
         <p className="truncate font-semibold text-slate-900">{student.name || 'Học viên'}</p>

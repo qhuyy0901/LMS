@@ -177,7 +177,6 @@ const InstructorDashboard = () => {
           <div className="flex items-center justify-between border-b border-slate-100 p-5">
             <div>
               <h2 className="font-semibold text-slate-900">Khóa học của bạn</h2>
-              <p className="mt-1 text-sm text-slate-500">Tối đa 5 khóa học mới nhất của giảng viên.</p>
             </div>
             <button
               onClick={() => navigate('/instructor/courses')}
@@ -220,7 +219,6 @@ const InstructorDashboard = () => {
       <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-5">
           <h2 className="font-semibold text-slate-900">Học viên mới đăng ký</h2>
-          <p className="mt-1 text-sm text-slate-500">Các lượt ghi danh mới nhất thuộc khóa học của bạn.</p>
         </div>
         {newStudents.length > 0 ? (
           <div className="overflow-x-auto">
@@ -229,6 +227,8 @@ const InstructorDashboard = () => {
                 <tr>
                   <th className="px-5 py-3 font-semibold">Học viên</th>
                   <th className="px-5 py-3 font-semibold">Khóa học</th>
+                  <th className="px-5 py-3 font-semibold">Ngày bắt đầu</th>
+                  <th className="px-5 py-3 font-semibold">Ngày kết thúc</th>
                   <th className="px-5 py-3 font-semibold">Tiến độ</th>
                   <th className="px-5 py-3 font-semibold">Ngày đăng ký</th>
                 </tr>
@@ -241,6 +241,8 @@ const InstructorDashboard = () => {
                       <p className="text-xs text-slate-500">{student.emailHocVien || 'Chưa có email'}</p>
                     </td>
                     <td className="px-5 py-4 text-slate-700">{student.tenKhoaHoc}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-500">{formatDate(student.ngayBatDau)}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-500">{formatDate(student.ngayKetThuc)}</td>
                     <td className="px-5 py-4 text-slate-700">{formatNumber(student.tienDo)}%</td>
                     <td className="px-5 py-4 text-slate-500">{formatDate(student.ngayDangKy)}</td>
                   </tr>

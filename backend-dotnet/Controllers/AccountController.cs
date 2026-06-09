@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using LMS.Api.Data;
 using LMS.Api.DTOs.YeuCau;
+using LMS.Api.Models;
 using LMS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -170,10 +171,51 @@ public class AccountController(LmsDbContext db, IWebHostEnvironment env) : Contr
     }
 
     [HttpPost("/api/account/disable-demo")]
-    public IResult VoHieuHoaDemo() => Results.Ok(new { message = "Tài khoản đã được vô hiệu hóa demo. Dữ liệu thật không bị thay đổi." });
+    public Task<IResult> VoHieuHoaDemo() => GuiYeuCauQuanTri(
+        "INSTRUCTOR_PAUSE_REQUEST",
+        "Yêu cầu tạm ngưng hoạt động giảng dạy",
+        "Đã gửi yêu cầu tạm ngưng hoạt động giảng dạy. Quản trị viên sẽ xem xét và phản hồi.");
 
     [HttpDelete("/api/account/delete-demo")]
-    public IResult XoaDemo() => Results.Ok(new { message = "Đã xóa tài khoản demo. Dữ liệu thật không bị thay đổi." });
+    public Task<IResult> XoaDemo() => GuiYeuCauQuanTri(
+        "INSTRUCTOR_CLOSE_REQUEST",
+        "Yêu cầu đóng tài khoản giảng viên",
+        "Đã gửi yêu cầu đóng tài khoản giảng viên. Tài khoản chưa bị xóa và đang chờ quản trị viên xem xét.");
+
+    private async Task<IResult> GuiYeuCauQuanTri(string type, string title, string successMessage)
+    {
+        var userId = TroGiup.LayUserId(User);
+        if (userId is null) return Results.Unauthorized();
+
+        var requester = await db.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+        if (requester is null) return Results.Unauthorized();
+
+        var adminIds = await db.Users.AsNoTracking()
+            .Where(item => item.Role == "ADMIN")
+            .Select(item => item.Id)
+            .ToListAsync();
+        if (adminIds.Count == 0)
+            return Results.BadRequest(new { message = "Chưa có quản trị viên để tiếp nhận yêu cầu. Vui lòng liên hệ bộ phận hỗ trợ." });
+
+        var now = DateTime.UtcNow;
+        foreach (var adminId in adminIds)
+        {
+            db.Notifications.Add(new ThongBao
+            {
+                Id = TaoId.Moi(),
+                UserId = adminId,
+                Type = type,
+                Title = title,
+                Body = $"Giảng viên {requester.Name} ({requester.Email}) vừa gửi yêu cầu.",
+                Link = "/admin/users",
+                Metadata = JsonSerializer.Serialize(new { requesterId = requester.Id, requesterRole = requester.Role }),
+                CreatedAt = now
+            });
+        }
+
+        await db.SaveChangesAsync();
+        return Results.Ok(new { message = successMessage });
+    }
 
     private async Task<IResult> LuuCaiDat(JsonElement settings)
     {

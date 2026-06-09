@@ -2,6 +2,7 @@ using System.Text;
 using LMS.Api.Data;
 using LMS.Api.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
@@ -42,8 +43,12 @@ builder.Services.AddControllers()
 builder.Services.AddControllersWithViews();
 builder.Services.AddOpenApi();
 
-builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+var authentication = builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(options =>
     {
         options.Events = new JwtBearerEvents
@@ -67,7 +72,38 @@ builder.Services
             IssuerSigningKey = jwtKey,
             ClockSkew = TimeSpan.FromMinutes(1)
         };
+    })
+    .AddCookie("External", options =>
+    {
+        options.Cookie.Name = "LmsExternalAuth";
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
     });
+
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"] ?? builder.Configuration["GOOGLE_CLIENT_ID"];
+var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? builder.Configuration["GOOGLE_CLIENT_SECRET"];
+if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
+{
+    authentication.AddGoogle("Google", options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+        options.SignInScheme = "External";
+    });
+}
+
+var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"] ?? builder.Configuration["FACEBOOK_APP_ID"];
+var facebookAppSecret = builder.Configuration["Authentication:Facebook:AppSecret"] ?? builder.Configuration["FACEBOOK_APP_SECRET"];
+if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(facebookAppSecret))
+{
+    authentication.AddFacebook("Facebook", options =>
+    {
+        options.AppId = facebookAppId;
+        options.AppSecret = facebookAppSecret;
+        options.SignInScheme = "External";
+        options.Fields.Add("name");
+        options.Fields.Add("email");
+    });
+}
 
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>

@@ -5,14 +5,18 @@ import {
   CheckCircle2,
   Clock3,
   Edit3,
+  ExternalLink,
   MapPin,
   Plus,
   Search,
+  Settings,
   Trash2,
   Users,
+  Video,
   X,
   XCircle,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const TYPES = [
   { value: 'WORKSHOP', label: 'Workshop' },
@@ -60,7 +64,9 @@ const toInputDate = (value) => {
 };
 
 export default function InstructorEvents() {
+  const navigate = useNavigate();
   const [events, setEvents] = useState([]);
+  const [googleMeetEnabled, setGoogleMeetEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
   const [keyword, setKeyword] = useState('');
   const [filter, setFilter] = useState('ALL');
@@ -87,7 +93,18 @@ export default function InstructorEvents() {
 
   useEffect(() => {
     loadEvents();
+    axios.get('/api/account/settings')
+      .then((response) => setGoogleMeetEnabled(Boolean(response.data?.settings?.integrations?.googleMeet)))
+      .catch(() => setGoogleMeetEnabled(false));
   }, [loadEvents]);
+
+  const openGoogleMeet = (url = '') => {
+    if (!googleMeetEnabled) {
+      setError('Bạn chưa bật tích hợp Google Meet. Hãy bật trong Cài đặt > Tích hợp trước khi mở phòng.');
+      return;
+    }
+    window.open(url || 'https://meet.google.com/new', '_blank', 'noopener,noreferrer');
+  };
 
   const filteredEvents = useMemo(() => {
     const text = keyword.trim().toLowerCase();
@@ -240,6 +257,16 @@ export default function InstructorEvents() {
               </div>
 
               <div className="flex flex-wrap gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-4">
+                {item.status === 'PUBLISHED' && (item.format === 'ONLINE' || item.format === 'HYBRID') && new Date(item.endAt) > new Date() && (
+                  <button
+                    type="button"
+                    onClick={() => openGoogleMeet(item.onlineUrl)}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-purple-700"
+                  >
+                    <Video className="h-4 w-4" />
+                    {new Date(item.startAt) > new Date() ? 'Mở phòng chuẩn bị' : 'Bắt đầu sự kiện'}
+                  </button>
+                )}
                 {item.status !== 'PUBLISHED' && (
                   <button type="button" onClick={() => runAction(item, 'publish')} className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700">
                     <CheckCircle2 className="h-4 w-4" /> Xuất bản
@@ -277,7 +304,28 @@ export default function InstructorEvents() {
               <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Bắt đầu</span><input required type="datetime-local" value={form.startAt} onChange={(event) => setForm({ ...form, startAt: event.target.value })} className={fieldClass} /></label>
               <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Kết thúc</span><input required type="datetime-local" value={form.endAt} onChange={(event) => setForm({ ...form, endAt: event.target.value })} className={fieldClass} /></label>
               {(form.format === 'OFFLINE' || form.format === 'HYBRID') && <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Địa điểm</span><input required value={form.location} onChange={(event) => setForm({ ...form, location: event.target.value })} className={fieldClass} /></label>}
-              {(form.format === 'ONLINE' || form.format === 'HYBRID') && <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Liên kết tham gia</span><input required type="url" value={form.onlineUrl} onChange={(event) => setForm({ ...form, onlineUrl: event.target.value })} className={fieldClass} /></label>}
+              {(form.format === 'ONLINE' || form.format === 'HYBRID') && (
+                <label>
+                  <span className="mb-1.5 flex items-center justify-between gap-2 text-sm font-semibold text-slate-700">
+                    Liên kết tham gia
+                    <button
+                      type="button"
+                      onClick={() => openGoogleMeet()}
+                      className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Tạo phòng Google Meet
+                    </button>
+                  </span>
+                  <input required type="url" value={form.onlineUrl} onChange={(event) => setForm({ ...form, onlineUrl: event.target.value })} placeholder="Tạo phòng Meet, sau đó dán liên kết vào đây" className={fieldClass} />
+                  {!googleMeetEnabled && (
+                    <button type="button" onClick={() => navigate('/settings')} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-purple-700">
+                      <Settings className="h-3.5 w-3.5" />
+                      Bật Google Meet trong Cài đặt
+                    </button>
+                  )}
+                </label>
+              )}
               <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Số người tối đa</span><input required type="number" min="1" max="10000" value={form.capacity} onChange={(event) => setForm({ ...form, capacity: event.target.value })} className={fieldClass} /></label>
               <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">URL ảnh bìa</span><input type="url" value={form.imageUrl} onChange={(event) => setForm({ ...form, imageUrl: event.target.value })} placeholder="Không bắt buộc" className={fieldClass} /></label>
               <label className="md:col-span-2"><span className="mb-1.5 block text-sm font-semibold text-slate-700">Mô tả sự kiện</span><textarea required minLength={20} rows={5} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className={fieldClass} /></label>

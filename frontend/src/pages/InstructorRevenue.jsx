@@ -36,14 +36,17 @@ const InstructorRevenue = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchRevenue = async () => {
       try {
         const response = await axios.get('/api/instructor/revenue');
         setData(response.data);
+        setError('');
       } catch (error) {
         console.error('Revenue fetch error:', error);
+        setError(error.response?.data?.message || 'Không thể tải dữ liệu doanh thu.');
       } finally {
         setLoading(false);
       }
@@ -75,6 +78,8 @@ const InstructorRevenue = () => {
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">{text.title}</h1>
         <p className="max-w-2xl text-sm text-slate-500">{text.description}</p>
       </div>
+
+      {error && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
       <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard icon={Banknote} label={text.totalRevenue} value={currencyFormatter.format(data?.totalRevenue || 0)} color="bg-emerald-50 text-emerald-600" />
@@ -131,7 +136,7 @@ const InstructorRevenue = () => {
                       </td>
                       <td className="px-5 py-4 text-sm text-slate-600">{currencyFormatter.format(course.price || 0)}</td>
                       <td className="px-5 py-4 text-sm text-slate-600">{numberFormatter.format(course.purchases || 0)}</td>
-                      <td className="px-5 py-4 text-sm text-slate-600">{numberFormatter.format(course.enrollments || 0)}</td>
+                      <td className="px-5 py-4 text-sm text-slate-600">{numberFormatter.format(course.students ?? course.enrollments ?? 0)}</td>
                       <td className="px-5 py-4 text-right text-sm font-semibold text-slate-900">{currencyFormatter.format(course.revenue || 0)}</td>
                     </tr>
                   ))

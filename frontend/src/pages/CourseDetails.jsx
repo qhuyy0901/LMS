@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { getFileUrl } from '../utils/fileUtils';
+import { useDashboardView } from '../context/DashboardViewContext';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -76,6 +77,7 @@ const ReviewStars = ({ value, onChange, interactive = false }) => (
 export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isImpersonating } = useDashboardView();
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -142,6 +144,10 @@ export default function CourseDetails() {
   };
 
   const handleEnroll = async () => {
+    if (isImpersonating) {
+      window.alert('Chế độ xem thử chỉ mô phỏng trải nghiệm sinh viên và không phát sinh đăng ký hoặc giao dịch.');
+      return;
+    }
     setEnrolling(true);
     try {
       if (course.price > 0) {
@@ -424,7 +430,7 @@ export default function CourseDetails() {
               </div>
             </div>
 
-            {course.canReview ? (
+            {course.canReview && !isImpersonating ? (
               <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <div>
@@ -530,7 +536,21 @@ export default function CourseDetails() {
               </div>
             ) : null}
 
-            {isEnrolled ? (
+            {isImpersonating ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-2xl bg-purple-50 p-4 text-purple-700">
+                  <PlayCircle className="h-6 w-6 flex-shrink-0" />
+                  <p className="text-sm font-medium">Xem toàn bộ khóa học theo giao diện học viên</p>
+                </div>
+                <button
+                  onClick={() => navigate(`/learn/${id}`)}
+                  className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 font-semibold text-white transition-colors hover:bg-slate-800"
+                >
+                  Xem không gian học tập
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </button>
+              </div>
+            ) : isEnrolled ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 rounded-2xl bg-green-50 p-4 text-green-700">
                   <CheckCircle className="h-6 w-6 flex-shrink-0" />

@@ -142,7 +142,7 @@ const Instructors = () => {
     };
   }, []);
 
-  const instructors = data?.instructors || [];
+  const instructors = useMemo(() => data?.instructors || [], [data?.instructors]);
   const categories = data?.categories || [];
   const featured = data?.featuredInstructor;
 

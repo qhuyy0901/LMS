@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Search, ShieldCheck, Trash2, UserCog } from 'lucide-react';
+import { RefreshCw, ShieldCheck, Trash2, UserCog } from 'lucide-react';
 
 const ROLES = ['STUDENT', 'INSTRUCTOR', 'ADMIN'];
 
 const roleLabel = {
-  STUDENT: 'Hoc vien',
-  INSTRUCTOR: 'Giang vien',
+  STUDENT: 'Học viên',
+  INSTRUCTOR: 'Giảng viên',
   ADMIN: 'Admin',
 };
 
@@ -53,9 +53,7 @@ export default function AdminUsers() {
   };
 
   const deleteUser = async (userId) => {
-    if (!window.confirm('Xoa nguoi dung nay? Hanh dong nay se xoa cac du lieu lien quan.')) {
-      return;
-    }
+    if (!window.confirm('Xóa người dùng này? Hành động này sẽ xóa các dữ liệu liên quan.')) return;
 
     try {
       await axios.delete(`/api/admin/users/${userId}`);
@@ -69,15 +67,15 @@ export default function AdminUsers() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quan ly nguoi dung</h1>
-          <p className="mt-1 text-sm text-slate-500">Cap quyen, kiem tra vi va xu ly tai khoan trong he thong.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quản lý người dùng</h1>
+          <p className="mt-1 text-sm text-slate-500">Cấp quyền, kiểm tra ví và xử lý tài khoản trong hệ thống.</p>
         </div>
         <button
           onClick={fetchUsers}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white"
         >
-          <Search className="h-4 w-4" />
-          Tim kiem
+          <RefreshCw className="h-4 w-4" />
+          Tải lại
         </button>
       </div>
 
@@ -88,15 +86,15 @@ export default function AdminUsers() {
           onKeyDown={(event) => {
             if (event.key === 'Enter') fetchUsers();
           }}
-          placeholder="Tim theo ten hoac email"
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-purple-400"
+          placeholder="Tìm theo tên hoặc email"
+          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
         />
         <select
           value={role}
           onChange={(event) => setRole(event.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-purple-400"
+          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
         >
-          <option value="">Tat ca vai tro</option>
+          <option value="">Tất cả vai trò</option>
           {ROLES.map((item) => (
             <option key={item} value={item}>
               {roleLabel[item]}
@@ -111,24 +109,24 @@ export default function AdminUsers() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-5 py-4">Nguoi dung</th>
-                <th className="px-5 py-4">Vai tro</th>
-                <th className="px-5 py-4">Vi</th>
-                <th className="px-5 py-4">Hoat dong</th>
-                <th className="px-5 py-4 text-right">Thao tac</th>
+                <th className="px-5 py-4">Người dùng</th>
+                <th className="px-5 py-4">Vai trò</th>
+                <th className="px-5 py-4">Ví</th>
+                <th className="px-5 py-4">Hoạt động</th>
+                <th className="px-5 py-4 text-right">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
                   <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                    Dang tai nguoi dung...
+                    Đang tải người dùng...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                    Khong co nguoi dung phu hop.
+                    Không có người dùng phù hợp.
                   </td>
                 </tr>
               ) : (
@@ -160,11 +158,11 @@ export default function AdminUsers() {
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       <p>{formatCurrency(user.walletBalance)}</p>
-                      <p className="text-xs text-slate-400">Da chi {formatCurrency(user.totalSpent)}</p>
+                      <p className="text-xs text-slate-400">Đã chi {formatCurrency(user.totalSpent)}</p>
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       <p>{user._count?.enrollments || 0} ghi danh</p>
-                      <p className="text-xs text-slate-400">{user._count?.courses || 0} khoa hoc so huu</p>
+                      <p className="text-xs text-slate-400">{user._count?.courses || 0} khóa học sở hữu</p>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <div className="inline-flex items-center gap-2">
@@ -172,7 +170,7 @@ export default function AdminUsers() {
                         <button
                           onClick={() => deleteUser(user.id)}
                           className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                          title="Xoa nguoi dung"
+                          title="Xóa người dùng"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

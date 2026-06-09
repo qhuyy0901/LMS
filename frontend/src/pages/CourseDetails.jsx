@@ -579,6 +579,50 @@ export default function CourseDetails() {
                 </button>
               </div>
             ) : (
+              <>
+              {course.price > 0 ? (
+                <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <label htmlFor="coupon-code" className="mb-2 block text-sm font-semibold text-slate-700">
+                    Mã giảm giá
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Tag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="coupon-code"
+                        value={couponCode}
+                        onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                        placeholder="Nhập mã giảm giá"
+                        className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                      />
+                      {couponCode ? (
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
+                          aria-label="Xóa mã giảm giá"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleValidateCoupon}
+                      disabled={!couponCode.trim() || validatingCoupon}
+                      className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {validatingCoupon ? 'Đang kiểm tra' : 'Áp dụng'}
+                    </button>
+                  </div>
+                  {couponResult ? (
+                    <p className={`mt-2 text-xs font-medium ${couponResult.valid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {couponResult.valid ? 'Mã giảm giá hợp lệ.' : couponResult.error || 'Mã giảm giá không hợp lệ.'}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="space-y-3">
                 <button
                   onClick={handleEnroll}
@@ -596,6 +640,7 @@ export default function CourseDetails() {
                   </button>
                 )}
               </div>
+              </>
             )}
 
             <div className="mt-8 space-y-4">

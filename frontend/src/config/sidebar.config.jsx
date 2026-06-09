@@ -16,7 +16,6 @@ import {
   Tag,
   UserCog,
   Users,
-  Wallet,
   Webhook,
 } from 'lucide-react';
 

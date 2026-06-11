@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Data;
 using LMS.Api.Data;
 using LMS.Api.DTOs.PhanHoi;
 using LMS.Api.DTOs.YeuCau;
@@ -512,13 +514,43 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             .ToListAsync();
 
         var tongDoanhThu = giaoDichHoanTat.Sum(p => p.FinalAmount);
+        var lichSuRutTien = await db.InstructorWithdrawals.AsNoTracking()
+            .Where(item => item.InstructorId == userId && item.Status == "COMPLETED")
+            .OrderByDescending(item => item.CreatedAt)
+            .ToListAsync();
+        var doanhThuDaThanhToan = lichSuRutTien.Sum(item => item.Amount);
+        var doanhThuChoThanhToan = Math.Max(0, tongDoanhThu - doanhThuDaThanhToan);
+        var giaoDichDaThanhToan = new HashSet<string>();
+        var soTienDaThanhToanConLai = doanhThuDaThanhToan;
+        foreach (var giaoDich in giaoDichHoanTat.OrderBy(item => item.CreatedAt))
+        {
+            if (soTienDaThanhToanConLai < giaoDich.FinalAmount) break;
+            giaoDichDaThanhToan.Add(giaoDich.Id);
+            soTienDaThanhToanConLai -= giaoDich.FinalAmount;
+        }
         var soMua = giaoDichHoanTat.Count;
         var soHocVienMua = giaoDichHoanTat.Select(p => p.UserId).Distinct().Count();
         var giaTriTrungBinh = soMua == 0 ? 0 : (int)Math.Round(tongDoanhThu / (double)soMua);
 
+        var lichSuDoanhThu = giaoDichHoanTat.Select(p => new GiaoDichDoanhThu(
+                p.Id, "COURSE_REVENUE", p.FinalAmount,
+                giaoDichDaThanhToan.Contains(p.Id) ? "PAID" : "PENDING",
+                giaoDichDaThanhToan.Contains(p.Id) ? "Đã thanh toán" : "Chờ thanh toán",
+                null, null, null, null, p.CreatedAt,
+                p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
+                p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }))
+            .Concat(lichSuRutTien.Select(item => new GiaoDichDoanhThu(
+                item.Id, "DEMO_WITHDRAWAL", -item.Amount, item.Status, "Rút tiền demo thành công", item.Note,
+                item.BankName, item.AccountNumber, item.AccountHolder, item.CreatedAt, null, null)))
+            .OrderByDescending(item => item.CreatedAt)
+            .Take(20)
+            .ToList();
+
         return Results.Ok(new
         {
             totalRevenue = tongDoanhThu,
+            pendingRevenue = doanhThuChoThanhToan,
+            paidRevenue = doanhThuDaThanhToan,
             totalPurchases = soMua,
             totalStudents = soHocVienMua,
             averageOrderValue = giaTriTrungBinh,
@@ -546,17 +578,124 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             {
                 p.Id,
                 amount = p.FinalAmount,
+                payoutStatus = giaoDichDaThanhToan.Contains(p.Id) ? "PAID" : "PENDING",
                 originalAmount = p.OriginalAmount,
                 discountAmount = p.DiscountAmount,
                 status = p.Status,
                 createdAt = p.CreatedAt,
                 user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
                 course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }
-            })
+            }),
+            recentTransactions = lichSuDoanhThu
         });
     }
 
-    [HttpGet("/api/instructor/students")]
+    [HttpPost("/api/instructor/revenue/withdraw-demo")]
+    public async Task<IResult> RutTienDemo([FromBody] RutTienDemoRequest yeuCau)
+    {
+        var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
+        var userId = TroGiup.LayUserId(User)!;
+
+        if (yeuCau.SoTien < 50_000)
+        {
+            return Results.BadRequest(new { message = "Số tiền rút không hợp lệ" });
+        }
+
+        var giangVien = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var taiKhoanNhanTien = DocTaiKhoanNhanTien(giangVien?.Settings);
+        if (taiKhoanNhanTien is null)
+        {
+            return Results.BadRequest(new { message = "Vui lòng lưu tài khoản nhận tiền trước khi rút" });
+        }
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        var ketQua = await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var tongDoanhThu = await db.Purchases
+                .Where(item => item.Status == "COMPLETED" && item.Course!.InstructorId == userId)
+                .SumAsync(item => item.FinalAmount);
+            var doanhThuDaThanhToan = await db.InstructorWithdrawals
+                .Where(item => item.InstructorId == userId && item.Status == "COMPLETED")
+                .SumAsync(item => item.Amount);
+            var doanhThuChoThanhToan = Math.Max(0, tongDoanhThu - doanhThuDaThanhToan);
+
+            if (yeuCau.SoTien > doanhThuChoThanhToan)
+            {
+                await transaction.RollbackAsync();
+                return new KetQuaRutTien(false, tongDoanhThu, doanhThuChoThanhToan, doanhThuDaThanhToan);
+            }
+
+            db.InstructorWithdrawals.Add(new RutTienGiangVien
+            {
+                Id = TaoId.Moi(),
+                InstructorId = userId,
+                Amount = yeuCau.SoTien,
+                Status = "COMPLETED",
+                BankName = taiKhoanNhanTien.BankName,
+                AccountNumber = taiKhoanNhanTien.AccountNumber,
+                AccountHolder = taiKhoanNhanTien.AccountHolder,
+                Note = string.IsNullOrWhiteSpace(yeuCau.GhiChu) ? null : yeuCau.GhiChu.Trim(),
+                CreatedAt = DateTime.UtcNow
+            });
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+            return new KetQuaRutTien(true, tongDoanhThu, doanhThuChoThanhToan - yeuCau.SoTien, doanhThuDaThanhToan + yeuCau.SoTien);
+        });
+
+        if (!ketQua.ThanhCong)
+        {
+            return Results.BadRequest(new { message = "Số tiền rút vượt quá doanh thu chờ thanh toán" });
+        }
+
+        return Results.Ok(new
+        {
+            message = "Rút tiền demo thành công",
+            tongDoanhThu = ketQua.TongDoanhThu,
+            doanhThuChoThanhToan = ketQua.DoanhThuChoThanhToan,
+            doanhThuDaThanhToan = ketQua.DoanhThuDaThanhToan
+        });
+    }
+
+    private static TaiKhoanNhanTien? DocTaiKhoanNhanTien(string? settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings)) return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(settings);
+            if (!document.RootElement.TryGetProperty("payoutAccount", out var account)) return null;
+            var bankName = account.TryGetProperty("bankName", out var bank) ? bank.GetString()?.Trim() : null;
+            var accountNumber = account.TryGetProperty("accountNumber", out var number) ? number.GetString()?.Trim() : null;
+            var accountHolder = account.TryGetProperty("accountHolder", out var holder) ? holder.GetString()?.Trim() : null;
+
+            return string.IsNullOrWhiteSpace(bankName) || string.IsNullOrWhiteSpace(accountNumber) || string.IsNullOrWhiteSpace(accountHolder)
+                ? null
+                : new TaiKhoanNhanTien(bankName, accountNumber, accountHolder);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private sealed record TaiKhoanNhanTien(string BankName, string AccountNumber, string AccountHolder);
+    private sealed record KetQuaRutTien(bool ThanhCong, int TongDoanhThu, int DoanhThuChoThanhToan, int DoanhThuDaThanhToan);
+    private sealed record GiaoDichDoanhThu(
+        string Id,
+        string Type,
+        int Amount,
+        string PayoutStatus,
+        string StatusLabel,
+        string? Note,
+        string? BankName,
+        string? AccountNumber,
+        string? AccountHolder,
+        DateTime CreatedAt,
+        object? User,
+        object? Course);
+
+    [NonAction]
     public async Task<IResult> DanhSachHocVien()
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
@@ -606,6 +745,92 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
             totalStudents = hocViens.Count,
             totalEnrollments = ghiDanh.Count,
             averageProgress = hocViens.Count == 0 ? 0 : Math.Round(hocViens.Average(student => student.averageProgress))
+        });
+    }
+
+    [HttpGet("/api/instructor/courses/select-list")]
+    public async Task<IResult> DanhSachKhoaHocChon()
+    {
+        var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
+        var userId = TroGiup.LayUserId(User)!;
+        return Results.Ok(await db.Courses.AsNoTracking()
+            .Where(course => course.InstructorId == userId)
+            .OrderByDescending(course => course.CreatedAt)
+            .Select(course => new { course.Id, tenKhoaHoc = course.Title })
+            .ToListAsync());
+    }
+
+    [HttpGet("/api/instructor/students")]
+    public async Task<IResult> DanhSachHocVienTheoKhoaHoc([FromQuery] string? courseId = "all")
+    {
+        var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
+        var userId = TroGiup.LayUserId(User)!;
+        var khoaHocIds = await db.Courses.AsNoTracking()
+            .Where(course => course.InstructorId == userId)
+            .Select(course => course.Id)
+            .ToListAsync();
+        var locTatCa = string.IsNullOrWhiteSpace(courseId) || string.Equals(courseId, "all", StringComparison.OrdinalIgnoreCase);
+
+        if (!locTatCa && !khoaHocIds.Contains(courseId!))
+        {
+            return Results.Json(new { message = "Bạn không có quyền xem học viên của khóa học này." }, statusCode: 403);
+        }
+
+        var ghiDanhQuery = db.Enrollments.AsNoTracking()
+            .Where(enrollment => khoaHocIds.Contains(enrollment.CourseId));
+        if (!locTatCa)
+        {
+            ghiDanhQuery = ghiDanhQuery.Where(enrollment => enrollment.CourseId == courseId);
+        }
+
+        var ghiDanh = await ghiDanhQuery
+            .Include(enrollment => enrollment.User)
+            .Include(enrollment => enrollment.Course)
+            .OrderByDescending(enrollment => enrollment.CreatedAt)
+            .ToListAsync();
+        var khoaHocDangLoc = locTatCa ? khoaHocIds : [courseId!];
+        var doanhThu = await db.Purchases.AsNoTracking()
+            .Where(purchase => khoaHocDangLoc.Contains(purchase.CourseId) && purchase.Status == "COMPLETED")
+            .SumAsync(purchase => purchase.FinalAmount);
+        var hocVienHoanThanh = ghiDanh.Count(enrollment => enrollment.CompletedAt is not null || enrollment.Progress >= 100);
+        var hocVienDangHoc = ghiDanh.Count - hocVienHoanThanh;
+        var tongHocVien = ghiDanh.Select(enrollment => enrollment.UserId).Distinct().Count();
+        var tienDoTrungBinh = ghiDanh.Count == 0 ? 0 : Math.Round(ghiDanh.Average(enrollment => enrollment.Progress));
+
+        var hocViens = ghiDanh.Select(enrollment =>
+        {
+            var hoanThanh = enrollment.CompletedAt is not null || enrollment.Progress >= 100;
+            return new
+            {
+                id = enrollment.Id,
+                hocVienId = enrollment.UserId,
+                hoTen = enrollment.User?.Name ?? "Học viên",
+                email = enrollment.User?.Email ?? string.Empty,
+                avatar = enrollment.User?.Avatar,
+                courseId = enrollment.CourseId,
+                tenKhoaHoc = enrollment.Course?.Title ?? "Khóa học",
+                ngayGhiDanh = enrollment.CreatedAt,
+                tienDo = Math.Round(enrollment.Progress),
+                trangThai = hoanThanh ? "HOAN_THANH" : "DANG_HOC",
+                trangThaiText = hoanThanh ? "Hoàn thành" : "Đang học"
+            };
+        }).ToList();
+
+        return Results.Ok(new
+        {
+            summary = new
+            {
+                tongHocVien,
+                tongGhiDanh = ghiDanh.Count,
+                tienDoTrungBinh,
+                hocVienHoanThanh,
+                hocVienDangHoc,
+                doanhThu
+            },
+            students = hocViens,
+            totalStudents = tongHocVien,
+            totalEnrollments = ghiDanh.Count,
+            averageProgress = tienDoTrungBinh
         });
     }
 

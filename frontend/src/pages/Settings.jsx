@@ -9,9 +9,12 @@ import {
   EyeOff,
   GraduationCap,
   KeyRound,
+  Landmark,
   LogOut,
+  BanknoteArrowDown,
   Moon,
   Palette,
+  ReceiptText,
   RotateCcw,
   Shield,
   Sun,
@@ -19,6 +22,7 @@ import {
   Upload,
   User,
   Wallet,
+  X,
 } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
@@ -101,6 +105,16 @@ const Settings = () => {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [walletProfile, setWalletProfile] = useState(null);
   const [walletHistory, setWalletHistory] = useState([]);
+  const [revenueProfile, setRevenueProfile] = useState(null);
+  const [payoutAccount, setPayoutAccount] = useState({
+    bankName: '',
+    accountNumber: '',
+    accountHolder: '',
+  });
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [withdrawForm, setWithdrawForm] = useState({ soTien: '', ghiChu: '' });
+  const [googleMeetLink, setGoogleMeetLink] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
@@ -115,6 +129,7 @@ const Settings = () => {
   });
 
   const displayName = formData.name || user?.name || 'Học viên';
+  const isInstructor = user?.role === 'INSTRUCTOR';
   const initials = useMemo(
     () =>
       displayName
@@ -132,15 +147,24 @@ const Settings = () => {
     setMessage(null);
 
     try {
-      const [profileResponse, historyResponse] = await Promise.all([
-        axios.get('/api/user/me'),
-        axios.get('/api/user/billing-history'),
-      ]);
+      const profileResponse = await axios.get('/api/user/me');
       const profile = profileResponse.data;
+      const instructor = profile.role === 'INSTRUCTOR';
+      const billingResponse = await axios.get(instructor ? '/api/instructor/revenue' : '/api/user/billing-history');
 
       setAvatarUrl(profile.avatar || null);
       setWalletProfile(profile);
-      setWalletHistory(historyResponse.data || []);
+      setWalletHistory(instructor ? [] : billingResponse.data || []);
+      setRevenueProfile(instructor ? billingResponse.data : null);
+      if (instructor) {
+        const meetResponse = await axios.get('/api/instructor/settings/meet-link');
+        setGoogleMeetLink(meetResponse.data?.googleMeetLink || '');
+      }
+      setPayoutAccount({
+        bankName: profile.settings?.payoutAccount?.bankName || '',
+        accountNumber: profile.settings?.payoutAccount?.accountNumber || '',
+        accountHolder: profile.settings?.payoutAccount?.accountHolder || '',
+      });
       setFormData({
         name: profile.name || '',
         phone: profile.phone || '',
@@ -205,6 +229,101 @@ const Settings = () => {
       setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể đổi mật khẩu.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSavePayoutAccount = async (event) => {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!payoutAccount.bankName.trim() || !payoutAccount.accountNumber.trim() || !payoutAccount.accountHolder.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập đầy đủ thông tin tài khoản nhận tiền.' });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const nextSettings = {
+        ...formData.settings,
+        payoutAccount: {
+          bankName: payoutAccount.bankName.trim(),
+          accountNumber: payoutAccount.accountNumber.trim(),
+          accountHolder: payoutAccount.accountHolder.trim(),
+        },
+      };
+      const response = await axios.put('/api/user/me', { ...formData, settings: nextSettings });
+      setFormData((prev) => ({ ...prev, settings: nextSettings }));
+      setWalletProfile(response.data);
+      await refreshUser?.();
+      setMessage({ type: 'success', text: 'Đã lưu tài khoản nhận tiền.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể lưu tài khoản nhận tiền.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveGoogleMeet = async (event) => {
+    event.preventDefault();
+    setMessage(null);
+    const link = googleMeetLink.trim();
+    if (!link.startsWith('https://meet.google.com/')) {
+      setMessage({ type: 'error', text: 'Liên kết Google Meet phải bắt đầu bằng https://meet.google.com/' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const response = await axios.put('/api/instructor/settings/meet-link', { googleMeetLink: link });
+      setGoogleMeetLink(response.data.googleMeetLink || link);
+      setFormData((prev) => ({ ...prev, settings: { ...prev.settings, googleMeetLink: link } }));
+      await refreshUser?.();
+      setMessage({ type: 'success', text: 'Đã lưu liên kết Google Meet.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể lưu liên kết Google Meet.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleOpenWithdraw = () => {
+    setMessage(null);
+    if (!payoutAccount.bankName.trim() || !payoutAccount.accountNumber.trim() || !payoutAccount.accountHolder.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng lưu tài khoản nhận tiền trước khi rút' });
+      return;
+    }
+    setWithdrawForm({ soTien: '', ghiChu: '' });
+    setShowWithdrawModal(true);
+  };
+
+  const handleWithdrawDemo = async (event) => {
+    event.preventDefault();
+    const amount = Number(withdrawForm.soTien);
+
+    if (!Number.isInteger(amount) || amount < 50000) {
+      setMessage({ type: 'error', text: 'Số tiền rút không hợp lệ' });
+      return;
+    }
+    if (amount > (revenueProfile?.pendingRevenue || 0)) {
+      setMessage({ type: 'error', text: 'Số tiền rút vượt quá doanh thu chờ thanh toán' });
+      return;
+    }
+
+    setWithdrawing(true);
+    setMessage(null);
+    try {
+      await axios.post('/api/instructor/revenue/withdraw-demo', {
+        soTien: amount,
+        ghiChu: withdrawForm.ghiChu.trim() || null,
+      });
+      const response = await axios.get('/api/instructor/revenue');
+      setRevenueProfile(response.data);
+      setShowWithdrawModal(false);
+      setWithdrawForm({ soTien: '', ghiChu: '' });
+      setMessage({ type: 'success', text: 'Rút tiền demo thành công' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể rút tiền demo.' });
+    } finally {
+      setWithdrawing(false);
     }
   };
 
@@ -341,6 +460,7 @@ const Settings = () => {
             {tabs.map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
+              const label = item.id === 'billing' && isInstructor ? 'Doanh thu & tài khoản nhận tiền' : item.label;
               return (
                 <button
                   key={item.id}
@@ -357,7 +477,7 @@ const Settings = () => {
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  {item.label}
+                  {label}
                 </button>
               );
             })}
@@ -608,6 +728,31 @@ const Settings = () => {
                 <p className="mt-1 text-xs text-slate-400">Cá nhân hóa trải nghiệm trong lớp học.</p>
               </div>
               <div className="divide-y divide-slate-100">
+                {isInstructor && (
+                  <form onSubmit={handleSaveGoogleMeet} className="pb-5">
+                    <div className="mb-3">
+                      <p className="text-sm font-semibold text-slate-900">Liên kết Google Meet</p>
+                      <p className="text-xs text-slate-400">Liên kết mặc định dùng cho các sự kiện trực tuyến demo.</p>
+                    </div>
+                    <div className="flex flex-col gap-3 lg:flex-row">
+                      <input
+                        type="url"
+                        value={googleMeetLink}
+                        onChange={(event) => setGoogleMeetLink(event.target.value)}
+                        placeholder="https://meet.google.com/abc-defg-hij"
+                        className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                      />
+                      <button
+                        type="submit"
+                        disabled={saving}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+                      >
+                        <Check className="h-4 w-4" />
+                        Lưu liên kết Google Meet
+                      </button>
+                    </div>
+                  </form>
+                )}
                 <div className="flex items-center justify-between gap-4 py-4">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Tự động phát video</p>
@@ -641,6 +786,121 @@ const Settings = () => {
 
           {activeTab === 'billing' && (
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+              {isInstructor ? (
+                <>
+                  <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-tight text-slate-900">Doanh thu & tài khoản nhận tiền</h2>
+                      <p className="mt-1 text-xs text-slate-400">Theo dõi doanh thu khóa học và lưu tài khoản nhận tiền cho bản demo đồ án.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleOpenWithdraw}
+                      disabled={(revenueProfile?.pendingRevenue || 0) < 50000}
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <BanknoteArrowDown className="h-4 w-4" />
+                      Rút tiền demo
+                    </button>
+                  </div>
+
+                  <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div className="rounded-2xl border border-purple-100 bg-purple-50 p-5">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-purple-700">Tổng doanh thu</p>
+                      <p className="text-2xl font-bold text-slate-900">{formatCurrency(revenueProfile?.totalRevenue || 0)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Doanh thu chờ thanh toán</p>
+                      <p className="text-2xl font-bold text-slate-900">{formatCurrency(revenueProfile?.pendingRevenue || 0)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Đã thanh toán</p>
+                      <p className="text-2xl font-bold text-slate-900">{formatCurrency(revenueProfile?.paidRevenue || 0)}</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleSavePayoutAccount} className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5">
+                    <div className="mb-4 flex items-center gap-2">
+                      <Landmark className="h-5 w-5 text-purple-600" />
+                      <h3 className="text-sm font-semibold text-slate-900">Tài khoản nhận tiền</h3>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div>
+                        <FieldLabel>Tên ngân hàng</FieldLabel>
+                        <input
+                          value={payoutAccount.bankName}
+                          onChange={(event) => setPayoutAccount((prev) => ({ ...prev, bankName: event.target.value }))}
+                          placeholder="Ví dụ: Ngân hàng Demo"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Số tài khoản</FieldLabel>
+                        <input
+                          value={payoutAccount.accountNumber}
+                          onChange={(event) => setPayoutAccount((prev) => ({ ...prev, accountNumber: event.target.value }))}
+                          placeholder="Nhập số tài khoản demo"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        />
+                      </div>
+                      <div>
+                        <FieldLabel>Chủ tài khoản</FieldLabel>
+                        <input
+                          value={payoutAccount.accountHolder}
+                          onChange={(event) => setPayoutAccount((prev) => ({ ...prev, accountHolder: event.target.value }))}
+                          placeholder="Nhập tên chủ tài khoản"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+                    >
+                      <Check className="h-4 w-4" />
+                      Lưu tài khoản nhận tiền
+                    </button>
+                  </form>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ReceiptText className="h-4 w-4 text-slate-500" />
+                      <h3 className="text-sm font-semibold text-slate-900">Lịch sử doanh thu</h3>
+                    </div>
+                    {(revenueProfile?.recentTransactions || []).length > 0 ? (
+                      revenueProfile.recentTransactions.map((item) => (
+                        <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {item.type === 'DEMO_WITHDRAWAL' ? 'Rút tiền demo' : item.course?.title || 'Doanh thu khóa học'}
+                            </p>
+                            <p className="text-xs text-slate-400">
+                              {new Date(item.createdAt).toLocaleString('vi-VN')}
+                              {item.type === 'DEMO_WITHDRAWAL'
+                                ? ` · ${item.bankName} · ${item.accountHolder}${item.note ? ` · ${item.note}` : ''}`
+                                : ` · ${item.user?.name || item.user?.email || 'Học viên'}`}
+                            </p>
+                          </div>
+                          <div className="sm:text-right">
+                            <p className={`text-sm font-semibold ${item.type === 'DEMO_WITHDRAWAL' ? 'text-purple-600' : 'text-emerald-600'}`}>
+                              {formatCurrency(item.amount || 0)}
+                            </p>
+                            <p className={`text-[11px] ${item.type === 'DEMO_WITHDRAWAL' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                              {item.statusLabel}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+                        Chưa có giao dịch doanh thu nào
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-xl font-semibold tracking-tight text-slate-900">Ví & giao dịch</h2>
@@ -703,6 +963,8 @@ const Settings = () => {
                   </div>
                 )}
               </div>
+                </>
+              )}
             </section>
           )}
 
@@ -763,6 +1025,86 @@ const Settings = () => {
           )}
         </main>
       </div>
+
+      {showWithdrawModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => !withdrawing && setShowWithdrawModal(false)}>
+          <form
+            onSubmit={handleWithdrawDemo}
+            onClick={(event) => event.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Rút tiền demo</h2>
+                <p className="mt-1 text-xs text-slate-500">Đây là giao dịch mô phỏng, không chuyển khoản ngân hàng thật.</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Đóng"
+                disabled={withdrawing}
+                onClick={() => setShowWithdrawModal(false)}
+                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-purple-100 bg-purple-50 p-4 text-sm">
+              <p className="font-semibold text-slate-900">Tài khoản nhận tiền</p>
+              <p className="mt-1 text-slate-600">{payoutAccount.bankName} · {payoutAccount.accountNumber}</p>
+              <p className="text-slate-600">{payoutAccount.accountHolder}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <FieldLabel>Số tiền muốn rút</FieldLabel>
+                <input
+                  type="number"
+                  min="50000"
+                  step="1000"
+                  required
+                  autoFocus
+                  value={withdrawForm.soTien}
+                  onChange={(event) => setWithdrawForm((prev) => ({ ...prev, soTien: event.target.value }))}
+                  placeholder="Tối thiểu 50.000 đ"
+                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                />
+                <p className="mt-1 text-xs text-slate-500">Có thể rút: {formatCurrency(revenueProfile?.pendingRevenue || 0)}</p>
+              </div>
+              <div>
+                <FieldLabel>Ghi chú nếu cần</FieldLabel>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={withdrawForm.ghiChu}
+                  onChange={(event) => setWithdrawForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
+                  placeholder="Rút tiền demo về tài khoản ngân hàng"
+                  className="w-full resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={withdrawing}
+                onClick={() => setShowWithdrawModal(false)}
+                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={withdrawing}
+                className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+              >
+                <BanknoteArrowDown className="h-4 w-4" />
+                {withdrawing ? 'Đang xử lý...' : 'Xác nhận rút tiền'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Text.Json;
 using LMS.Api.Data;
 using LMS.Api.Models;
 using LMS.Api.Services;
@@ -10,12 +11,15 @@ namespace LMS.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public class SuKienController(LmsDbContext db) : ControllerBase
+public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : ControllerBase
 {
     private static readonly HashSet<string> EventTypes = ["WORKSHOP", "SEMINAR", "SPECIAL_TOPIC", "WEBINAR", "OTHER"];
     private static readonly HashSet<string> EventFormats = ["ONLINE", "OFFLINE", "HYBRID"];
+    private static readonly HashSet<string> AllowedExtensions = [".png", ".jpg", ".jpeg", ".webp"];
+    private const long MaxImageSize = 5 * 1024 * 1024; // 5MB
 
     [HttpGet("/api/events")]
+    [HttpGet("/api/student/events")]
     public async Task<IResult> DanhSachCongKhai()
     {
         var userId = TroGiup.LayUserId(User);
@@ -23,10 +27,69 @@ public class SuKienController(LmsDbContext db) : ControllerBase
             .Where(item => item.Status == "PUBLISHED")
             .Include(item => item.Instructor)
             .Include(item => item.Registrations)
+            .Include(item => item.Images)
             .OrderBy(item => item.StartAt)
             .ToListAsync();
 
         return Results.Ok(events.Select(item => MapEvent(item, userId)));
+    }
+
+    [HttpGet("/api/student/events/{id}")]
+    public async Task<IResult> ChiTietCongKhai(string id)
+    {
+        var userId = TroGiup.LayUserId(User);
+        var item = await db.Events.AsNoTracking()
+            .Where(item => item.Id == id && item.Status == "PUBLISHED")
+            .Include(item => item.Instructor)
+            .Include(item => item.Registrations)
+            .Include(item => item.Images)
+            .FirstOrDefaultAsync();
+        return item is null
+            ? Results.NotFound(new { message = "Không tìm thấy sự kiện." })
+            : Results.Ok(MapEvent(item, userId));
+    }
+
+    [HttpGet("/api/instructor/settings/meet-link")]
+    public async Task<IResult> LayLienKetMeet()
+    {
+        var permissionError = TroGiup.YeuCauGiangVien(User);
+        if (permissionError is not null) return permissionError;
+        var userId = TroGiup.LayUserId(User)!;
+        var settings = await db.Users.AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.Settings)
+            .FirstOrDefaultAsync();
+        return Results.Ok(new { googleMeetLink = DocGoogleMeetLink(settings) });
+    }
+
+    [HttpPut("/api/instructor/settings/meet-link")]
+    public async Task<IResult> LuuLienKetMeet([FromBody] LuuLienKetMeetRequest request)
+    {
+        var permissionError = TroGiup.YeuCauGiangVien(User);
+        if (permissionError is not null) return permissionError;
+        var link = request.GoogleMeetLink?.Trim();
+        if (!IsGoogleMeetLink(link))
+            return Results.BadRequest(new { message = "Liên kết Google Meet phải bắt đầu bằng https://meet.google.com/" });
+
+        var userId = TroGiup.LayUserId(User)!;
+        var user = await db.Users.FirstOrDefaultAsync(user => user.Id == userId);
+        if (user is null) return Results.Unauthorized();
+        Dictionary<string, JsonElement> settings;
+        try
+        {
+            settings = string.IsNullOrWhiteSpace(user.Settings)
+                ? []
+                : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(user.Settings) ?? [];
+        }
+        catch (JsonException)
+        {
+            settings = [];
+        }
+        settings["googleMeetLink"] = JsonSerializer.SerializeToElement(link);
+        user.Settings = JsonSerializer.Serialize(settings);
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return Results.Ok(new { message = "Đã lưu liên kết Google Meet.", googleMeetLink = link });
     }
 
     [HttpGet("/api/instructor/events")]
@@ -41,10 +104,28 @@ public class SuKienController(LmsDbContext db) : ControllerBase
             .Include(item => item.Instructor)
             .Include(item => item.Registrations)
                 .ThenInclude(item => item.User)
+            .Include(item => item.Images)
             .OrderByDescending(item => item.CreatedAt)
             .ToListAsync();
 
         return Results.Ok(events.Select(item => MapEvent(item, userId, includeAttendees: true)));
+    }
+
+    [HttpGet("/api/instructor/events/{id}")]
+    public async Task<IResult> ChiTietSuKien(string id)
+    {
+        var permissionError = TroGiup.YeuCauGiangVien(User);
+        if (permissionError is not null) return permissionError;
+
+        var userId = TroGiup.LayUserId(User)!;
+        var item = await db.Events.AsNoTracking()
+            .Include(e => e.Instructor)
+            .Include(e => e.Registrations).ThenInclude(r => r.User)
+            .Include(e => e.Images)
+            .FirstOrDefaultAsync(e => e.Id == id && e.InstructorId == userId);
+
+        if (item is null) return Results.NotFound(new { message = "Không tìm thấy sự kiện." });
+        return Results.Ok(MapEvent(item, userId, includeAttendees: true));
     }
 
     [HttpPost("/api/instructor/events")]
@@ -82,7 +163,158 @@ public class SuKienController(LmsDbContext db) : ControllerBase
         Apply(item, request);
         item.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+
+        // Reload with images for response
+        await db.Entry(item).Collection(e => e.Images).LoadAsync();
         return Results.Ok(MapEvent(item, item.InstructorId));
+    }
+
+    [HttpPost("/api/instructor/events/{id}/images")]
+    [RequestSizeLimit(50 * 1024 * 1024)] // 50MB total limit
+    public async Task<IResult> UploadAnhSuKien(string id, [FromForm] List<IFormFile> files)
+    {
+        var item = await LoadOwnedEvent(id);
+        if (item is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa sự kiện này." }, statusCode: 403);
+
+        if (files is null || files.Count == 0)
+            return Results.BadRequest(new { message = "Vui lòng chọn ít nhất một ảnh." });
+
+        var errors = new List<string>();
+        var uploadedImages = new List<object>();
+        var uploadsDir = Path.Combine(env.WebRootPath, "uploads", "events");
+        Directory.CreateDirectory(uploadsDir);
+
+        // Check if event already has any images (for auto-cover)
+        var existingCount = await db.EventImages.CountAsync(img => img.SuKienId == id);
+        var hasCover = existingCount > 0 && await db.EventImages.AnyAsync(img => img.SuKienId == id && img.IsCover);
+
+        for (int i = 0; i < files.Count; i++)
+        {
+            var file = files[i];
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+
+            if (!AllowedExtensions.Contains(ext))
+            {
+                errors.Add($"Ảnh {i + 1}: Chỉ hỗ trợ định dạng PNG, JPG, JPEG, WEBP.");
+                continue;
+            }
+
+            if (file.Length > MaxImageSize)
+            {
+                errors.Add($"Ảnh {i + 1}: Kích thước tối đa là 5MB.");
+                continue;
+            }
+
+            var fileName = $"{id}_{Guid.NewGuid():N}{ext}";
+            var filePath = Path.Combine(uploadsDir, fileName);
+
+            await using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await file.CopyToAsync(stream);
+            }
+
+            var isCover = !hasCover && existingCount == 0 && i == 0;
+            var imageRecord = new SuKienAnh
+            {
+                Id = TaoId.Moi(),
+                SuKienId = id,
+                ImageUrl = $"/uploads/events/{fileName}",
+                IsCover = isCover,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            db.EventImages.Add(imageRecord);
+            existingCount++;
+            if (isCover) hasCover = true;
+
+            uploadedImages.Add(new
+            {
+                id = imageRecord.Id,
+                imageUrl = imageRecord.ImageUrl,
+                isCover = imageRecord.IsCover,
+                createdAt = imageRecord.CreatedAt
+            });
+        }
+
+        // Sync SuKien.ImageUrl with cover image
+        await SyncCoverImage(item);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new
+        {
+            message = errors.Count > 0
+                ? $"Đã upload {uploadedImages.Count} ảnh. {string.Join(" ", errors)}"
+                : $"Đã upload {uploadedImages.Count} ảnh thành công.",
+            images = uploadedImages,
+            errors
+        });
+    }
+
+    [HttpDelete("/api/instructor/events/{id}/images/{imageId}")]
+    public async Task<IResult> XoaAnhSuKien(string id, string imageId)
+    {
+        var item = await LoadOwnedEvent(id);
+        if (item is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa sự kiện này." }, statusCode: 403);
+
+        var image = await db.EventImages.FirstOrDefaultAsync(img => img.Id == imageId && img.SuKienId == id);
+        if (image is null) return Results.NotFound(new { message = "Không tìm thấy ảnh." });
+
+        // Delete physical file
+        var filePath = Path.Combine(env.WebRootPath, image.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        if (System.IO.File.Exists(filePath))
+        {
+            System.IO.File.Delete(filePath);
+        }
+
+        var wasCover = image.IsCover;
+        db.EventImages.Remove(image);
+        await db.SaveChangesAsync();
+
+        // If deleted image was cover, assign cover to first remaining image
+        if (wasCover)
+        {
+            var firstRemaining = await db.EventImages
+                .Where(img => img.SuKienId == id)
+                .OrderBy(img => img.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (firstRemaining is not null)
+            {
+                firstRemaining.IsCover = true;
+            }
+
+            await SyncCoverImage(item);
+            await db.SaveChangesAsync();
+        }
+
+        return Results.Ok(new { message = "Đã xóa ảnh." });
+    }
+
+    [HttpPatch("/api/instructor/events/{id}/images/{imageId}/set-cover")]
+    public async Task<IResult> DatAnhDaiDien(string id, string imageId)
+    {
+        var item = await LoadOwnedEvent(id);
+        if (item is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa sự kiện này." }, statusCode: 403);
+
+        var image = await db.EventImages.FirstOrDefaultAsync(img => img.Id == imageId && img.SuKienId == id);
+        if (image is null) return Results.NotFound(new { message = "Không tìm thấy ảnh." });
+
+        // Clear all covers for this event
+        var currentCovers = await db.EventImages
+            .Where(img => img.SuKienId == id && img.IsCover)
+            .ToListAsync();
+        foreach (var cover in currentCovers)
+        {
+            cover.IsCover = false;
+        }
+
+        // Set new cover
+        image.IsCover = true;
+        item.ImageUrl = image.ImageUrl;
+        item.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { message = "Đã đặt ảnh đại diện." });
     }
 
     [HttpPatch("/api/instructor/events/{id}/publish")]
@@ -119,6 +351,18 @@ public class SuKienController(LmsDbContext db) : ControllerBase
         if (item.Registrations.Any(registration => registration.Status == "REGISTERED"))
             return Results.BadRequest(new { message = "Sự kiện đã có người đăng ký nên không thể xóa. Bạn có thể hủy sự kiện." });
 
+        // Delete all image files
+        var images = await db.EventImages.Where(img => img.SuKienId == id).ToListAsync();
+        foreach (var image in images)
+        {
+            var filePath = Path.Combine(env.WebRootPath, image.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            if (System.IO.File.Exists(filePath))
+            {
+                System.IO.File.Delete(filePath);
+            }
+        }
+
+        db.EventImages.RemoveRange(images);
         db.EventRegistrations.RemoveRange(item.Registrations);
         db.Events.Remove(item);
         await db.SaveChangesAsync();
@@ -206,6 +450,16 @@ public class SuKienController(LmsDbContext db) : ControllerBase
             .FirstOrDefaultAsync(item => item.Id == id && item.InstructorId == userId);
     }
 
+    private async Task SyncCoverImage(SuKien item)
+    {
+        var coverImage = await db.EventImages
+            .Where(img => img.SuKienId == item.Id && img.IsCover)
+            .FirstOrDefaultAsync();
+
+        item.ImageUrl = coverImage?.ImageUrl;
+        item.UpdatedAt = DateTime.UtcNow;
+    }
+
     private static string? Validate(LuuSuKienRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length < 5) return "Tên sự kiện phải có ít nhất 5 ký tự.";
@@ -216,7 +470,7 @@ public class SuKienController(LmsDbContext db) : ControllerBase
         if (request.Capacity < 1 || request.Capacity > 10000) return "Số lượng người tham gia phải từ 1 đến 10.000.";
         var format = request.Format!.Trim().ToUpperInvariant();
         if (format is "OFFLINE" or "HYBRID" && string.IsNullOrWhiteSpace(request.Location)) return "Vui lòng nhập địa điểm tổ chức.";
-        if (format is "ONLINE" or "HYBRID" && string.IsNullOrWhiteSpace(request.OnlineUrl)) return "Vui lòng nhập liên kết tham gia trực tuyến.";
+        if (format is "ONLINE" or "HYBRID" && string.IsNullOrWhiteSpace(request.LinkThamGia)) return "Vui lòng nhập liên kết tham gia trực tuyến.";
         return null;
     }
 
@@ -229,14 +483,22 @@ public class SuKienController(LmsDbContext db) : ControllerBase
         item.StartAt = request.StartAt;
         item.EndAt = request.EndAt;
         item.Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
-        item.OnlineUrl = string.IsNullOrWhiteSpace(request.OnlineUrl) ? null : request.OnlineUrl.Trim();
-        item.ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim();
+        item.LinkThamGia = string.IsNullOrWhiteSpace(request.LinkThamGia) ? null : request.LinkThamGia.Trim();
         item.Capacity = request.Capacity;
+        // Note: ImageUrl is now managed via SuKienAnh (cover image sync)
+        // Keep backward compat: if request has imageUrl and no images uploaded yet, use it
+        if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+            item.ImageUrl = request.ImageUrl.Trim();
     }
 
     private static object MapEvent(SuKien item, string? userId, bool includeAttendees = false)
     {
         var activeRegistrations = item.Registrations.Where(entry => entry.Status == "REGISTERED").ToList();
+        var images = item.Images?.OrderByDescending(img => img.IsCover).ThenBy(img => img.CreatedAt)
+            .Select(img => new { id = img.Id, imageUrl = img.ImageUrl, isCover = img.IsCover, createdAt = img.CreatedAt })
+            .ToList();
+        var coverImage = item.Images?.FirstOrDefault(img => img.IsCover) ?? item.Images?.FirstOrDefault();
+
         return new
         {
             id = item.Id,
@@ -247,20 +509,40 @@ public class SuKienController(LmsDbContext db) : ControllerBase
             startAt = item.StartAt,
             endAt = item.EndAt,
             location = item.Location,
-            onlineUrl = item.OnlineUrl,
-            imageUrl = item.ImageUrl,
+            onlineUrl = item.LinkThamGia,
+            linkThamGia = item.LinkThamGia,
+            imageUrl = coverImage?.ImageUrl ?? item.ImageUrl,
             capacity = item.Capacity,
             status = item.Status,
             instructorId = item.InstructorId,
             instructorName = item.Instructor?.Name ?? "Giảng viên",
             registrationCount = activeRegistrations.Count,
             isRegistered = activeRegistrations.Any(entry => entry.UserId == userId),
+            images,
             attendees = includeAttendees
                 ? activeRegistrations.Select(entry => new { id = entry.UserId, name = entry.User?.Name, email = entry.User?.Email, registeredAt = entry.RegisteredAt })
                 : null,
             createdAt = item.CreatedAt,
             updatedAt = item.UpdatedAt
         };
+    }
+
+    private static bool IsGoogleMeetLink(string? link) =>
+        !string.IsNullOrWhiteSpace(link) &&
+        link.StartsWith("https://meet.google.com/", StringComparison.OrdinalIgnoreCase);
+
+    private static string? DocGoogleMeetLink(string? settings)
+    {
+        if (string.IsNullOrWhiteSpace(settings)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(settings);
+            return document.RootElement.TryGetProperty("googleMeetLink", out var value) ? value.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 }
 
@@ -273,7 +555,12 @@ public sealed class LuuSuKienRequest
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
     public string? Location { get; set; }
-    public string? OnlineUrl { get; set; }
+    public string? LinkThamGia { get; set; }
     public string? ImageUrl { get; set; }
     public int Capacity { get; set; } = 50;
+}
+
+public sealed class LuuLienKetMeetRequest
+{
+    public string? GoogleMeetLink { get; set; }
 }

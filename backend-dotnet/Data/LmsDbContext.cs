@@ -27,6 +27,8 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<DoiThuongSuKien> EventRewardRedemptions => Set<DoiThuongSuKien>();
     public DbSet<SuKien> Events => Set<SuKien>();
     public DbSet<DangKySuKien> EventRegistrations => Set<DangKySuKien>();
+    public DbSet<SuKienAnh> EventImages => Set<SuKienAnh>();
+    public DbSet<RutTienGiangVien> InstructorWithdrawals => Set<RutTienGiangVien>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -85,6 +87,33 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasOne(item => item.User)
                 .WithMany(item => item.EventRegistrations)
                 .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<SuKienAnh>(entity =>
+        {
+            entity.ToTable("EventImage");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.SuKienId);
+            entity.HasOne(item => item.SuKien)
+                .WithMany(item => item.Images)
+                .HasForeignKey(item => item.SuKienId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RutTienGiangVien>(entity =>
+        {
+            entity.ToTable("InstructorWithdrawal");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.InstructorId, item.CreatedAt });
+            entity.Property(item => item.Status).HasDefaultValue("COMPLETED");
+            entity.Property(item => item.BankName).HasMaxLength(150);
+            entity.Property(item => item.AccountNumber).HasMaxLength(50);
+            entity.Property(item => item.AccountHolder).HasMaxLength(150);
+            entity.Property(item => item.Note).HasMaxLength(500);
+            entity.HasOne(item => item.Instructor)
+                .WithMany(item => item.InstructorWithdrawals)
+                .HasForeignKey(item => item.InstructorId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 

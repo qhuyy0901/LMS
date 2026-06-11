@@ -6,6 +6,7 @@ const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const API_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl;
 
 axios.defaults.baseURL = API_URL;
+axios.defaults.withCredentials = true;
 
 // Khởi tạo Authorization header ngay lập tức nếu có token trong localStorage
 const initialToken = localStorage.getItem('token');
@@ -23,10 +24,16 @@ const normalizeUser = (user) => {
     email: user.email,
     name: user.name,
     role: user.role,
+    avatar: user.avatar ?? null,
+    phone: user.phone ?? null,
+    bio: user.bio ?? null,
+    settings: user.settings ?? null,
     walletBalance: user.walletBalance ?? 0,
     totalSpent: user.totalSpent ?? 0,
     memberTier: user.memberTier ?? 'BRONZE',
     memberTierLabel: user.memberTierLabel,
+    rewardPoints: user.rewardPoints ?? 0,
+    loginStreak: user.loginStreak ?? 0,
   };
 };
 
@@ -55,9 +62,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
+    axios.post('/api/auth/logout').catch(() => null);
     persistUser(null);
     localStorage.removeItem('token');
+    sessionStorage.removeItem('skillio_student_preview');
     delete axios.defaults.headers.common.Authorization;
+    delete axios.defaults.headers.common['X-Student-Preview'];
 
     if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
       window.location.href = '/login';
@@ -89,6 +99,24 @@ export function AuthProvider({ children }) {
     localStorage.setItem('token', token);
     axios.defaults.headers.common.Authorization = `Bearer ${token}`;
     return persistUser(userData);
+  }, [persistUser]);
+
+  const startSocialLogin = useCallback(async (provider) => {
+    const normalizedProvider = provider.toLowerCase();
+    const response = await axios.get('/api/auth/providers');
+    if (!response.data?.[normalizedProvider]) {
+      throw new Error(`Đăng nhập ${provider} chưa được cấu hình. Vui lòng thêm Client ID và Client Secret.`);
+    }
+    window.location.href = `${API_URL}/api/auth/social/${normalizedProvider}`;
+  }, []);
+
+  const completeSocialLogin = useCallback(async (token) => {
+    if (token) {
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
+    }
+    const response = await axios.get('/api/user/me');
+    return persistUser(response.data);
   }, [persistUser]);
 
   useEffect(() => {
@@ -127,10 +155,12 @@ export function AuthProvider({ children }) {
       token,
       login,
       register,
+      startSocialLogin,
+      completeSocialLogin,
       logout,
       refreshUser,
     }),
-    [user, token, login, register, logout, refreshUser]
+    [user, token, login, register, startSocialLogin, completeSocialLogin, logout, refreshUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

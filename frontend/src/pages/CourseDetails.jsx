@@ -4,6 +4,7 @@ import axios from 'axios';
 import {
   ArrowRight,
   BookOpen,
+  CalendarDays,
   CheckCircle,
   ChevronLeft,
   Clock,
@@ -17,6 +18,7 @@ import {
   X,
 } from 'lucide-react';
 import { getFileUrl } from '../utils/fileUtils';
+import { useDashboardView } from '../context/DashboardViewContext';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -36,6 +38,15 @@ const formatDuration = (seconds = 0) => {
 };
 
 const formatReviewDate = (value) => {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
+};
+
+const formatCourseDate = (value) => {
   if (!value) return '';
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
@@ -66,6 +77,7 @@ const ReviewStars = ({ value, onChange, interactive = false }) => (
 export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isImpersonating } = useDashboardView();
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -132,6 +144,10 @@ export default function CourseDetails() {
   };
 
   const handleEnroll = async () => {
+    if (isImpersonating) {
+      window.alert('Chế độ xem thử chỉ mô phỏng trải nghiệm sinh viên và không phát sinh đăng ký hoặc giao dịch.');
+      return;
+    }
     setEnrolling(true);
     try {
       if (course.price > 0) {
@@ -304,6 +320,12 @@ export default function CourseDetails() {
                 <Clock className="h-4 w-4" />
                 {formatDuration(course.totalDurationSeconds || 0)}
               </span>
+              {course.startDate && course.endDate && (
+                <span className="flex items-center gap-1 text-sm text-slate-500">
+                  <CalendarDays className="h-4 w-4" />
+                  {formatCourseDate(course.startDate)} - {formatCourseDate(course.endDate)}
+                </span>
+              )}
             </div>
 
             <h1 className="mb-4 text-3xl font-bold leading-tight text-slate-900 sm:text-4xl">{course.title}</h1>
@@ -408,7 +430,7 @@ export default function CourseDetails() {
               </div>
             </div>
 
-            {course.canReview ? (
+            {course.canReview && !isImpersonating ? (
               <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <div>
@@ -514,7 +536,21 @@ export default function CourseDetails() {
               </div>
             ) : null}
 
-            {isEnrolled ? (
+            {isImpersonating ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 rounded-2xl bg-purple-50 p-4 text-purple-700">
+                  <PlayCircle className="h-6 w-6 flex-shrink-0" />
+                  <p className="text-sm font-medium">Xem toàn bộ khóa học theo giao diện học viên</p>
+                </div>
+                <button
+                  onClick={() => navigate(`/learn/${id}`)}
+                  className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 font-semibold text-white transition-colors hover:bg-slate-800"
+                >
+                  Xem không gian học tập
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </button>
+              </div>
+            ) : isEnrolled ? (
               <div className="space-y-4">
                 <div className="flex items-center gap-3 rounded-2xl bg-green-50 p-4 text-green-700">
                   <CheckCircle className="h-6 w-6 flex-shrink-0" />
@@ -543,6 +579,50 @@ export default function CourseDetails() {
                 </button>
               </div>
             ) : (
+              <>
+              {course.price > 0 ? (
+                <div className="mb-4 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <label htmlFor="coupon-code" className="mb-2 block text-sm font-semibold text-slate-700">
+                    Mã giảm giá
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Tag className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        id="coupon-code"
+                        value={couponCode}
+                        onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                        placeholder="Nhập mã giảm giá"
+                        className="w-full rounded-xl border border-slate-200 bg-white py-3 pl-10 pr-10 text-sm font-medium text-slate-700 outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                      />
+                      {couponCode ? (
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoupon}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-slate-700"
+                          aria-label="Xóa mã giảm giá"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleValidateCoupon}
+                      disabled={!couponCode.trim() || validatingCoupon}
+                      className="rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {validatingCoupon ? 'Đang kiểm tra' : 'Áp dụng'}
+                    </button>
+                  </div>
+                  {couponResult ? (
+                    <p className={`mt-2 text-xs font-medium ${couponResult.valid ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {couponResult.valid ? 'Mã giảm giá hợp lệ.' : couponResult.error || 'Mã giảm giá không hợp lệ.'}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="space-y-3">
                 <button
                   onClick={handleEnroll}
@@ -560,6 +640,7 @@ export default function CourseDetails() {
                   </button>
                 )}
               </div>
+              </>
             )}
 
             <div className="mt-8 space-y-4">

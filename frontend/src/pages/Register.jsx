@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -14,9 +14,10 @@ import {
   Play,
 } from 'lucide-react';
 
-const GitHubIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+const FacebookIcon = ({ className }) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.96h-1.51c-1.49 0-1.96.93-1.96 1.89v2.27h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z" />
+    <path fill="#fff" d="m16.67 15.56.53-3.49h-3.33V9.8c0-.96.47-1.89 1.96-1.89h1.51V4.95s-1.37-.24-2.68-.24c-2.74 0-4.54 1.67-4.54 4.7v2.66H7.08v3.49h3.05V24a12.12 12.12 0 0 0 3.75 0v-8.44h2.8z" />
   </svg>
 );
 
@@ -29,8 +30,20 @@ export default function Register() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const { register } = useAuth();
+  const { register, startSocialLogin } = useAuth();
   const navigate = useNavigate();
+
+  const [providers, setProviders] = useState({ google: false, facebook: false });
+  const hasSocialProviders = providers.google || providers.facebook;
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`${import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api$/, '') : 'http://localhost:5000'}/api/auth/providers`, { signal: controller.signal })
+      .then(res => res.json())
+      .then(data => setProviders({ google: !!data.google, facebook: !!data.facebook }))
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -44,6 +57,10 @@ export default function Register() {
       setError('Bạn cần đồng ý với Điều khoản và Chính sách bảo mật');
       return;
     }
+    if (password.length < 6) {
+      setError('Mật khẩu tối thiểu 6 ký tự');
+      return;
+    }
 
     try {
       setIsLoading(true);
@@ -53,6 +70,15 @@ export default function Register() {
       setError(err.response?.data?.message || 'Đăng ký thất bại. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSocialLogin = async (provider) => {
+    setError('');
+    try {
+      await startSocialLogin(provider);
+    } catch (err) {
+      setError(err.message || `Không thể đăng ký bằng ${provider}.`);
     }
   };
 
@@ -76,41 +102,49 @@ export default function Register() {
             Bắt đầu hành trình học tập cùng hàng trăm nghìn học viên.
           </p>
 
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <button className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 px-4 py-2.5 rounded-full text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors">
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                />
-              </svg>
-              Google
-            </button>
-            <button className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 px-4 py-2.5 rounded-full text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors">
-              <GitHubIcon className="w-4 h-4" />
-              GitHub
-            </button>
-          </div>
+          {hasSocialProviders && (
+            <>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {providers.google && (
+                  <button type="button" onClick={() => handleSocialLogin('Google')} className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 px-4 py-2.5 rounded-full text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                      />
+                    </svg>
+                    Google
+                  </button>
+                )}
+                {providers.facebook && (
+                  <button type="button" onClick={() => handleSocialLogin('Facebook')} className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 px-4 py-2.5 rounded-full text-sm font-medium inline-flex items-center justify-center gap-2 cursor-pointer transition-colors">
+                    <FacebookIcon className="w-4 h-4" />
+                    Facebook
+                  </button>
+                )}
+              </div>
 
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-xs text-slate-400">
-              hoặc đăng ký với email
-            </span>
-            <div className="flex-1 h-px bg-slate-200" />
-          </div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex-1 h-px bg-slate-200" />
+                <span className="text-xs text-slate-400">
+                  hoặc đăng ký với email
+                </span>
+                <div className="flex-1 h-px bg-slate-200" />
+              </div>
+            </>
+          )}
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             {error && (
@@ -184,7 +218,7 @@ export default function Register() {
                 </button>
               </div>
               <p className="text-xs text-slate-400 mt-1.5">
-                Tối thiểu 8 ký tự, bao gồm chữ và số.
+                Tối thiểu 6 ký tự, bao gồm chữ và số.
               </p>
             </div>
 

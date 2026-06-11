@@ -27,8 +27,8 @@ export default function AdminSecurity() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Bao mat va audit log</h1>
-        <p className="mt-1 text-sm text-slate-500">Theo doi cac hanh dong quan tri tac dong den user, khoa hoc va giao dich.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Bảo mật và audit log</h1>
+        <p className="mt-1 text-sm text-slate-500">Theo dõi các hành động quản trị tác động đến người dùng, khóa học và giao dịch.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -37,14 +37,14 @@ export default function AdminSecurity() {
             <ShieldCheck className="h-5 w-5" />
           </div>
           <p className="text-sm font-semibold text-slate-900">Audit logging</p>
-          <p className="mt-1 text-sm text-slate-600">Dang ghi lai cac thao tac admin quan trong.</p>
+          <p className="mt-1 text-sm text-slate-600">Đang ghi lại các thao tác admin quan trọng.</p>
         </div>
         <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-          <p className="text-sm font-semibold text-slate-900">Can lam tiep</p>
-          <p className="mt-1 text-sm text-slate-600">Doi mat khau, 2FA, session management va secret validation.</p>
+          <p className="text-sm font-semibold text-slate-900">Cần làm tiếp</p>
+          <p className="mt-1 text-sm text-slate-600">Đổi mật khẩu, 2FA, quản lý phiên đăng nhập và kiểm tra secret.</p>
         </div>
         <div className="rounded-2xl border border-slate-100 bg-white p-5">
-          <p className="text-sm font-semibold text-slate-900">Ban ghi hien thi</p>
+          <p className="text-sm font-semibold text-slate-900">Bản ghi hiển thị</p>
           <p className="mt-1 text-2xl font-bold text-slate-900">{logs.length}</p>
         </div>
       </div>
@@ -55,10 +55,10 @@ export default function AdminSecurity() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                <th className="px-5 py-4">Thoi gian</th>
+                <th className="px-5 py-4">Thời gian</th>
                 <th className="px-5 py-4">Admin</th>
-                <th className="px-5 py-4">Hanh dong</th>
-                <th className="px-5 py-4">Doi tuong</th>
+                <th className="px-5 py-4">Hành động</th>
+                <th className="px-5 py-4">Đối tượng</th>
                 <th className="px-5 py-4">Metadata</th>
               </tr>
             </thead>
@@ -66,13 +66,13 @@ export default function AdminSecurity() {
               {loading ? (
                 <tr>
                   <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                    Dang tai audit log...
+                    Đang tải audit log...
                   </td>
                 </tr>
               ) : logs.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                    Chua co audit log.
+                    Chưa có audit log.
                   </td>
                 </tr>
               ) : (

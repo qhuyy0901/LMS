@@ -1,8 +1,10 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useDashboardView } from '../context/DashboardViewContext';
 
 const RoleRoute = ({ roles, allowedRoles, children }) => {
   const { user } = useAuth();
+  const { isImpersonating } = useDashboardView();
   const permitted = roles || allowedRoles || [];
 
   if (!user) {
@@ -10,6 +12,10 @@ const RoleRoute = ({ roles, allowedRoles, children }) => {
   }
 
   if (!permitted.includes(user.role)) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (isImpersonating) {
     return <Navigate to="/" replace />;
   }
 

@@ -41,4 +41,114 @@
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+:root {
+  --skillio-primary: #9333ea;
+  --skillio-primary-dark: #7e22ce;
+  --skillio-primary-soft: #faf5ff;
+  --skillio-primary-border: #e9d5ff;
+}
+
+:root[data-primary-color='blue'] {
+  --skillio-primary: #2563eb;
+  --skillio-primary-dark: #1d4ed8;
+  --skillio-primary-soft: #eff6ff;
+  --skillio-primary-border: #bfdbfe;
+}
+
+:root[data-primary-color='emerald'] {
+  --skillio-primary: #059669;
+  --skillio-primary-dark: #047857;
+  --skillio-primary-soft: #ecfdf5;
+  --skillio-primary-border: #a7f3d0;
+}
+
+:root[data-primary-color='rose'] {
+  --skillio-primary: #e11d48;
+  --skillio-primary-dark: #be123c;
+  --skillio-primary-soft: #fff1f2;
+  --skillio-primary-border: #fecdd3;
+}
+
+:root[data-font-size='small'] {
+  font-size: 14px;
+}
+
+:root[data-font-size='medium'] {
+  font-size: 16px;
+}
+
+:root[data-font-size='large'] {
+  font-size: 18px;
+}
+
+:root[data-primary-color] .bg-purple-600,
+:root[data-primary-color] .bg-purple-500,
+:root[data-primary-color] .bg-purple-700 {
+  background-color: var(--skillio-primary) !important;
+}
+
+:root[data-primary-color] .hover\:bg-purple-700:hover {
+  background-color: var(--skillio-primary-dark) !important;
+}
+
+:root[data-primary-color] .bg-purple-50,
+:root[data-primary-color] .bg-purple-100 {
+  background-color: var(--skillio-primary-soft) !important;
+}
+
+:root[data-primary-color] .text-purple-600,
+:root[data-primary-color] .text-purple-700,
+:root[data-primary-color] .text-purple-800 {
+  color: var(--skillio-primary) !important;
+}
+
+:root[data-primary-color] .border-purple-200,
+:root[data-primary-color] .border-purple-300,
+:root[data-primary-color] .border-purple-400,
+:root[data-primary-color] .border-purple-500 {
+  border-color: var(--skillio-primary-border) !important;
+}
+
+:root[data-theme='dark'] body,
+:root[data-theme='dark'] .bg-slate-50,
+:root[data-theme='dark'] .bg-slate-50\/30 {
+  background-color: #0f172a !important;
+  color: #e2e8f0;
+}
+
+:root[data-theme='dark'] .bg-white {
+  background-color: #111827 !important;
+}
+
+:root[data-theme='dark'] .bg-slate-100,
+:root[data-theme='dark'] .bg-slate-50 {
+  background-color: #1e293b !important;
+}
+
+:root[data-theme='dark'] .text-slate-900,
+:root[data-theme='dark'] .text-slate-800,
+:root[data-theme='dark'] .text-slate-700 {
+  color: #f1f5f9 !important;
+}
+
+:root[data-theme='dark'] .text-slate-600,
+:root[data-theme='dark'] .text-slate-500,
+:root[data-theme='dark'] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+:root[data-theme='dark'] .border-slate-100,
+:root[data-theme='dark'] .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] textarea,
+:root[data-theme='dark'] select {
+  background-color: #0f172a !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
 }

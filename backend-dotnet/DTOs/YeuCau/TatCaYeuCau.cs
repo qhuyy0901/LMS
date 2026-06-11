@@ -10,6 +10,9 @@ public record DangNhapRequest(string Email, string Password);
 
 /// <summary>Yêu cầu cập nhật thông tin người dùng</summary>
 public record CapNhatNguoiDungRequest(string? Name, string? Phone, string? Bio, JsonElement? Settings);
+public record CapNhatHoSoTaiKhoanRequest(string? Name, string? Email, string? Phone, string? Bio, JsonElement? Settings);
+public record DoiMatKhauTaiKhoanRequest(string CurrentPassword, string NewPassword, string ConfirmPassword);
+public record CapNhatCaiDatRequest(JsonElement Settings);
 
 /// <summary>Yêu cầu đổi mật khẩu người dùng</summary>
 public record DoiMatKhauRequest(string CurrentPassword, string NewPassword);
@@ -40,7 +43,7 @@ public record TaoMaGiamGiaRequest(
 public record LuuKhoaHocRequest(string? Title, string? Description, string? Thumbnail, int? Price, string? MinimumMemberTier);
 
 /// <summary>Yêu cầu thay đổi trạng thái xuất bản</summary>
-public record XuatBanRequest(bool IsPublished);
+public record XuatBanRequest(bool IsPublished, DateTime? StartDate = null, DateTime? EndDate = null);
 
 /// <summary>Yêu cầu tạo/cập nhật chương</summary>
 public record LuuChuongRequest(string? Title, string? Description);

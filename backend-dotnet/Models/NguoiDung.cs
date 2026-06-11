@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace LMS.Api.Models;
 
 public class NguoiDung
@@ -14,8 +16,34 @@ public class NguoiDung
     public int WalletBalance { get; set; }
     public int TotalSpent { get; set; }
     public string MemberTier { get; set; } = "BRONZE";
+    public int RewardPoints { get; set; }
+    public int LoginStreak { get; set; }
+    public DateTime? LastRewardLoginDate { get; set; }
+    public DateTime? LastLessonRewardDate { get; set; }
+    public string? LastPurchaseRewardWeek { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    [NotMapped]
+    public string HoTen
+    {
+        get => Name;
+        set => Name = value;
+    }
+
+    [NotMapped]
+    public string VaiTro
+    {
+        get => Role;
+        set => Role = value;
+    }
+
+    [NotMapped]
+    public int SoDuVi
+    {
+        get => WalletBalance;
+        set => WalletBalance = value;
+    }
 
     public ICollection<KhoaHoc> Courses { get; set; } = [];
     public ICollection<GhiDanh> Enrollments { get; set; } = [];
@@ -28,4 +56,7 @@ public class NguoiDung
     public ICollection<TienDoBaiHoc> LessonProgresses { get; set; } = [];
     public ICollection<BinhLuan> Comments { get; set; } = [];
     public ICollection<NopBaiKiemTra> QuizSubmissions { get; set; } = [];
+    public ICollection<DoiThuongSuKien> EventRewardRedemptions { get; set; } = [];
+    public ICollection<SuKien> OrganizedEvents { get; set; } = [];
+    public ICollection<DangKySuKien> EventRegistrations { get; set; } = [];
 }

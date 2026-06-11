@@ -19,6 +19,8 @@ public class KhoaHoc
     public bool IsPublished { get; set; }
     public string Status { get; set; } = "DRAFT";
     public DateTime? PublishedAt { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
     public string InstructorId { get; set; } = string.Empty;
     public NguoiDung? Instructor { get; set; }
     public DateTime CreatedAt { get; set; }

@@ -24,6 +24,9 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<MaGiamGia> Coupons => Set<MaGiamGia>();
     public DbSet<NhatKyHeThong> AuditLogs => Set<NhatKyHeThong>();
     public DbSet<BaiTap> Assignments => Set<BaiTap>();
+    public DbSet<DoiThuongSuKien> EventRewardRedemptions => Set<DoiThuongSuKien>();
+    public DbSet<SuKien> Events => Set<SuKien>();
+    public DbSet<DangKySuKien> EventRegistrations => Set<DangKySuKien>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -36,6 +39,53 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.Property(item => item.MemberTier).HasDefaultValue("BRONZE");
             entity.Property(item => item.WalletBalance).HasDefaultValue(0);
             entity.Property(item => item.TotalSpent).HasDefaultValue(0);
+            entity.Property(item => item.RewardPoints).HasDefaultValue(0);
+            entity.Property(item => item.LoginStreak).HasDefaultValue(0);
+            entity.Property(item => item.LastPurchaseRewardWeek).HasMaxLength(10);
+        });
+
+        modelBuilder.Entity<DoiThuongSuKien>(entity =>
+        {
+            entity.ToTable("EventRewardRedemption");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.UserId, item.RewardId }).IsUnique();
+            entity.HasOne(item => item.User)
+                .WithMany(item => item.EventRewardRedemptions)
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<SuKien>(entity =>
+        {
+            entity.ToTable("Event");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.Status, item.StartAt });
+            entity.HasIndex(item => item.InstructorId);
+            entity.Property(item => item.Type).HasDefaultValue("WORKSHOP");
+            entity.Property(item => item.Format).HasDefaultValue("OFFLINE");
+            entity.Property(item => item.Status).HasDefaultValue("DRAFT");
+            entity.Property(item => item.Capacity).HasDefaultValue(50);
+            entity.HasOne(item => item.Instructor)
+                .WithMany(item => item.OrganizedEvents)
+                .HasForeignKey(item => item.InstructorId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<DangKySuKien>(entity =>
+        {
+            entity.ToTable("EventRegistration");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.EventId, item.UserId }).IsUnique();
+            entity.HasIndex(item => new { item.UserId, item.RegisteredAt });
+            entity.Property(item => item.Status).HasDefaultValue("REGISTERED");
+            entity.HasOne(item => item.Event)
+                .WithMany(item => item.Registrations)
+                .HasForeignKey(item => item.EventId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.User)
+                .WithMany(item => item.EventRegistrations)
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
         });
 
         modelBuilder.Entity<KhoaHoc>(entity =>
@@ -281,6 +331,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasIndex(item => new { item.UserId, item.CreatedAt });
             entity.HasIndex(item => item.CourseId);
             entity.HasIndex(item => new { item.Type, item.CreatedAt });
+            entity.Property(item => item.Status).HasDefaultValue("COMPLETED");
             entity.Property(item => item.Metadata).HasMaxLength(4000);
             entity.HasOne(item => item.User)
                 .WithMany(item => item.WalletTransactions)

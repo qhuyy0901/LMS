@@ -15,6 +15,7 @@ import {
   Upload,
   Video,
 } from 'lucide-react';
+import { COURSE_CATEGORIES } from '../config/courseCategories';
 import { api } from '../api/client';
 import QuizEditorModal from '../components/QuizEditorModal';
 import { getFileUrl } from '../utils/fileUtils';
@@ -37,9 +38,12 @@ const TIER_OPTIONS = [
 const emptyCourseForm = {
   title: '',
   description: '',
+  category: '',
   thumbnail: '',
   price: 0,
   minimumMemberTier: 'BRONZE',
+  startDate: '',
+  endDate: '',
   coverImageFile: null,
 };
 
@@ -145,9 +149,12 @@ const CourseEditor = () => {
       setCourseForm({
         title: data.title || '',
         description: data.description || '',
+        category: data.danhMuc || data.category || '',
         thumbnail: data.thumbnail || '',
         price: data.price || 0,
         minimumMemberTier: data.minimumMemberTier || 'BRONZE',
+        startDate: data.startDate?.slice(0, 10) || '',
+        endDate: data.endDate?.slice(0, 10) || '',
         coverImageFile: null,
       });
       if (data.sections?.length > 0) {
@@ -186,6 +193,9 @@ const CourseEditor = () => {
 
   const canManageCurriculum = Boolean(course?.id || id);
   const publishErrors = course?.publishValidationErrors || [];
+  const hasValidCourseDates =
+    Boolean(courseForm.startDate && courseForm.endDate) &&
+    new Date(courseForm.endDate) > new Date(courseForm.startDate);
 
   const handleCourseFieldChange = (event) => {
     const { name, value } = event.target;
@@ -202,6 +212,7 @@ const CourseEditor = () => {
       const formData = new FormData();
       if (courseForm.title) formData.append('TieuDe', courseForm.title);
       if (courseForm.description) formData.append('MoTa', courseForm.description);
+      if (courseForm.category) formData.append('DanhMuc', courseForm.category);
       if (courseForm.thumbnail && !courseForm.coverImageFile) formData.append('Thumbnail', courseForm.thumbnail);
       if (courseForm.price !== undefined) formData.append('Gia', courseForm.price);
       if (courseForm.minimumMemberTier) formData.append('MinimumMemberTier', courseForm.minimumMemberTier);
@@ -503,7 +514,11 @@ const CourseEditor = () => {
   const publishCourse = async () => {
     const courseId = course?.id || id;
     try {
-      const updated = await api.patch(`/api/instructor/courses/${courseId}/publish`, { isPublished: true });
+      const updated = await api.patch(`/api/instructor/courses/${courseId}/publish`, {
+        isPublished: true,
+        startDate: courseForm.startDate || null,
+        endDate: courseForm.endDate || null,
+      });
       setCourse(updated);
       setSections(updated.sections || []);
       window.alert('Khóa học đã được xuất bản.');
@@ -550,6 +565,25 @@ const CourseEditor = () => {
           />
         </div>
         <div>
+          <p className="text-sm font-medium text-slate-900">Ngành / mảng của khóa học</p>
+          <input
+            name="category"
+            list="course-category-options"
+            value={courseForm.category}
+            onChange={handleCourseFieldChange}
+            placeholder="Ví dụ: Công nghệ, Dữ liệu & AI, Kinh doanh"
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+          />
+          <datalist id="course-category-options">
+            {COURSE_CATEGORIES.map((category) => (
+              <option key={category} value={category} />
+            ))}
+          </datalist>
+          <p className="mt-2 text-xs text-slate-500">
+            Sinh viên có thể tìm khóa học theo ngành hoặc mảng này trên trang Khám phá.
+          </p>
+        </div>
+        <div>
           <p className="text-sm font-medium text-slate-900">Ảnh bìa khóa học</p>
           <input
             name="thumbnail"
@@ -579,6 +613,11 @@ const CourseEditor = () => {
       <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
           <p className="text-sm font-medium text-slate-900">Xem trước thông tin</p>
+          {courseForm.category && (
+            <span className="mt-3 inline-flex rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
+              {courseForm.category}
+            </span>
+          )}
           <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white">
             {courseForm.thumbnail ? (
               <img src={getFileUrl(courseForm.thumbnail)} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
@@ -995,6 +1034,39 @@ const CourseEditor = () => {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">Thời gian diễn ra khóa học</p>
+          <p className="mt-1 text-xs text-slate-500">Giáo viên quyết định thời gian bắt đầu và kết thúc trước khi xuất bản.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <label className="text-sm font-medium text-slate-700">
+              Ngày bắt đầu
+              <input
+                type="date"
+                name="startDate"
+                value={courseForm.startDate}
+                onChange={handleCourseFieldChange}
+                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+              />
+            </label>
+            <label className="text-sm font-medium text-slate-700">
+              Ngày kết thúc
+              <input
+                type="date"
+                name="endDate"
+                min={courseForm.startDate || undefined}
+                value={courseForm.endDate}
+                onChange={handleCourseFieldChange}
+                className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+              />
+            </label>
+          </div>
+          {!hasValidCourseDates && (
+            <p className="mt-3 text-sm font-medium text-amber-700">
+              Vui lòng chọn ngày kết thúc sau ngày bắt đầu.
+            </p>
+          )}
+        </div>
+
         <div className={`rounded-2xl border px-4 py-4 ${publishErrors.length === 0 ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
           <div className="flex items-start gap-3">
             <CheckCircle2 className={`mt-0.5 h-5 w-5 ${publishErrors.length === 0 ? 'text-emerald-600' : 'text-amber-600'}`} />
@@ -1019,7 +1091,7 @@ const CourseEditor = () => {
       <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <button
           onClick={publishCourse}
-          disabled={!course?.id || publishErrors.length > 0}
+          disabled={!course?.id || publishErrors.length > 0 || !hasValidCourseDates}
           className="w-full rounded-full bg-purple-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
           Xuất bản khóa học

@@ -34,13 +34,14 @@ const handleResponse = async (response) => {
 
 export const api = {
   get: (path) =>
-    fetch(`${BASE_URL}${path}`, { headers: getHeaders(false) })
+    fetch(`${BASE_URL}${path}`, { headers: getHeaders(false), credentials: 'include' })
       .then(handleResponse),
 
   post: (path, body) =>
     fetch(`${BASE_URL}${path}`, {
       method: 'POST',
       headers: getHeaders(),
+      credentials: 'include',
       body: JSON.stringify(body),
     }).then(handleResponse),
 
@@ -48,6 +49,7 @@ export const api = {
     fetch(`${BASE_URL}${path}`, {
       method: 'PUT',
       headers: getHeaders(),
+      credentials: 'include',
       body: JSON.stringify(body),
     }).then(handleResponse),
 
@@ -55,6 +57,7 @@ export const api = {
     fetch(`${BASE_URL}${path}`, {
       method: 'PATCH',
       headers: getHeaders(),
+      credentials: 'include',
       body: JSON.stringify(body),
     }).then(handleResponse),
 
@@ -62,6 +65,7 @@ export const api = {
     fetch(`${BASE_URL}${path}`, {
       method: 'DELETE',
       headers: getHeaders(false),
+      credentials: 'include',
     }).then(handleResponse),
 
   // Upload file (FormData) — không set Content-Type để browser tự thêm boundary
@@ -69,6 +73,7 @@ export const api = {
     fetch(`${BASE_URL}${path}`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      credentials: 'include',
       body: formData,
     }).then(handleResponse),
 
@@ -76,6 +81,7 @@ export const api = {
     fetch(`${BASE_URL}${path}`, {
       method: 'PUT',
       headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      credentials: 'include',
       body: formData,
     }).then(handleResponse),
 };

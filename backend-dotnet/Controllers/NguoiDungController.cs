@@ -10,6 +10,7 @@ namespace LMS.Api.Controllers;
 [Authorize]
 public class NguoiDungController(IDichVuNguoiDung dichVu) : ControllerBase
 {
+    /// <summary>Lấy thông tin hồ sơ cá nhân</summary>
     /// <summary>Lấy thông tin hồ sơ cá nhân.</summary>
     [HttpGet("/api/user/me")]
     public async Task<IResult> LayHoSo()

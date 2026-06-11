@@ -36,7 +36,89 @@ public class BangDieuKhienController(LmsDbContext db) : ControllerBase
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        return await ThongKeSinhVien(userId);
+        var khoaHocSoHuuIds = db.Enrollments
+            .Where(e => e.UserId == userId)
+            .Select(e => e.CourseId)
+            .Union(db.Purchases
+                .Where(p => p.UserId == userId && p.Status == "COMPLETED")
+                .Select(p => p.CourseId));
+        var soKhoaHoc = await khoaHocSoHuuIds.CountAsync();
+        var daBaiXong = await db.LessonProgresses.CountAsync(p => p.UserId == userId && p.IsCompleted);
+        var tienDoTrungBinh = await db.Enrollments
+            .Where(e => e.UserId == userId)
+            .Select(e => (double?)e.Progress)
+            .AverageAsync() ?? 0;
+        var soKhoaHocHoanThanh = await db.Enrollments.CountAsync(e => e.UserId == userId && e.CompletedAt != null);
+        var soChungChi = await db.Certificates.CountAsync(c => c.UserId == userId);
+        var soSuKienDaThamGia = await db.EventRewardRedemptions.CountAsync(e => e.UserId == userId);
+        var nguoiDung = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var khoaHocDangHoc = await db.Courses
+            .AsNoTracking()
+            .Where(kh =>
+                kh.Enrollments.Any(e => e.UserId == userId && e.CompletedAt == null) ||
+                (kh.Purchases.Any(p => p.UserId == userId && p.Status == "COMPLETED") &&
+                 !kh.Enrollments.Any(e => e.UserId == userId && e.CompletedAt != null)))
+            .Select(kh => new
+            {
+                courseId = kh.Id,
+                title = kh.Title,
+                thumbnail = kh.Thumbnail,
+                category = kh.Category,
+                instructorName = kh.Instructor != null ? kh.Instructor.Name : "Giảng viên",
+                progress = kh.Enrollments
+                    .Where(e => e.UserId == userId)
+                    .Select(e => (double?)e.Progress)
+                    .FirstOrDefault() ?? 0,
+                totalLessons = kh.Lessons.Count,
+                enrolledAt = kh.Enrollments
+                    .Where(e => e.UserId == userId)
+                    .Select(e => (DateTime?)e.CreatedAt)
+                    .FirstOrDefault(),
+                purchasedAt = kh.Purchases
+                    .Where(p => p.UserId == userId && p.Status == "COMPLETED")
+                    .OrderBy(p => p.CreatedAt)
+                    .Select(p => (DateTime?)p.CreatedAt)
+                    .FirstOrDefault(),
+                courseStartDate = kh.StartDate,
+                courseEndDate = kh.EndDate,
+                updatedAt = kh.Enrollments
+                    .Where(e => e.UserId == userId)
+                    .Select(e => (DateTime?)e.UpdatedAt)
+                    .FirstOrDefault()
+            })
+            .OrderByDescending(kh => kh.updatedAt ?? kh.purchasedAt)
+            .Take(6)
+            .ToListAsync();
+
+        if (nguoiDung is null) return Results.Unauthorized();
+
+        if (TroGiup.DongBoHangThanhVien(nguoiDung))
+            await db.SaveChangesAsync();
+
+        var hangThanhVien = TroGiup.TinhHangThanhVien(nguoiDung.WalletBalance);
+        var homNay = TroGiup.LayNgayDiaPhuong();
+        var tuanHienTai = TroGiup.LayMaTuan(homNay);
+
+        return Results.Ok(new
+        {
+            totalCourses = soKhoaHoc,
+            completedCourses = soKhoaHocHoanThanh,
+            completedLessons = daBaiXong,
+            certificates = soChungChi,
+            participatedEvents = soSuKienDaThamGia,
+            averageProgress = TroGiup.GioiHanPhanTram(tienDoTrungBinh),
+            walletBalance = nguoiDung.WalletBalance,
+            totalSpent = nguoiDung.TotalSpent,
+            memberTier = hangThanhVien.Hang,
+            memberTierLabel = hangThanhVien.NhanHieu,
+            rewardPoints = nguoiDung.RewardPoints,
+            loginStreak = nguoiDung.LoginStreak,
+            lastRewardLoginDate = nguoiDung.LastRewardLoginDate,
+            nextLoginReward = Math.Min(10, 3 + nguoiDung.LoginStreak),
+            dailyLessonCompleted = nguoiDung.LastLessonRewardDate?.Date == homNay,
+            weeklyPurchaseCompleted = nguoiDung.LastPurchaseRewardWeek == tuanHienTai,
+            recentCourses = khoaHocDangHoc
+        });
     }
 
     /// <summary>Báo cáo học tập 7 ngày qua.</summary>
@@ -201,7 +283,7 @@ public class BangDieuKhienController(LmsDbContext db) : ControllerBase
             totalMinutes,
             totalCompletedLessons,
             achievements = thanhTuu,
-            currentStreak = 0
+            currentStreak = (await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId))?.LoginStreak ?? 0
         });
     }
 

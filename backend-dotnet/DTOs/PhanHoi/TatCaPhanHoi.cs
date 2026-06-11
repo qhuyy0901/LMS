@@ -1,5 +1,6 @@
 using System.Text.Json;
 using LMS.Api.Models;
+using LMS.Api.Services;
 
 namespace LMS.Api.DTOs.PhanHoi;
 
@@ -18,7 +19,8 @@ public record NguoiDungDto(
     string Id, string Email, string Name, string Role,
     string? Avatar, string? Phone, string? Bio, JsonElement? Settings,
     int WalletBalance, int TotalSpent, string MemberTier,
-    string MemberTierLabel, int MemberTierMinSpent)
+    string MemberTierLabel, int MemberTierMinSpent,
+    int RewardPoints, int LoginStreak, DateTime? LastRewardLoginDate)
 {
     public static NguoiDungDto TuUser(NguoiDung user)
     {
@@ -29,9 +31,10 @@ public record NguoiDungDto(
             catch (JsonException) { /* bỏ qua lỗi parse */ }
         }
 
-        var hang = TinhHang(user.TotalSpent);
+        var hang = TroGiup.TinhHangThanhVien(user.WalletBalance);
         return new(user.Id, user.Email, user.Name, user.Role, user.Avatar, user.Phone, user.Bio,
-            settings, user.WalletBalance, user.TotalSpent, user.MemberTier, hang.NhanHieu, hang.ChiTieuToiThieu);
+            settings, user.WalletBalance, user.TotalSpent, hang.Hang, hang.NhanHieu, hang.HanMucToiThieu,
+            user.RewardPoints, user.LoginStreak, user.LastRewardLoginDate);
     }
 
     private static (string NhanHieu, int ChiTieuToiThieu) TinhHang(int tongChiTieu) =>
@@ -65,7 +68,8 @@ public record KhoaHocDto(
     int Price, double AverageRating, int ReviewCount, string MinimumMemberTier,
     int TotalDurationSeconds, bool IsPublished,
     string Category, string Level, string InstructorName,
-    int SectionCount, int LessonCount, int StudentCount, bool CanPreview)
+    int SectionCount, int LessonCount, int StudentCount, bool CanPreview,
+    DateTime? StartDate, DateTime? EndDate)
 {
     private static int TinhTongThoiLuong(KhoaHoc khoaHoc)
     {
@@ -79,7 +83,7 @@ public record KhoaHocDto(
             TinhTongThoiLuong(khoaHoc), khoaHoc.IsPublished,
             khoaHoc.Category, khoaHoc.Level, khoaHoc.Instructor?.Name ?? "Giảng viên",
             khoaHoc.Sections.Count, khoaHoc.Lessons.Count, khoaHoc.Enrollments.Count,
-            khoaHoc.Lessons.Any(bai => bai.IsPreview));
+            khoaHoc.Lessons.Any(bai => bai.IsPreview), khoaHoc.StartDate, khoaHoc.EndDate);
 }
 
 /// <summary>Thông tin chi tiết khóa học (trang xem khóa học)</summary>
@@ -91,7 +95,8 @@ public record ChiTietKhoaHocDto(
     IEnumerable<ChuongDto> Sections, IEnumerable<ChiTietBaiDto> Lessons,
     bool IsEnrolled, double Progress, IEnumerable<string> CompletedLessons,
     DanhGiaKhoaHoc? UserReview, IEnumerable<DanhGiaDto> Reviews,
-    bool CanPreview, bool CanReview, bool CanPurchase)
+    bool CanPreview, bool CanReview, bool CanPurchase,
+    DateTime? StartDate, DateTime? EndDate)
 {
     public static ChiTietKhoaHocDto TuKhoaHoc(KhoaHoc kh, GhiDanh? ghiDanh, IEnumerable<string> baiHoanThanh, DanhGiaKhoaHoc? danhGiaCuaToi, bool laChuSoHuu)
     {
@@ -144,7 +149,7 @@ public record ChiTietKhoaHocDto(
             ghiDanh is not null, ghiDanh?.Progress ?? 0, baiHoanThanh, danhGiaCuaToi,
             kh.Reviews.Select(DanhGiaDto.TuDanhGia),
             chuongHienThi.SelectMany(c => c.Lessons).Any(b => b.IsPreview),
-            ghiDanh is not null && !laChuSoHuu, true);
+            ghiDanh is not null && !laChuSoHuu, true, kh.StartDate, kh.EndDate);
     }
 }
 

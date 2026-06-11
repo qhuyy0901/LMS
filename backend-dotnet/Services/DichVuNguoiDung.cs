@@ -28,8 +28,13 @@ public class DichVuNguoiDung(LmsDbContext db) : IDichVuNguoiDung
 {
     public async Task<NguoiDungDto?> LayHoSoAsync(string userId)
     {
-        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        return user is null ? null : NguoiDungDto.TuUser(user);
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null) return null;
+
+        if (TroGiup.DongBoHangThanhVien(user))
+            await db.SaveChangesAsync();
+
+        return NguoiDungDto.TuUser(user);
     }
 
     public async Task<NguoiDungDto?> CapNhatHoSoAsync(string userId, string? ten, string? soDT, string? gioiThieu, JsonElement? caiDat)
@@ -42,6 +47,7 @@ public class DichVuNguoiDung(LmsDbContext db) : IDichVuNguoiDung
         if (gioiThieu is not null) user.Bio = gioiThieu.Trim();
         if (caiDat is not null) user.Settings = JsonSerializer.Serialize(caiDat);
         user.UpdatedAt = DateTime.UtcNow;
+        TroGiup.DongBoHangThanhVien(user);
 
         await db.SaveChangesAsync();
         return NguoiDungDto.TuUser(user);

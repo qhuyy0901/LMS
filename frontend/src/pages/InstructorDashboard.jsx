@@ -110,7 +110,6 @@ const InstructorDashboard = () => {
   const courses = data?.khoaHocCuaToi || [];
   const newStudents = data?.hocVienMoi || [];
   const recentRevenue = data?.doanhThuGanDay || [];
-  const topCourse = data?.khoaHocNhieuHocVienNhat;
   const hasCourses = Number(data?.tongKhoaHoc || 0) > 0;
 
   if (loading) {
@@ -178,7 +177,6 @@ const InstructorDashboard = () => {
           <div className="flex items-center justify-between border-b border-slate-100 p-5">
             <div>
               <h2 className="font-semibold text-slate-900">Khóa học của bạn</h2>
-              <p className="mt-1 text-sm text-slate-500">Tối đa 5 khóa học mới nhất của giảng viên.</p>
             </div>
             <button
               onClick={() => navigate('/instructor/courses')}
@@ -196,22 +194,6 @@ const InstructorDashboard = () => {
         </section>
 
         <div className="space-y-6">
-          <InfoPanel title="Khóa học nổi bật">
-            {topCourse ? (
-              <button
-                onClick={() => navigate(`/instructor/courses/${topCourse.id}/edit`)}
-                className="w-full rounded-xl bg-purple-50 p-4 text-left transition-colors hover:bg-purple-100"
-              >
-                <p className="line-clamp-2 font-semibold text-slate-900">{topCourse.tenKhoaHoc || topCourse.title}</p>
-                <p className="mt-2 text-sm text-slate-600">
-                  {formatNumber(topCourse.hocVien || topCourse.studentCount)} học viên đang theo học
-                </p>
-              </button>
-            ) : (
-              <EmptyText>Chưa có khóa học có học viên.</EmptyText>
-            )}
-          </InfoPanel>
-
           <InfoPanel title="Doanh thu gần đây">
             {recentRevenue.length > 0 ? (
               <div className="space-y-3">
@@ -237,7 +219,6 @@ const InstructorDashboard = () => {
       <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-5">
           <h2 className="font-semibold text-slate-900">Học viên mới đăng ký</h2>
-          <p className="mt-1 text-sm text-slate-500">Các lượt ghi danh mới nhất thuộc khóa học của bạn.</p>
         </div>
         {newStudents.length > 0 ? (
           <div className="overflow-x-auto">
@@ -246,6 +227,8 @@ const InstructorDashboard = () => {
                 <tr>
                   <th className="px-5 py-3 font-semibold">Học viên</th>
                   <th className="px-5 py-3 font-semibold">Khóa học</th>
+                  <th className="px-5 py-3 font-semibold">Ngày bắt đầu</th>
+                  <th className="px-5 py-3 font-semibold">Ngày kết thúc</th>
                   <th className="px-5 py-3 font-semibold">Tiến độ</th>
                   <th className="px-5 py-3 font-semibold">Ngày đăng ký</th>
                 </tr>
@@ -258,6 +241,8 @@ const InstructorDashboard = () => {
                       <p className="text-xs text-slate-500">{student.emailHocVien || 'Chưa có email'}</p>
                     </td>
                     <td className="px-5 py-4 text-slate-700">{student.tenKhoaHoc}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-500">{formatDate(student.ngayBatDau)}</td>
+                    <td className="whitespace-nowrap px-5 py-4 text-slate-500">{formatDate(student.ngayKetThuc)}</td>
                     <td className="px-5 py-4 text-slate-700">{formatNumber(student.tienDo)}%</td>
                     <td className="px-5 py-4 text-slate-500">{formatDate(student.ngayDangKy)}</td>
                   </tr>
@@ -276,11 +261,7 @@ const InstructorDashboard = () => {
 };
 
 const HeaderActions = () => (
-  <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-    <div>
-      <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Dashboard Giảng viên</h1>
-      <p className="mt-1 text-sm text-slate-500">Theo dõi khóa học, học viên, doanh thu và đánh giá của bạn.</p>
-    </div>
+  <div className="flex justify-end">
     <div className="flex flex-wrap gap-3">
       <Link
         to="/instructor/courses"

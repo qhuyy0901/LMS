@@ -19,6 +19,7 @@ const Events = lazy(() => import('./pages/Events'));
 const Explore = lazy(() => import('./pages/Explore'));
 const InstructorCourses = lazy(() => import('./pages/InstructorCourses'));
 const InstructorDashboard = lazy(() => import('./pages/InstructorDashboard'));
+const InstructorEvents = lazy(() => import('./pages/InstructorEvents'));
 const InstructorRevenue = lazy(() => import('./pages/InstructorRevenue'));
 const InstructorStudents = lazy(() => import('./pages/InstructorStudents'));
 const Instructors = lazy(() => import('./pages/Instructors'));
@@ -26,6 +27,7 @@ const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
 const Login = lazy(() => import('./pages/Login'));
 const MyClasses = lazy(() => import('./pages/MyClasses'));
 const MyCourses = lazy(() => import('./pages/MyCourses'));
+const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const PaymentCancel = lazy(() => import('./pages/PaymentCancel'));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
 const Pricing = lazy(() => import('./pages/Pricing'));
@@ -48,6 +50,7 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/oauth-callback" element={<OAuthCallback />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/learn/:courseId" element={<LearningWorkspace />} />
@@ -58,6 +61,14 @@ function App() {
                   <Route index element={<Dashboard />} />
                   <Route path="events" element={<Events />} />
                   <Route path="settings" element={<Settings />} />
+                  <Route
+                    path="instructor/settings"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <Settings />
+                      </RoleRoute>
+                    }
+                  />
                   <Route path="my-courses" element={<MyCourses />} />
                   <Route path="explore" element={<Explore />} />
                   <Route path="course/:id" element={<CourseDetails />} />
@@ -87,6 +98,14 @@ function App() {
                     element={
                       <RoleRoute roles={['INSTRUCTOR']}>
                         <InstructorCourses />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/events"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <InstructorEvents />
                       </RoleRoute>
                     }
                   />

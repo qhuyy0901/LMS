@@ -4,6 +4,7 @@ using LMS.Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace LMS.Api.Migrations
 {
     [DbContext(typeof(LmsDbContext))]
-    partial class LmsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260611135228_AddInstructorDemoWithdrawals")]
+    partial class AddInstructorDemoWithdrawals
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -987,10 +990,10 @@ namespace LMS.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("LinkThamGia")
+                    b.Property<string>("Location")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Location")
+                    b.Property<string>("OnlineUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("StartAt")
@@ -1022,32 +1025,6 @@ namespace LMS.Api.Migrations
                     b.HasIndex("Status", "StartAt");
 
                     b.ToTable("Event", (string)null);
-                });
-
-            modelBuilder.Entity("LMS.Api.Models.SuKienAnh", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ImageUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<bool>("IsCover")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("SuKienId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("SuKienId");
-
-                    b.ToTable("EventImage", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Models.ThanhToanNgoai", b =>
@@ -1505,17 +1482,6 @@ namespace LMS.Api.Migrations
                     b.Navigation("Instructor");
                 });
 
-            modelBuilder.Entity("LMS.Api.Models.SuKienAnh", b =>
-                {
-                    b.HasOne("LMS.Api.Models.SuKien", "SuKien")
-                        .WithMany("Images")
-                        .HasForeignKey("SuKienId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("SuKien");
-                });
-
             modelBuilder.Entity("LMS.Api.Models.ThanhToanNgoai", b =>
                 {
                     b.HasOne("LMS.Api.Models.NguoiDung", "User")
@@ -1646,8 +1612,6 @@ namespace LMS.Api.Migrations
 
             modelBuilder.Entity("LMS.Api.Models.SuKien", b =>
                 {
-                    b.Navigation("Images");
-
                     b.Navigation("Registrations");
                 });
 

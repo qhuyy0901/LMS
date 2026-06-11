@@ -80,3 +80,15 @@ dotnet run --project backend-dotnet/LMS.Api.csproj --urls http://localhost:5000
 
 cd D:\WEB\LMS\frontend
 npm run dev
+
+
+
+
+
+
+
+
+chỉ cần chạy một lệnh:
+start-lms.cmd
+Dừng toàn bộ dự án bằng:
+stop-lms.cmd

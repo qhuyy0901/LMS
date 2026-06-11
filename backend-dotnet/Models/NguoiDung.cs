@@ -59,4 +59,5 @@ public class NguoiDung
     public ICollection<DoiThuongSuKien> EventRewardRedemptions { get; set; } = [];
     public ICollection<SuKien> OrganizedEvents { get; set; } = [];
     public ICollection<DangKySuKien> EventRegistrations { get; set; } = [];
+    public ICollection<RutTienGiangVien> InstructorWithdrawals { get; set; } = [];
 }

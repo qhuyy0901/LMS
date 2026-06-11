@@ -10,7 +10,7 @@ public class SuKien
     public DateTime StartAt { get; set; }
     public DateTime EndAt { get; set; }
     public string? Location { get; set; }
-    public string? OnlineUrl { get; set; }
+    public string? LinkThamGia { get; set; }
     public string? ImageUrl { get; set; }
     public int Capacity { get; set; } = 50;
     public string Status { get; set; } = "DRAFT";
@@ -20,4 +20,5 @@ public class SuKien
     public DateTime UpdatedAt { get; set; }
 
     public ICollection<DangKySuKien> Registrations { get; set; } = [];
+    public ICollection<SuKienAnh> Images { get; set; } = [];
 }

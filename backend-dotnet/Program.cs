@@ -79,6 +79,8 @@ var authentication = builder.Services
         options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
     });
 
+// TODO: Uncomment Google and Facebook authentication when packages are available for .NET 9.0
+/*
 var googleClientId = builder.Configuration["Authentication:Google:ClientId"] ?? builder.Configuration["GOOGLE_CLIENT_ID"];
 var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? builder.Configuration["GOOGLE_CLIENT_SECRET"];
 if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
@@ -104,6 +106,7 @@ if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(face
         options.Fields.Add("email");
     });
 }
+*/
 
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
@@ -125,11 +128,15 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
+await using (var scope = app.Services.CreateAsyncScope())
 {
-    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
-    await SeedData.SeedAsync(db);
+    await db.Database.MigrateAsync();
+
+    if (app.Environment.IsDevelopment())
+    {
+        await SeedData.SeedAsync(db);
+    }
 }
 
 if (app.Environment.IsDevelopment())

@@ -51,6 +51,15 @@ export default function Events() {
     } finally { setBusyId(''); }
   };
 
+  const joinOnlineEvent = (item) => {
+    const link = item.linkThamGia || item.onlineUrl;
+    if (!link) {
+      setError('Sự kiện chưa có liên kết tham gia.');
+      return;
+    }
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <div className="animate-fade-in-up space-y-5">
       <header className="border-b border-slate-200 pb-6">
@@ -83,8 +92,15 @@ export default function Events() {
               <p className="flex items-center gap-2">{item.format === 'ONLINE' ? <Video className="h-4 w-4 text-purple-500" /> : <MapPin className="h-4 w-4 text-purple-500" />}{item.location || FORMATS[item.format]}</p>
               <p className="flex items-center gap-2"><Users className="h-4 w-4 text-purple-500" />{item.registrationCount}/{item.capacity} người tham gia · Giảng viên {item.instructorName}</p>
             </div>
+            {(item.format === 'ONLINE' || item.format === 'HYBRID') && !started && (
+              <p className="mt-3 text-xs text-amber-600">Sự kiện chưa bắt đầu, bạn có thể vào trước nếu giảng viên đã mở phòng.</p>
+            )}
             <div className="mt-5 flex items-center justify-between gap-3">
-              {item.isRegistered && item.onlineUrl && <a href={item.onlineUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 hover:underline">Liên kết tham gia <ExternalLink className="h-3.5 w-3.5" /></a>}
+              {(item.format === 'ONLINE' || item.format === 'HYBRID') && (
+                <button type="button" onClick={() => joinOnlineEvent(item)} className="inline-flex items-center gap-1.5 bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100">
+                  Tham gia <ExternalLink className="h-3.5 w-3.5" />
+                </button>
+              )}
               <button type="button" disabled={busyId === item.id || started || (!item.isRegistered && full)} onClick={() => toggleRegistration(item)} className={`ml-auto inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${item.isRegistered ? 'border border-red-200 text-red-700 hover:bg-red-50' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>{item.isRegistered ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}{started ? 'Đã bắt đầu' : item.isRegistered ? 'Hủy đăng ký' : full ? 'Đã đủ chỗ' : 'Đăng ký tham gia'}</button>
             </div>
           </div>

@@ -17,6 +17,7 @@ import {
   UserCog,
   Users,
   Webhook,
+  Wallet,
 } from 'lucide-react';
 
 export const STUDENT_MENU = [
@@ -34,6 +35,7 @@ export const STUDENT_MENU = [
   { section: 'Tài khoản' },
   { name: 'Giảng viên', path: '/instructors', icon: Users },
   { name: 'Dạy học trên Skillio', path: '/become-instructor', icon: Briefcase },
+  { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
@@ -51,6 +53,7 @@ export const INSTRUCTOR_MENU = [
   { name: 'Thống kê doanh thu', path: '/instructor/revenue', icon: DollarSign },
 
   { section: 'Khác' },
+  { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
@@ -67,6 +70,7 @@ export const ADMIN_MENU = [
   { section: 'Khác' },
   { name: 'Khám phá', path: '/explore', icon: Compass },
   { name: 'Bảo mật', path: '/admin/security', icon: ShieldCheck },
+  { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
@@ -83,6 +87,5 @@ export const getMenuByRole = (role) => {
       menu = STUDENT_MENU;
   }
 
-  const visibleMenu = menu.filter((item) => item.path !== '/settings');
-  return visibleMenu.filter((item, index) => !item.section || (visibleMenu[index + 1] && !visibleMenu[index + 1].section));
+  return menu.filter((item, index) => !item.section || (menu[index + 1] && !menu[index + 1].section));
 };

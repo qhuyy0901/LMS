@@ -27,8 +27,7 @@ const Instructors = lazy(() => import('./pages/Instructors'));
 const InstructorRegister = lazy(() => import('./pages/InstructorRegister'));
 const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
 const Login = lazy(() => import('./pages/Login'));
-const MyClasses = lazy(() => import('./pages/MyClasses'));
-const MyCourses = lazy(() => import('./pages/MyCourses'));
+const MyLearning = lazy(() => import('./pages/MyLearning'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const PaymentCancel = lazy(() => import('./pages/PaymentCancel'));
 const PaymentSuccess = lazy(() => import('./pages/PaymentSuccess'));
@@ -74,14 +73,19 @@ function App() {
                       </RoleRoute>
                     }
                   />
-                  <Route path="my-courses" element={<MyCourses />} />
+
+                  {/* ── Học tập của tôi (gộp my-courses + my-classes) ── */}
+                  <Route path="my-learning" element={<MyLearning />} />
+                  <Route path="my-courses" element={<Navigate to="/my-learning" replace />} />
+                  <Route path="my-classes" element={<Navigate to="/my-learning" replace />} />
+
                   <Route path="explore" element={<Explore />} />
                   <Route path="course/:id" element={<CourseDetails />} />
                   <Route path="instructors" element={<Instructors />} />
-                  <Route path="my-classes" element={<MyClasses />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="certificates" element={<Certificates />} />
                   <Route path="upgrade" element={<Pricing />} />
+
                   <Route
                     path="instructor"
                     element={

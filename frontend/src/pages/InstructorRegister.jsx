@@ -1009,9 +1009,7 @@ export default function InstructorRegister() {
             <h1 className="text-3xl lg:text-4xl font-semibold tracking-tighter leading-tight font-sans text-slate-100">
               Trở thành người <br/>truyền cảm hứng tại Skillio.
             </h1>
-            <p className="text-sm text-slate-400 leading-relaxed max-w-[32ch]">
-              Chia sẻ kiến thức chuyên môn của bạn, định hình thế hệ tương lai và tạo dựng nguồn thu nhập thụ động bền vững cùng nền tảng Skillio.
-            </p>
+
           </div>
 
           {/* Stepper Timeline UI */}
@@ -1067,9 +1065,7 @@ export default function InstructorRegister() {
           </div>
         </div>
 
-        <div className="text-xs text-slate-500 z-10">
-          © 2026 Skillio Inc. Minimalist UI Directive.
-        </div>
+
       </div>
 
       {/* RIGHT COLUMN - Registration dynamic form */}

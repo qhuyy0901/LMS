@@ -415,47 +415,6 @@ const Instructors = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 border border-slate-100">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Đề xuất cho bạn</h3>
-              <span className="text-sm text-purple-600 font-medium">{formatNumber(data?.recommendedInstructors?.length || 0)}</span>
-            </div>
-            <div className="space-y-3">
-              {(data?.recommendedInstructors || []).length === 0 && (
-                <p className="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">
-                  Chưa có đủ dữ liệu để đề xuất thêm giảng viên.
-                </p>
-              )}
-              {(data?.recommendedInstructors || []).map((instructor, index) => (
-                <div key={instructor.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50">
-                  <InstructorAvatar instructor={instructor} index={index + 1} size="small" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-900 truncate">{instructor.name}</p>
-                    <p className="text-xs text-slate-400 truncate">{instructor.specialty}</p>
-                  </div>
-                  {instructor.email && (
-                    <a className="text-xs font-medium text-purple-600 bg-purple-50 px-3 py-1 rounded-full" href={`mailto:${instructor.email}`}>
-                      Liên hệ
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-6 border border-slate-100">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Giờ tư vấn sắp tới</h3>
-              <CalendarPlus className="w-5 h-5 text-slate-300" />
-            </div>
-            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
-              <UserRound className="w-8 h-8 text-slate-300 mx-auto mb-3" />
-              <p className="text-sm font-medium text-slate-700">Chưa có lịch tư vấn</p>
-              <p className="text-xs text-slate-400 mt-1">
-                Mục này sẽ cập nhật khi hệ thống có dữ liệu lịch của giảng viên.
-              </p>
-            </div>
-          </div>
         </div>
       </div>
     </div>

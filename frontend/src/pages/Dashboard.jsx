@@ -126,9 +126,7 @@ const StudentDashboard = ({ data, loading }) => {
             <h2 className="mb-3 text-2xl font-semibold tracking-tight text-purple-950 md:text-3xl">
               Mở khóa hơn 1.000 khóa học cao cấp ngay hôm nay
             </h2>
-            <p className="mb-6 text-sm leading-relaxed text-slate-600">
-              Học từ các chuyên gia hàng đầu với nội dung độc quyền được thiết kế để nâng cao kỹ năng của bạn.
-            </p>
+
             <Link
               to="/upgrade"
               className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
@@ -479,15 +477,7 @@ const Dashboard = () => {
     return <InstructorDashboard data={data} loading={loading} />;
   }
 
-  return (
-    <div>
-      <div className="mb-6">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Bảng điều khiển</h1>
-        <p className="text-sm text-slate-500">Chào mừng quay trở lại! Tiếp tục hành trình học tập nào.</p>
-      </div>
-      <StudentDashboard data={data} loading={loading} />
-    </div>
-  );
+  return <StudentDashboard data={data} loading={loading} />;
 };
 
 const CourseSkeleton = () => (

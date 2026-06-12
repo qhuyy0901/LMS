@@ -45,7 +45,6 @@ const tabs = [
   { id: 'profile', icon: User, label: 'Hồ sơ' },
   { id: 'security', icon: Shield, label: 'Bảo mật' },
   { id: 'notifications', icon: Bell, label: 'Thông báo' },
-  { id: 'appearance', icon: Palette, label: 'Giao diện' },
   { id: 'learning', icon: GraduationCap, label: 'Học tập' },
   { id: 'billing', icon: CreditCard, label: 'Ví & giao dịch' },
   { id: 'danger', icon: AlertTriangle, label: 'Dữ liệu & tài khoản', danger: true },
@@ -113,6 +112,7 @@ const Settings = () => {
     accountHolder: '',
   });
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [showBalance, setShowBalance] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawForm, setWithdrawForm] = useState({ soTien: '', ghiChu: '' });
   const [googleMeetLink, setGoogleMeetLink] = useState('');
@@ -416,9 +416,7 @@ const Settings = () => {
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Cài đặt</h1>
-          <p className="text-sm text-slate-500">
-            Quản lý hồ sơ, bảo mật, thông báo, trải nghiệm học tập và dữ liệu tài khoản của bạn.
-          </p>
+
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -652,61 +650,7 @@ const Settings = () => {
             </section>
           )}
 
-          {activeTab === 'appearance' && (
-            <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Giao diện</h2>
-                <p className="mt-1 text-xs text-slate-400">Lưu lựa chọn giao diện và ngôn ngữ cho tài khoản.</p>
-              </div>
-              <div className="mb-5 grid grid-cols-1 gap-4 md:grid-cols-3">
-                {[
-                  ['light', Sun, 'Sáng', 'Rõ ràng khi học ban ngày'],
-                  ['dark', Moon, 'Tối', 'Dễ chịu hơn khi học buổi tối'],
-                  ['auto', Palette, 'Tự động', 'Theo thiết lập hệ thống'],
-                ].map(([value, Icon, title, description]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => updateSetting('theme', value)}
-                    className={`rounded-2xl border-2 p-4 text-left transition-colors ${
-                      formData.settings.theme === value ? 'border-purple-500 bg-purple-50/50' : 'border-slate-100 hover:border-slate-200'
-                    }`}
-                  >
-                    <div className="mb-3 flex h-20 items-center justify-center rounded-xl bg-slate-50">
-                      <Icon className="h-6 w-6 text-purple-600" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-900">{title}</p>
-                    <p className="text-xs text-slate-400">{description}</p>
-                  </button>
-                ))}
-              </div>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <FieldLabel>Ngôn ngữ</FieldLabel>
-                  <select
-                    value={formData.settings.language}
-                    onChange={(event) => updateSetting('language', event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  >
-                    <option value="vi">Tiếng Việt</option>
-                    <option value="en">English</option>
-                  </select>
-                </div>
-                <div>
-                  <FieldLabel>Múi giờ</FieldLabel>
-                  <select
-                    value={formData.settings.timezone}
-                    onChange={(event) => updateSetting('timezone', event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  >
-                    <option value="Asia/Ho_Chi_Minh">GMT+7 Hà Nội</option>
-                    <option value="Asia/Tokyo">GMT+9 Tokyo</option>
-                    <option value="UTC">UTC</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-          )}
+
 
           {activeTab === 'learning' && (
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
@@ -780,29 +724,40 @@ const Settings = () => {
                       <h2 className="text-xl font-semibold tracking-tight text-slate-900">Doanh thu & tài khoản nhận tiền</h2>
                       <p className="mt-1 text-xs text-slate-400">Theo dõi doanh thu khóa học và lưu tài khoản nhận tiền cho bản demo đồ án.</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleOpenWithdraw}
-                      disabled={(revenueProfile?.pendingRevenue || 0) < 50000}
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      <BanknoteArrowDown className="h-4 w-4" />
-                      Rút tiền demo
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowBalance((v) => !v)}
+                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                        title={showBalance ? 'Ẩn số tiền' : 'Hiện số tiền'}
+                      >
+                        {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showBalance ? 'Ẩn' : 'Hiện'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleOpenWithdraw}
+                        disabled={(revenueProfile?.pendingRevenue || 0) < 50000}
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <BanknoteArrowDown className="h-4 w-4" />
+                        Rút tiền demo
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
                     <div className="rounded-2xl border border-purple-100 bg-purple-50 p-5">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-purple-700">Tổng doanh thu</p>
-                      <p className="text-2xl font-bold text-slate-900">{formatCurrency(revenueProfile?.totalRevenue || 0)}</p>
+                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.totalRevenue || 0) : '••••••'}</p>
                     </div>
                     <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Doanh thu chờ thanh toán</p>
-                      <p className="text-2xl font-bold text-slate-900">{formatCurrency(revenueProfile?.pendingRevenue || 0)}</p>
+                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.pendingRevenue || 0) : '••••••'}</p>
                     </div>
                     <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Đã thanh toán</p>
-                      <p className="text-2xl font-bold text-slate-900">{formatCurrency(revenueProfile?.paidRevenue || 0)}</p>
+                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.paidRevenue || 0) : '••••••'}</p>
                     </div>
                   </div>
 
@@ -871,7 +826,7 @@ const Settings = () => {
                           </div>
                           <div className="sm:text-right">
                             <p className={`text-sm font-semibold ${item.type === 'DEMO_WITHDRAWAL' ? 'text-purple-600' : 'text-emerald-600'}`}>
-                              {formatCurrency(item.amount || 0)}
+                              {showBalance ? formatCurrency(item.amount || 0) : '••••••'}
                             </p>
                             <p className={`text-[11px] ${item.type === 'DEMO_WITHDRAWAL' ? 'text-emerald-600' : 'text-amber-600'}`}>
                               {item.statusLabel}
@@ -893,14 +848,24 @@ const Settings = () => {
                   <h2 className="text-xl font-semibold tracking-tight text-slate-900">Ví & giao dịch</h2>
                   <p className="mt-1 text-xs text-slate-400">Theo dõi số dư, danh hiệu hội viên và lịch sử giao dịch.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/upgrade')}
-                  className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
-                >
-                  <Wallet className="h-4 w-4" />
-                  Nạp ví
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowBalance((v) => !v)}
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showBalance ? 'Ẩn' : 'Hiện'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/upgrade')}
+                    className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Nạp ví
+                  </button>
+                </div>
               </div>
 
               <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -911,12 +876,12 @@ const Settings = () => {
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Số dư ví</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatCurrency(walletProfile?.walletBalance || 0)}</p>
+                  <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(walletProfile?.walletBalance || 0) : '••••••'}</p>
                   <p className="mt-2 text-xs text-slate-500">Dùng để mua khóa học trả phí.</p>
                 </div>
                 <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tổng chi tiêu</p>
-                  <p className="text-2xl font-bold text-slate-900">{formatCurrency(walletProfile?.totalSpent || 0)}</p>
+                  <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(walletProfile?.totalSpent || 0) : '••••••'}</p>
                   <p className="mt-2 text-xs text-slate-500">Dùng để xếp hạng hội viên.</p>
                 </div>
               </div>
@@ -938,9 +903,9 @@ const Settings = () => {
                       </div>
                       <div className="sm:text-right">
                         <p className={`text-sm font-semibold ${item.amount >= 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
-                          {item.amountText}
+                          {showBalance ? item.amountText : '••••••'}
                         </p>
-                        <p className="text-[11px] text-slate-400">Số dư sau GD: {item.balanceAfterText}</p>
+                        <p className="text-[11px] text-slate-400">Số dư sau GD: {showBalance ? item.balanceAfterText : '••••••'}</p>
                       </div>
                     </div>
                   ))
@@ -993,20 +958,7 @@ const Settings = () => {
                     Đăng xuất
                   </button>
                 </div>
-                <div className="flex flex-col gap-3 rounded-xl border border-rose-100 bg-rose-50/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-rose-700">Xóa tài khoản</p>
-                    <p className="text-xs text-slate-500">Xóa vĩnh viễn tài khoản và toàn bộ dữ liệu liên quan.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleDeleteAccount}
-                    className="inline-flex items-center justify-center gap-2 rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Xóa tài khoản
-                  </button>
-                </div>
+
               </div>
             </section>
           )}

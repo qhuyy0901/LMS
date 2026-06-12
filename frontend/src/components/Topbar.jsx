@@ -52,7 +52,13 @@ const Topbar = () => {
   const [notificationsError, setNotificationsError] = useState(null);
   const notificationPanelRef = useRef(null);
   const hideCourseSearch =
-    location.pathname === '/certificates' || location.pathname === '/student/certificates';
+    location.pathname === '/certificates' || 
+    location.pathname === '/student/certificates' || 
+    location.pathname === '/my-learning' || 
+    location.pathname === '/reports' ||
+    location.pathname === '/settings' ||
+    location.pathname === '/instructor/settings' ||
+    location.pathname === '/upgrade';
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
@@ -163,7 +169,7 @@ const Topbar = () => {
   };
 
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-4 md:flex-nowrap">
+    <div className={`mb-6 flex flex-wrap items-center gap-4 md:flex-nowrap ${hideCourseSearch || activeView === 'INSTRUCTOR' ? 'justify-end' : ''}`}>
       {activeView !== 'INSTRUCTOR' && !hideCourseSearch && (
         <div className="order-last flex w-full min-w-0 items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all duration-300 hover:shadow-md focus-within:border-purple-400 focus-within:ring-2 focus-within:ring-purple-200 md:order-none md:flex-1">
           <Search className="h-4 w-4 cursor-pointer text-slate-400" onClick={() => triggerSearch(searchQuery)} />

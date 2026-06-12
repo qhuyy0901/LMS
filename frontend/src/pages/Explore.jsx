@@ -5,6 +5,7 @@ import {
   Bookmark,
   BookOpen,
   Flame,
+  GraduationCap,
   Hash,
   MoreHorizontal,
   Play,
@@ -13,6 +14,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Star,
+  Trophy,
 } from 'lucide-react';
 import CourseCard, { CourseSkeleton } from '../components/CourseCard';
 import { useAuth } from '../context/AuthContext';
@@ -45,6 +47,21 @@ const Explore = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [enrolledIds, setEnrolledIds] = useState(new Set());
+
+  // Fetch enrolled course IDs once
+  useEffect(() => {
+    const fetchEnrolled = async () => {
+      try {
+        const res = await axios.get('/api/courses/enrolled');
+        const list = Array.isArray(res.data) ? res.data : [];
+        setEnrolledIds(new Set(list.map((e) => e.courseId || e.course?.id).filter(Boolean)));
+      } catch {
+        // ignore – treat as no enrollments
+      }
+    };
+    if (user?.role !== 'INSTRUCTOR') fetchEnrolled();
+  }, [user?.role]);
 
   useEffect(() => {
     const fetchCourses = async () => {
@@ -114,22 +131,29 @@ const Explore = () => {
     setSearchParams(next);
   };
 
+  // Filter out enrolled courses
+  const isNotEnrolled = (course) => !enrolledIds.has(course?.id);
+  const filteredCourses = courses.filter(isNotEnrolled);
+  const allCoursesOwned = !isLoading && courses.length > 0 && filteredCourses.length === 0 && !q && !category;
+
+  const rawFeatured = insights.featuredCourse || courses[0];
+  const featuredCourse = rawFeatured && isNotEnrolled(rawFeatured) ? rawFeatured : null;
+
+  const rawRecommended = insights.recommendedCourses.length ? insights.recommendedCourses : courses.slice(0, 3);
+  const recommendedCourses = rawRecommended.filter(isNotEnrolled);
+
   const categories = [
     { label: 'Tất cả', value: '' },
     ...insights.trendingTopics.map((topic) => ({ label: topic.name, value: topic.name })),
   ];
   const hasActiveFilters = sort !== 'newest' || price !== 'all' || tier !== 'all' || q || category;
-  const featuredCourse = insights.featuredCourse || courses[0];
-  const recommendedCourses = insights.recommendedCourses.length ? insights.recommendedCourses : courses.slice(0, 3);
 
   return (
     <div className="animate-fade-in-up">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Khám phá</h1>
-          <p className="text-sm text-slate-500">
-            Tìm khóa học mới, chủ đề thịnh hành và giảng viên nổi bật từ dữ liệu hệ thống.
-          </p>
+
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -192,41 +216,45 @@ const Explore = () => {
         />
       )}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <main className="space-y-6 xl:col-span-2">
-          {featuredCourse && <FeaturedCourse course={featuredCourse} />}
+      {allCoursesOwned ? (
+        <AllOwnedEmptyState />
+      ) : (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+          <main className="space-y-6 xl:col-span-2">
+            {featuredCourse && <FeaturedCourse course={featuredCourse} />}
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <CourseSkeleton />
-              <CourseSkeleton />
-              <CourseSkeleton />
-              <CourseSkeleton />
-            </div>
-          ) : courses.length === 0 ? (
-            <EmptyCourses onReset={resetFilters} />
-          ) : (
-            <>
+            {isLoading ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {courses.map((course) => (
-                  <CourseCard key={course.id} course={course} />
-                ))}
+                <CourseSkeleton />
+                <CourseSkeleton />
+                <CourseSkeleton />
+                <CourseSkeleton />
               </div>
-              {totalPages > 1 && (
-                <Pagination page={page} totalPages={totalPages} totalItems={totalItems} onChange={changePage} />
-              )}
-            </>
-          )}
+            ) : filteredCourses.length === 0 ? (
+              <EmptyCourses onReset={resetFilters} />
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  {filteredCourses.map((course) => (
+                    <CourseCard key={course.id} course={course} />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <Pagination page={page} totalPages={totalPages} totalItems={totalItems} onChange={changePage} />
+                )}
+              </>
+            )}
 
-          <TrendingTopics topics={insights.trendingTopics} onSelect={(value) => updateParam('category', value)} />
-        </main>
+            <TrendingTopics topics={insights.trendingTopics} onSelect={(value) => updateParam('category', value)} />
+          </main>
 
-        <aside className="space-y-6">
-          <RecommendedCourses courses={recommendedCourses} />
-          <TopInstructors instructors={insights.topInstructors} />
-          <LearningPaths paths={insights.learningPaths} onSelect={(value) => updateParam('category', value)} />
-        </aside>
-      </div>
+          <aside className="space-y-6">
+            <RecommendedCourses courses={recommendedCourses} />
+            <TopInstructors instructors={insights.topInstructors} />
+            <LearningPaths paths={insights.learningPaths} onSelect={(value) => updateParam('category', value)} />
+          </aside>
+        </div>
+      )}
     </div>
   );
 };
@@ -287,6 +315,36 @@ const EmptyCourses = ({ onReset }) => (
     <button onClick={onReset} className="rounded-full bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-700">
       Đặt lại bộ lọc
     </button>
+  </div>
+);
+
+const AllOwnedEmptyState = () => (
+  <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-violet-200 bg-gradient-to-br from-violet-50 to-pink-50 px-6 py-20 text-center">
+    <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-purple-600 shadow-lg shadow-violet-200">
+      <Trophy className="h-10 w-10 text-white" />
+    </div>
+    <div className="mb-2 text-3xl">🎉</div>
+    <h3 className="mb-2 text-xl font-bold text-slate-900">Bạn đã sở hữu tất cả khóa học hiện có</h3>
+    <p className="mb-1 max-w-md text-sm font-medium text-slate-600">Hiện chưa còn khóa học nào để đề xuất.</p>
+    <p className="mb-8 max-w-md text-sm text-slate-500">
+      Hãy tiếp tục học các khóa đang tham gia hoặc chờ các khóa học mới được phát hành.
+    </p>
+    <div className="flex flex-wrap justify-center gap-3">
+      <Link
+        to="/my-learning"
+        className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-6 py-3 text-sm font-semibold text-white shadow-md shadow-violet-200 transition hover:bg-violet-700"
+      >
+        <GraduationCap className="h-4 w-4" />
+        Đi tới Học tập của tôi
+      </Link>
+      <Link
+        to="/events"
+        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+      >
+        <Flame className="h-4 w-4 text-orange-500" />
+        Xem sự kiện
+      </Link>
+    </div>
   </div>
 );
 

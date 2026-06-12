@@ -223,32 +223,14 @@ const WalletTopup = () => {
     <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-transparent px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
         
-        {/* Header Section */}
-        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="min-w-0 rounded-lg border border-[#EAEAEA] bg-white p-6 lg:p-8 relative">
-            <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.2em] text-purple-700 bg-purple-100/40 px-2.5 py-0.5 rounded border border-purple-200/20 w-fit">Ví sinh viên</p>
-            <h1 className="text-3xl font-bold tracking-tight text-[#111111] md:text-4xl">Ví của tôi</h1>
-            <p className="mt-4 max-w-2xl text-xs leading-relaxed text-[#787774]">
-              Nạp ví demo phục vụ mục đích học tập và kiểm thử. Hệ thống sử dụng cổng thanh toán giả lập, 
-              không liên kết ngân hàng thật hay phát sinh giao dịch tài chính thực tế.
-            </p>
-          </div>
 
-          <div className="min-w-0 rounded-lg border border-[#EAEAEA] bg-white p-6 lg:p-8 relative border-l-4 border-l-purple-700">
-            <p className="mb-2 text-xs font-semibold text-[#787774] uppercase tracking-wider">Số dư khả dụng</p>
-            <p className="break-words text-3xl font-extrabold tracking-tight text-[#111111] sm:text-4xl">{formatCurrency(walletBalance)}</p>
-            <p className="mt-4 max-w-sm text-[10px] leading-relaxed text-[#787774]">
-              Số dư tài khoản sẽ được cộng trực tiếp ngay sau khi xác nhận thanh toán giả lập.
-            </p>
-          </div>
-        </section>
 
         {/* Membership Progress & Tier Milestones */}
         <section className="min-w-0 rounded-lg border border-[#EAEAEA] bg-white p-6 lg:p-8 space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider text-[#111111]">Hạng thành viên & Tiến trình tích lũy</h2>
-              <p className="mt-1 text-xs text-[#787774]">Hệ thống thăng hạng tự động dựa trên số dư khả dụng trong ví của bạn.</p>
+
             </div>
             {tierInfo.next && (
               <div className="text-right text-xs">
@@ -335,7 +317,7 @@ const WalletTopup = () => {
             <h2 className="text-sm font-bold uppercase tracking-wider text-[#111111]">Tạo yêu cầu nạp ví</h2>
 
             <div className="mt-6">
-              <p className="mb-3 text-xs font-semibold text-[#787774]">Chọn mệnh giá nạp nhanh</p>
+
               <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {PRESET_AMOUNTS.map((value) => {
                   const isActive = !customAmount && selectedAmount === value;
@@ -451,7 +433,7 @@ const WalletTopup = () => {
             </div>
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider text-[#111111]">Lịch sử giao dịch ví</h2>
-              <p className="mt-1 text-xs text-[#787774]">Theo dõi nhật ký nạp tiền và chi tiêu của tài khoản.</p>
+
             </div>
           </div>
 

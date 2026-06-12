@@ -160,9 +160,7 @@ const Reports = () => {
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
             Tiến trình học tập
           </h1>
-          <p className="text-sm text-slate-500">
-            Theo dõi thời gian học, tiến độ khóa học, kết quả quiz và thành tích của bạn.
-          </p>
+
         </div>
         <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 shadow-sm">
           <Calendar className="h-4 w-4" />

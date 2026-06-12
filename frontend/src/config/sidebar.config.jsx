@@ -9,7 +9,6 @@ import {
   FileCheck,
   GraduationCap,
   LayoutDashboard,
-  PlayCircle,
   PlusCircle,
   Settings,
   ShieldCheck,
@@ -27,8 +26,7 @@ export const STUDENT_MENU = [
   { name: 'Sự kiện', path: '/events', icon: Calendar },
 
   { section: 'Học tập' },
-  { name: 'Khóa học của tôi', path: '/my-courses', icon: BookOpen },
-  { name: 'Lớp đang học', path: '/my-classes', icon: PlayCircle },
+  { name: 'Học tập của tôi', path: '/my-learning', icon: GraduationCap },
   { name: 'Tiến trình', path: '/reports', icon: BarChart2 },
   { name: 'Chứng chỉ', path: '/certificates', icon: Award },
 

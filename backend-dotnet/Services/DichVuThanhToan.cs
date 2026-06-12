@@ -21,9 +21,8 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
 {
     public async Task<IResult> NapViAsync(string userId, int soTien, string frontendUrl)
     {
-        var menhGia = new[] { 100000, 200000, 500000, 1000000 };
-        if (!menhGia.Contains(soTien))
-            return Results.BadRequest(new { message = "Mệnh giá nạp ví không hợp lệ" });
+        if (soTien < 100000 || soTien > 2000000 || soTien % 10000 != 0)
+            return Results.BadRequest(new { message = "Số tiền nạp phải từ 100.000đ đến 2.000.000đ và là bội số của 10.000đ" });
 
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng" });

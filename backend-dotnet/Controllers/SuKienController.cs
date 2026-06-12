@@ -142,6 +142,7 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
         {
             Id = TaoId.Moi(),
             InstructorId = TroGiup.LayUserId(User)!,
+            Status = "PUBLISHED",
             CreatedAt = now,
             UpdatedAt = now
         };

@@ -33,6 +33,7 @@ export const STUDENT_MENU = [
 
   { section: 'Tài khoản' },
   { name: 'Giảng viên', path: '/instructors', icon: Users },
+  { name: 'Dạy học trên Skillio', path: '/become-instructor', icon: Briefcase },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 

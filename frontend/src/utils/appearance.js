@@ -1,20 +1,20 @@
 const defaults = {
-  theme: 'auto',
+  theme: 'light',
   primaryColor: 'purple',
   fontSize: 'medium',
 };
 
+const normalizeTheme = (theme) => (theme === 'light' ? 'light' : defaults.theme);
+
 export const getStoredAppearance = () => ({
-  theme: localStorage.getItem('skillio-theme') || defaults.theme,
+  theme: normalizeTheme(localStorage.getItem('skillio-theme')),
   primaryColor: localStorage.getItem('skillio-primary-color') || defaults.primaryColor,
   fontSize: localStorage.getItem('skillio-font-size') || defaults.fontSize,
 });
 
 export const applyAppearance = (appearance = {}) => {
-  const next = { ...defaults, ...appearance };
-  const resolvedTheme = next.theme === 'auto'
-    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-    : next.theme;
+  const next = { ...defaults, ...appearance, theme: normalizeTheme(appearance.theme) };
+  const resolvedTheme = next.theme;
 
   document.documentElement.dataset.theme = resolvedTheme;
   document.documentElement.dataset.themePreference = next.theme;
@@ -28,10 +28,4 @@ export const applyAppearance = (appearance = {}) => {
 
 export const initializeAppearance = () => {
   applyAppearance(getStoredAppearance());
-
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  media.addEventListener('change', () => {
-    const appearance = getStoredAppearance();
-    if (appearance.theme === 'auto') applyAppearance(appearance);
-  });
 };

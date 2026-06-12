@@ -39,9 +39,6 @@ const formatDate = (value) =>
       }).format(new Date(value))
     : 'Không giới hạn';
 
-const envApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-const MVC_BASE_URL = envApiUrl.endsWith('/api') ? envApiUrl.slice(0, -4) : envApiUrl.replace(/\/$/, '');
-
 const getDashboardEndpoint = (view) => {
   if (view === 'ADMIN') return '/api/admin/dashboard';
   if (view === 'INSTRUCTOR') return '/api/instructor/dashboard';
@@ -249,13 +246,13 @@ const StudentDashboard = ({ data, loading }) => {
             <>
               <p className="mb-1 text-3xl font-bold text-slate-900">{formatCurrency(stats?.walletBalance ?? 0)}</p>
               <p className="mb-4 text-xs text-slate-400">Đã chi: {formatCurrency(stats?.totalSpent ?? 0)}</p>
-              <a
-                href={`${MVC_BASE_URL}/student/wallet`}
+              <Link
+                to="/upgrade"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
               >
                 <Wallet className="h-4 w-4" />
                 Nạp ví
-              </a>
+              </Link>
             </>
           )}
         </section>

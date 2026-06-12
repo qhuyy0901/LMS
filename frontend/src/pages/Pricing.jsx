@@ -1,190 +1,282 @@
-import { useMemo, useState } from 'react';
-import { ArrowRight, BadgeCheck, Coins, Crown, Sparkles, Wallet } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { BadgeInfo, CheckCircle2, Clock3, Landmark, Wallet } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-const TOP_UP_PACKAGES = [
-  { amount: 100000, label: 'Nạp nhanh', bonus: 'Hợp để mua các khóa học free + giá mềm' },
-  { amount: 200000, label: 'Học đều', bonus: 'Phù hợp cho 1-2 khóa học ngắn hạn' },
-  { amount: 500000, label: 'Tăng tốc', bonus: 'Mức được chọn nhiều nhất cho học viên' },
-  { amount: 1000000, label: 'Cam kết dài hạn', bonus: 'Giữ số dư lớn để vào khóa học bất kỳ lúc nào' },
-];
+const PRESET_AMOUNTS = [100000, 200000, 500000, 1000000, 2000000];
 
-const MEMBER_TIERS = [
-  { key: 'BRONZE', label: 'Đồng', threshold: '0đ', perks: 'Bắt đầu hành trình học tập và mở khóa học bằng ví nội bộ.' },
-  { key: 'SILVER', label: 'Bạc', threshold: '1.000.000đ', perks: 'Hiển thị danh hiệu Bạc trên hồ sơ và trong khu vực học tập.' },
-  { key: 'GOLD', label: 'Vàng', threshold: '3.000.000đ', perks: 'Tăng độ ưu tiên hồ sơ và tạo dấu ấn cho thành viên tích cực.' },
-  { key: 'PLATINUM', label: 'Bạch kim', threshold: '7.000.000đ', perks: 'Danh hiệu cao cấp cho học viên mua nhiều khóa học chuyên sâu.' },
-  { key: 'DIAMOND', label: 'Kim cương', threshold: '15.000.000đ', perks: 'Cấp hội viên cao nhất, phù hợp cho người học đường dài.' },
-];
-
-const formatCurrency = (amount) =>
+const formatCurrency = (value = 0) =>
   new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(value);
 
-const Pricing = () => {
-  const [loadingAmount, setLoadingAmount] = useState(null);
-  const featuredPack = useMemo(() => TOP_UP_PACKAGES[2], []);
+const formatDateTime = (value) => {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value));
+};
 
-  const handleTopUp = async (amount) => {
+const normalizeAmount = (value) => Number(String(value).replace(/[^\d]/g, '')) || 0;
+
+const WalletTopup = () => {
+  const { user, refreshUser } = useAuth();
+  const [selectedAmount, setSelectedAmount] = useState(1000000);
+  const [customAmount, setCustomAmount] = useState('');
+  const [walletBalance, setWalletBalance] = useState(user?.walletBalance || 0);
+  const [history, setHistory] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
+
+  const amount = useMemo(() => normalizeAmount(customAmount) || selectedAmount, [customAmount, selectedAmount]);
+  const transferCode = useMemo(() => {
+    const name = user?.name || 'Hoc vien';
+    const safeName = name
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .replace(/[^a-zA-Z0-9 ]/g, '')
+      .trim();
+    return `LMS ${user?.id?.slice(0, 8)?.toUpperCase() || 'DEMO'} ${safeName || 'Hoc vien'}`;
+  }, [user?.id, user?.name]);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
     try {
-      setLoadingAmount(amount);
-      const response = await axios.post('/api/payments/create-checkout-session', {
+      const response = await axios.get('/api/user/billing-history');
+      setHistory(Array.isArray(response.data) ? response.data : []);
+      setError('');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Không thể tải lịch sử giao dịch.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setWalletBalance(user?.walletBalance || 0);
+  }, [user?.walletBalance]);
+
+  useEffect(() => {
+    loadHistory();
+  }, []);
+
+  const handlePresetClick = (value) => {
+    setSelectedAmount(value);
+    setCustomAmount('');
+    setMessage('');
+    setError('');
+  };
+
+  const confirmDemoPayment = async () => {
+    setMessage('');
+    setError('');
+
+    if (amount < 100000 || amount > 2000000 || amount % 10000 !== 0) {
+      setError('Số tiền nạp phải từ 100.000đ đến 2.000.000đ và là bội số của 10.000đ.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await axios.post('/api/payments/create-checkout-session', {
         type: 'topup',
         amount,
       });
-
-      if (response.data.url) {
-        window.location.href = response.data.url;
+      const nextUser = await refreshUser?.();
+      if (nextUser) {
+        setWalletBalance(nextUser.walletBalance || 0);
+      } else {
+        setWalletBalance((current) => current + amount);
       }
-    } catch (error) {
-      console.error('Wallet top-up error:', error);
-      alert(error.response?.data?.message || 'Không thể khởi tạo giao dịch lúc này');
+      await loadHistory();
+      setMessage('Đã tạo yêu cầu nạp ví. Giao dịch đang xử lý.');
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || 'Không thể xác nhận thanh toán demo.');
     } finally {
-      setLoadingAmount(null);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-transparent py-8 px-4 sm:px-6 lg:px-8">
-      {import.meta.env.DEV && (
-        <div className="max-w-7xl mx-auto mb-8 bg-amber-500/10 border border-amber-500/20 rounded-3xl p-6 backdrop-blur-sm shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-4 text-left">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center flex-shrink-0 animate-pulse">
-              <Sparkles className="w-6 h-6 text-amber-600" />
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-transparent px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="min-w-0 rounded-3xl border border-slate-100 bg-gradient-to-br from-white via-white to-indigo-50 p-7 shadow-sm lg:p-9">
+            <p className="mb-5 text-xs font-bold uppercase tracking-[0.28em] text-purple-600">Ví sinh viên</p>
+            <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 md:text-5xl">Ví của tôi</h1>
+            <p className="mt-5 max-w-3xl text-base leading-8 text-slate-500">
+              Nạp ví demo cho đồ án. Hệ thống chỉ tạo thông tin thanh toán mock, không kết nối VNPay, Momo,
+              ZaloPay hoặc ngân hàng thật.
+            </p>
+          </div>
+
+          <div className="min-w-0 overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-indigo-950 to-purple-900 p-7 text-white shadow-xl shadow-purple-900/20 lg:p-9">
+            <p className="mb-7 text-sm font-semibold text-indigo-100">Số dư hiện tại</p>
+            <p className="break-words text-4xl font-extrabold tracking-tight sm:text-5xl">{formatCurrency(walletBalance)}</p>
+            <p className="mt-8 max-w-sm text-sm leading-7 text-indigo-100">
+              Số dư sẽ cập nhật ngay sau khi bấm Xác nhận thanh toán demo.
+            </p>
+          </div>
+        </section>
+
+        {(message || error) && (
+          <div
+            className={`rounded-2xl border px-5 py-4 text-sm font-semibold ${
+              error ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            }`}
+          >
+            {error || message}
+          </div>
+        )}
+
+        <section className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+          <div className="min-w-0 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:p-8">
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Tạo yêu cầu nạp ví</h2>
+
+            <div className="mt-7">
+              <p className="mb-3 text-sm font-bold text-slate-700">Chọn mệnh giá nạp</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {PRESET_AMOUNTS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => handlePresetClick(value)}
+                    className={`min-w-0 rounded-xl border px-4 py-4 text-left text-base font-bold transition ${
+                      !customAmount && selectedAmount === value
+                        ? 'border-purple-400 bg-purple-50 text-purple-700 ring-4 ring-purple-50'
+                        : 'border-slate-200 bg-white text-slate-900 hover:border-purple-200'
+                    }`}
+                  >
+                    {formatCurrency(value)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8">
+              <label className="mb-3 block text-sm font-bold text-slate-700" htmlFor="custom-amount">
+                Nhập số tiền tùy chọn
+              </label>
+              <input
+                id="custom-amount"
+                value={customAmount}
+                onChange={(event) => setCustomAmount(event.target.value)}
+                placeholder="Ví dụ: 100.000"
+                inputMode="numeric"
+                className="w-full rounded-xl border border-slate-200 bg-white px-5 py-4 text-base font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-purple-400 focus:ring-4 focus:ring-purple-50"
+              />
+              <p className="mt-2 text-xs text-slate-400">Tối thiểu 100.000đ, tối đa 2.000.000đ.</p>
+            </div>
+          </div>
+
+          <div className="min-w-0 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:p-8">
+            <div className="mb-6 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <Landmark className="h-5 w-5" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Thông tin thanh toán demo</h2>
+            </div>
+
+            <div className="min-w-0 rounded-2xl border border-purple-100 bg-purple-50/40 p-5">
+              <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_180px]">
+                <dl className="min-w-0 divide-y divide-purple-100 text-sm">
+                  <InfoRow label="Ngân hàng" value="MB Bank" />
+                  <InfoRow label="Chủ tài khoản" value="LMS SKILLIO DEMO" />
+                  <InfoRow label="Số tài khoản" value="0901000000" />
+                  <InfoRow label="Số tiền cần nạp" value={formatCurrency(amount)} />
+                  <InfoRow label="Nội dung chuyển khoản" value={transferCode} />
+                </dl>
+
+                <div className="flex min-h-44 min-w-0 items-center justify-center rounded-2xl border-2 border-dashed border-purple-400 bg-white/50">
+                  <span className="text-center text-lg font-extrabold tracking-[0.18em] text-purple-600">QR DEMO</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={confirmDemoPayment}
+              disabled={loading}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-emerald-600 px-5 py-4 text-base font-bold text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {loading ? (
+                <>
+                  <Clock3 className="h-5 w-5 animate-spin" />
+                  Đang xác nhận...
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5" />
+                  Xác nhận thanh toán demo
+                </>
+              )}
+            </button>
+          </div>
+        </section>
+
+        <section className="min-w-0 rounded-3xl border border-slate-100 bg-white p-6 shadow-sm lg:p-8">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+              <Wallet className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-amber-900">Chế độ Thử nghiệm (Mock Payment) đang BẬT</h3>
-              <p className="text-sm text-amber-700 mt-0.5 leading-relaxed">
-                Hệ thống đang chạy trong môi trường cục bộ. Bạn không cần thẻ Visa hay tài khoản ngân hàng thật. Hãy click chọn bất kỳ mệnh giá nào dưới đây để được **nạp tiền ảo tức thì hoàn toàn miễn phí**!
-              </p>
+              <h2 className="text-2xl font-bold tracking-tight text-slate-900">Lịch sử giao dịch</h2>
+              <p className="mt-1 text-sm text-slate-500">Theo dõi các lần nạp ví và mua khóa học gần đây.</p>
             </div>
           </div>
-          <div className="flex-shrink-0 bg-amber-600 text-white text-xs font-semibold px-3 py-1.5 rounded-full uppercase tracking-wider shadow-sm shadow-amber-600/10">
-            Developer Tool
-          </div>
-        </div>
-      )}
 
-      <div className="max-w-7xl mx-auto mb-10">
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-sm font-semibold mb-6">
-            <Wallet className="w-4 h-4" />
-            <span>Ví nội bộ và danh hiệu hội viên</span>
-          </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-slate-900 tracking-tight mb-6">
-            Nạp ví một lần, mở khóa học linh hoạt
-          </h1>
-          <p className="text-lg text-slate-600 leading-relaxed">
-            Hệ thống đã bỏ mô hình mua gói. Bạn nạp tiền vào ví nội bộ, dùng số dư để mua từng khóa học
-            và tích lũy tổng chi tiêu để mở danh hiệu hội viên.
-          </p>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-        <div className="lg:col-span-7 bg-gradient-to-br from-slate-900 via-slate-800 to-amber-900 rounded-3xl p-8 md:p-10 relative overflow-hidden shadow-xl shadow-slate-900/20">
-          <div className="absolute -top-24 -right-20 w-80 h-80 bg-amber-400/20 blur-[100px] rounded-full pointer-events-none" />
-          <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-cyan-400/10 blur-[100px] rounded-full pointer-events-none" />
-
-          <div className="relative z-10 flex flex-col h-full justify-between gap-8">
-            <div>
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center">
-                  <Coins className="w-6 h-6 text-amber-300" />
+          {historyLoading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((item) => (
+                <div key={item} className="h-16 animate-pulse rounded-2xl bg-slate-100" />
+              ))}
+            </div>
+          ) : history.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+              Chưa có giao dịch ví nào.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {history.slice(0, 8).map((item) => (
+                <div key={item.id} className="flex min-w-0 flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <div className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${item.amount >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                      <BadgeInfo className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="break-words font-semibold text-slate-900">{item.note || item.type}</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formatDateTime(item.createdAt)}
+                        {item.course?.title ? ` - ${item.course.title}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="sm:text-right">
+                    <p className={`font-bold ${item.amount >= 0 ? 'text-emerald-600' : 'text-slate-900'}`}>{item.amountText}</p>
+                    <p className="mt-1 text-xs text-slate-400">Số dư sau GD: {item.balanceAfterText}</p>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">Nạp ví thông minh</h2>
-                  <p className="text-sm text-slate-300">Không còn gói Premium hay gói Instructor nữa</p>
-                </div>
-              </div>
-
-              <p className="text-slate-200 leading-relaxed max-w-2xl mb-8">
-                Số dư ví được dùng để mua khóa học trả phí. Mọi giao dịch thành công sẽ cộng vào tổng chi tiêu
-                và tự động nâng hạng danh hiệu hội viên cho tài khoản.
-              </p>
+              ))}
             </div>
-
-            <div className="rounded-3xl bg-white/10 border border-white/10 p-6 backdrop-blur-sm">
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.24em] text-amber-200 font-semibold mb-2">
-                    Gói đề xuất
-                  </p>
-                  <h3 className="text-3xl font-bold text-white">{formatCurrency(featuredPack.amount)}</h3>
-                  <p className="text-sm text-slate-300 mt-2">{featuredPack.bonus}</p>
-                </div>
-                <span className="inline-flex items-center gap-2 rounded-full bg-amber-300/15 px-3 py-1 text-xs font-semibold text-amber-200">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Phổ biến
-                </span>
-              </div>
-
-              <button
-                onClick={() => handleTopUp(featuredPack.amount)}
-                disabled={loadingAmount === featuredPack.amount}
-                className="w-full sm:w-auto bg-white text-slate-900 font-semibold text-lg px-8 py-3.5 rounded-full hover:bg-amber-50 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
-              >
-                {loadingAmount === featuredPack.amount ? 'Đang xử lý...' : 'Nạp ví ngay'}
-                <ArrowRight className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {TOP_UP_PACKAGES.map((pack) => (
-            <div key={pack.amount} className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm hover:shadow-lg transition-all">
-              <div className="flex items-center justify-between mb-5">
-                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{pack.label}</span>
-                <Wallet className="w-4 h-4 text-slate-400" />
-              </div>
-
-              <h3 className="text-3xl font-bold text-slate-900 mb-3">{formatCurrency(pack.amount)}</h3>
-              <p className="text-sm text-slate-500 leading-relaxed min-h-16">{pack.bonus}</p>
-
-              <button
-                onClick={() => handleTopUp(pack.amount)}
-                disabled={loadingAmount === pack.amount}
-                className="mt-6 w-full bg-slate-900 text-white py-3 rounded-full text-sm font-semibold hover:bg-slate-800 transition-colors disabled:opacity-70"
-              >
-                {loadingAmount === pack.amount ? 'Đang xử lý...' : 'Nạp mệnh giá này'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto mt-10">
-        <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center">
-              <Crown className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Danh hiệu hội viên</h2>
-              <p className="text-sm text-slate-500">Tự động nâng cấp theo tổng chi tiêu tích lũy trong ví</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            {MEMBER_TIERS.map((tier) => (
-              <div key={tier.key} className="rounded-2xl border border-slate-100 p-5 bg-slate-50/70">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700 mb-4">
-                  <BadgeCheck className="w-3.5 h-3.5 text-amber-500" />
-                  {tier.label}
-                </div>
-                <p className="text-2xl font-bold text-slate-900 mb-2">{tier.threshold}</p>
-                <p className="text-sm text-slate-500 leading-relaxed">{tier.perks}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+          )}
+        </section>
       </div>
     </div>
   );
 };
 
-export default Pricing;
+const InfoRow = ({ label, value }) => (
+  <div className="grid min-w-0 gap-2 py-4 sm:grid-cols-[145px_minmax(0,1fr)]">
+    <dt className="font-semibold text-slate-500">{label}</dt>
+    <dd className="min-w-0 break-words font-extrabold text-slate-900">{value}</dd>
+  </div>
+);
+
+export default WalletTopup;

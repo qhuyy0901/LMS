@@ -284,16 +284,24 @@ const Topbar = () => {
         ) : null}
       </div>
 
-      <button
-        onClick={logout}
-        title={'\u0110\u0103ng xu\u1ea5t'}
-        className="group flex items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-3 shadow-sm transition-all duration-300 hover:border-red-200 hover:bg-red-50 hover:shadow-md"
-      >
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-300 to-purple-400 text-xs font-bold text-white transition-transform duration-300 group-hover:scale-105">
+      <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => navigate('/settings')}
+          title="Mở cài đặt tài khoản"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-300 to-purple-400 text-xs font-bold text-white transition-transform duration-300 hover:scale-105"
+        >
           {user?.email?.charAt(0).toUpperCase() || 'U'}
-        </div>
-        <LogOut className="h-4 w-4 text-slate-500 transition-colors duration-300 group-hover:text-red-500" />
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={logout}
+          title={'\u0110\u0103ng xu\u1ea5t'}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-500 transition hover:bg-red-50 hover:text-red-500"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 };

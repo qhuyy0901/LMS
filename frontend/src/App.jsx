@@ -23,6 +23,7 @@ const InstructorEvents = lazy(() => import('./pages/InstructorEvents'));
 const InstructorRevenue = lazy(() => import('./pages/InstructorRevenue'));
 const InstructorStudents = lazy(() => import('./pages/InstructorStudents'));
 const Instructors = lazy(() => import('./pages/Instructors'));
+const InstructorRegister = lazy(() => import('./pages/InstructorRegister'));
 const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
 const Login = lazy(() => import('./pages/Login'));
 const MyClasses = lazy(() => import('./pages/MyClasses'));
@@ -51,6 +52,7 @@ function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/oauth-callback" element={<OAuthCallback />} />
+              <Route path="/become-instructor" element={<InstructorRegister />} />
 
               <Route element={<ProtectedRoute />}>
                 <Route path="/learn/:courseId" element={<LearningWorkspace />} />

@@ -29,7 +29,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const defaultSettings = {
-  theme: 'auto',
+  theme: 'light',
   language: 'vi',
   timezone: 'Asia/Ho_Chi_Minh',
   emailDigest: true,
@@ -165,13 +165,16 @@ const Settings = () => {
         accountNumber: profile.settings?.payoutAccount?.accountNumber || '',
         accountHolder: profile.settings?.payoutAccount?.accountHolder || '',
       });
+      const profileSettings = profile.settings || {};
+
       setFormData({
         name: profile.name || '',
         phone: profile.phone || '',
         bio: profile.bio || '',
         settings: {
           ...defaultSettings,
-          ...(profile.settings || {}),
+          ...profileSettings,
+          theme: profileSettings.theme === 'light' ? 'light' : defaultSettings.theme,
         },
       });
     } catch (error) {

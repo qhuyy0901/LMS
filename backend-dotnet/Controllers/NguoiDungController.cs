@@ -58,31 +58,6 @@ public class NguoiDungController(IDichVuNguoiDung dichVu) : ControllerBase
             : Results.NotFound(new { message = "Không tìm thấy người dùng" });
     }
 
-    /// <summary>Tải ảnh đại diện.</summary>
-    [HttpPost("/api/user/avatar")]
-    public async Task<IResult> DatAvatar()
-    {
-        var userId = TroGiup.LayUserId(User);
-        if (userId is null) return Results.Unauthorized();
-
-        var url = await dichVu.DatAvatarAsync(userId);
-        return url is null
-            ? Results.NotFound(new { message = "Không tìm thấy người dùng" })
-            : Results.Ok(new { message = "Tải ảnh thành công", avatarUrl = url });
-    }
-
-    /// <summary>Xóa ảnh đại diện.</summary>
-    [HttpDelete("/api/user/avatar")]
-    public async Task<IResult> XoaAvatar()
-    {
-        var userId = TroGiup.LayUserId(User);
-        if (userId is null) return Results.Unauthorized();
-
-        return await dichVu.XoaAvatarAsync(userId)
-            ? Results.Ok(new { message = "Đã xóa ảnh đại diện", avatarUrl = (string?)null })
-            : Results.NotFound(new { message = "Không tìm thấy người dùng" });
-    }
-
     /// <summary>Lịch sử giao dịch ví.</summary>
     [HttpGet("/api/user/billing-history")]
     public async Task<IResult> LichSuGiaoDich()

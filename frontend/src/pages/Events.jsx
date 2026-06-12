@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { CalendarDays, Check, Clock3, ExternalLink, MapPin, Search, Users, Video, X } from 'lucide-react';
+import { CalendarDays, Check, Clock3, ExternalLink, MapPin, Search, Users, Video } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import EventImage from '../components/EventImage';
 
 const TYPES = { WORKSHOP: 'Workshop', SEMINAR: 'Hội thảo', SPECIAL_TOPIC: 'Chuyên đề', WEBINAR: 'Webinar', OTHER: 'Sự kiện' };
 const FORMATS = { ONLINE: 'Trực tuyến', OFFLINE: 'Trực tiếp', HYBRID: 'Kết hợp' };
@@ -19,7 +21,7 @@ export default function Events() {
   const loadEvents = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/events');
+      const response = await axios.get('/api/student/events');
       setEvents(Array.isArray(response.data) ? response.data : []);
       setError('');
     } catch (requestError) {
@@ -38,16 +40,30 @@ export default function Events() {
     });
   }, [events, keyword, tab, currentTime]);
 
-  const toggleRegistration = async (item) => {
+  const registerEvent = async (item) => {
+    if (new Date(item.endAt).getTime() <= Date.now()) {
+      setError('Sự kiện đã kết thúc, không thể đăng ký.');
+      return;
+    }
+    if (item.registrationCount >= item.capacity) {
+      setError('Sự kiện đã đủ số lượng đăng ký');
+      return;
+    }
     setBusyId(item.id); setNotice(''); setError('');
     try {
-      const response = item.isRegistered
-        ? await axios.delete(`/api/events/${item.id}/register`)
-        : await axios.post(`/api/events/${item.id}/register`);
-      setNotice(response.data.message);
-      await loadEvents();
+      const response = await axios.post(`/api/student/events/${item.id}/register`);
+      setEvents((current) => current.map((event) => event.id === item.id
+        ? {
+            ...event,
+            isRegistered: true,
+            registrationCount: response.data.registrationCount ?? event.registrationCount + 1,
+            linkThamGia: response.data.linkThamGia ?? event.linkThamGia,
+            onlineUrl: response.data.onlineUrl ?? event.onlineUrl,
+          }
+        : event));
+      setNotice('Đăng ký sự kiện thành công');
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Không thể cập nhật đăng ký sự kiện.');
+      setError(requestError.response?.data?.message || 'Không thể đăng ký sự kiện.');
     } finally { setBusyId(''); }
   };
 
@@ -79,11 +95,13 @@ export default function Events() {
       {loading ? <div className="grid gap-4 md:grid-cols-2">{[1, 2, 3, 4].map((item) => <div key={item} className="h-64 animate-pulse bg-slate-100" />)}</div> : visibleEvents.length === 0 ? (
         <div className="border border-dashed border-slate-300 bg-white py-16 text-center"><CalendarDays className="mx-auto h-10 w-10 text-slate-300" /><p className="mt-3 text-sm font-medium text-slate-600">Chưa có sự kiện phù hợp.</p></div>
       ) : <div className="grid gap-4 md:grid-cols-2">{visibleEvents.map((item) => {
-        const started = new Date(item.startAt).getTime() <= currentTime;
+        const ended = new Date(item.endAt).getTime() <= currentTime;
         const full = item.registrationCount >= item.capacity;
-        return <article key={item.id} className="overflow-hidden border border-slate-200 bg-white">
-          {item.imageUrl && <img src={item.imageUrl} alt="" className="h-40 w-full object-cover" />}
-          <div className="p-5">
+        const online = item.format === 'ONLINE' || item.format === 'HYBRID';
+        return <article key={item.id} className="flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+          <div className="flex w-full flex-col">
+          <EventImage src={item.imageUrl} alt={item.title} className="h-44 w-full object-cover" placeholderClassName="h-44 w-full" />
+          <div className="flex flex-1 flex-col p-5">
             <div className="flex flex-wrap gap-2"><span className="bg-purple-50 px-2 py-1 text-xs font-semibold text-purple-700">{TYPES[item.type]}</span><span className="bg-cyan-50 px-2 py-1 text-xs font-semibold text-cyan-700">{FORMATS[item.format]}</span>{item.isRegistered && <span className="inline-flex items-center gap-1 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700"><Check className="h-3.5 w-3.5" /> Đã đăng ký</span>}</div>
             <h2 className="mt-3 text-lg font-semibold text-slate-900">{item.title}</h2>
             <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-500">{item.description}</p>
@@ -92,17 +110,32 @@ export default function Events() {
               <p className="flex items-center gap-2">{item.format === 'ONLINE' ? <Video className="h-4 w-4 text-purple-500" /> : <MapPin className="h-4 w-4 text-purple-500" />}{item.location || FORMATS[item.format]}</p>
               <p className="flex items-center gap-2"><Users className="h-4 w-4 text-purple-500" />{item.registrationCount}/{item.capacity} người tham gia · Giảng viên {item.instructorName}</p>
             </div>
-            {(item.format === 'ONLINE' || item.format === 'HYBRID') && !started && (
+            {item.isRegistered && online && !ended && (
               <p className="mt-3 text-xs text-amber-600">Sự kiện chưa bắt đầu, bạn có thể vào trước nếu giảng viên đã mở phòng.</p>
             )}
-            <div className="mt-5 flex items-center justify-between gap-3">
-              {(item.format === 'ONLINE' || item.format === 'HYBRID') && (
-                <button type="button" onClick={() => joinOnlineEvent(item)} className="inline-flex items-center gap-1.5 bg-purple-50 px-3 py-2 text-xs font-semibold text-purple-700 hover:bg-purple-100">
-                  Tham gia <ExternalLink className="h-3.5 w-3.5" />
-                </button>
-              )}
-              <button type="button" disabled={busyId === item.id || started || (!item.isRegistered && full)} onClick={() => toggleRegistration(item)} className={`ml-auto inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${item.isRegistered ? 'border border-red-200 text-red-700 hover:bg-red-50' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>{item.isRegistered ? <X className="h-4 w-4" /> : <Check className="h-4 w-4" />}{started ? 'Đã bắt đầu' : item.isRegistered ? 'Hủy đăng ký' : full ? 'Đã đủ chỗ' : 'Đăng ký tham gia'}</button>
+            <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
+              <Link to={`/student/events/${item.id}`} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700">
+                Xem chi tiết
+              </Link>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                {item.isRegistered && online && (
+                  <button type="button" onClick={() => joinOnlineEvent(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100">
+                    Tham gia <ExternalLink className="h-4 w-4" />
+                  </button>
+                )}
+                {item.isRegistered ? (
+                  <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+                    <Check className="h-4 w-4" /> Đã đăng ký
+                  </span>
+                ) : (
+                  <button type="button" disabled={busyId === item.id} onClick={() => registerEvent(item)} className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${ended || full ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-purple-600 text-white hover:bg-purple-700'}`}>
+                    <Check className="h-4 w-4" />
+                    {busyId === item.id ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : 'Đăng ký tham gia'}
+                  </button>
+                )}
+              </div>
             </div>
+          </div>
           </div>
         </article>;
       })}</div>}

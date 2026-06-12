@@ -15,8 +15,6 @@ public interface IDichVuNguoiDung
     Task<NguoiDungDto?> CapNhatHoSoAsync(string userId, string? ten, string? soDT, string? gioiThieu, JsonElement? caiDat);
     Task<(bool ThanhCong, string ThongBao)> DoiMatKhauAsync(string userId, string matKhauHienTai, string matKhauMoi);
     Task<bool> XoaTaiKhoanAsync(string userId);
-    Task<string?> DatAvatarAsync(string userId);
-    Task<bool> XoaAvatarAsync(string userId);
     Task<object> LayLichSuGiaoDichAsync(string userId);
     Task<object> LayChungChiAsync(string userId);
     Task<object> LayThongBaoAsync(string userId);
@@ -76,26 +74,6 @@ public class DichVuNguoiDung(LmsDbContext db) : IDichVuNguoiDung
         var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return false;
         db.Users.Remove(user);
-        await db.SaveChangesAsync();
-        return true;
-    }
-
-    public async Task<string?> DatAvatarAsync(string userId)
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user is null) return null;
-        user.Avatar = $"https://api.dicebear.com/7.x/avataaars/svg?seed={Uri.EscapeDataString(user.Email)}";
-        user.UpdatedAt = DateTime.UtcNow;
-        await db.SaveChangesAsync();
-        return user.Avatar;
-    }
-
-    public async Task<bool> XoaAvatarAsync(string userId)
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
-        if (user is null) return false;
-        user.Avatar = null;
-        user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return true;
     }

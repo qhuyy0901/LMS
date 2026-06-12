@@ -14,7 +14,20 @@ namespace LMS.Api.Controllers;
 [Authorize]
 public class AccountController(LmsDbContext db, IWebHostEnvironment env) : ControllerBase
 {
-    private static readonly HashSet<string> AvatarTypes = ["image/png", "image/jpeg", "image/webp"];
+    private static readonly HashSet<string> AvatarTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/png",
+        "image/jpeg",
+        "image/jpg",
+        "image/webp"
+    };
+    private static readonly HashSet<string> AvatarExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".webp"
+    };
 
     [HttpGet("/api/account/settings")]
     public async Task<IResult> LayCaiDat()
@@ -125,6 +138,7 @@ public class AccountController(LmsDbContext db, IWebHostEnvironment env) : Contr
     public Task<IResult> CapNhatTuyChon([FromBody] CapNhatCaiDatRequest request) => LuuCaiDat(request.Settings);
 
     [HttpPost("/api/account/avatar")]
+    [HttpPost("/api/user/avatar")]
     public async Task<IResult> CapNhatAvatar([FromForm] IFormFile? avatar)
     {
         var userId = TroGiup.LayUserId(User);
@@ -146,9 +160,10 @@ public class AccountController(LmsDbContext db, IWebHostEnvironment env) : Contr
         Directory.CreateDirectory(folder);
 
         var extension = Path.GetExtension(avatar.FileName).ToLowerInvariant();
-        if (extension is not ".png" and not ".jpg" and not ".jpeg" and not ".webp")
+        if (!AvatarExtensions.Contains(extension))
             return Results.BadRequest(new { message = "Ảnh đại diện chỉ nhận PNG, JPG, JPEG, WEBP." });
 
+        var oldAvatar = user.Avatar;
         var fileName = $"{userId}-{Guid.NewGuid():N}{extension}";
         var fullPath = Path.Combine(folder, fileName);
         await using (var stream = System.IO.File.Create(fullPath))
@@ -159,8 +174,32 @@ public class AccountController(LmsDbContext db, IWebHostEnvironment env) : Contr
         user.Avatar = $"/uploads/avatars/{fileName}";
         user.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+        DeleteLocalAvatar(root, oldAvatar);
 
         return Results.Ok(new { message = "Cập nhật cài đặt thành công.", avatarUrl = user.Avatar, user = ToUserDto(user) });
+    }
+
+    [HttpDelete("/api/account/avatar")]
+    [HttpDelete("/api/user/avatar")]
+    public async Task<IResult> XoaAvatar()
+    {
+        var userId = TroGiup.LayUserId(User);
+        if (userId is null) return Results.Unauthorized();
+
+        var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng." });
+
+        var oldAvatar = user.Avatar;
+        user.Avatar = null;
+        user.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        var root = string.IsNullOrWhiteSpace(env.WebRootPath)
+            ? Path.Combine(env.ContentRootPath, "wwwroot")
+            : env.WebRootPath;
+        DeleteLocalAvatar(root, oldAvatar);
+
+        return Results.Ok(new { message = "Đã xóa ảnh đại diện.", avatarUrl = (string?)null, user = ToUserDto(user) });
     }
 
     [HttpPost("/api/account/logout")]
@@ -236,6 +275,16 @@ public class AccountController(LmsDbContext db, IWebHostEnvironment env) : Contr
         if (string.IsNullOrWhiteSpace(rawSettings)) return null;
         try { return JsonSerializer.Deserialize<JsonElement>(rawSettings); }
         catch (JsonException) { return null; }
+    }
+
+    private static void DeleteLocalAvatar(string webRoot, string? avatarUrl)
+    {
+        if (string.IsNullOrWhiteSpace(avatarUrl) || !avatarUrl.StartsWith("/uploads/avatars/", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        var avatarFolder = Path.Combine(webRoot, "uploads", "avatars");
+        var fullPath = Path.Combine(avatarFolder, Path.GetFileName(avatarUrl));
+        if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
     }
 
     private static object ToUserDto(LMS.Api.Models.NguoiDung user) => new

@@ -19,6 +19,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
 
 const TYPES = [
   { value: 'WORKSHOP', label: 'Workshop' },
@@ -70,6 +71,7 @@ const toInputDate = (value) => {
 const API_BASE = '/api/instructor/events';
 
 export default function InstructorEvents() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
   const [events, setEvents] = useState([]);
   const [googleMeetLink, setGoogleMeetLink] = useState('');
@@ -174,6 +176,15 @@ export default function InstructorEvents() {
     setImageError('');
     setShowForm(true);
   };
+
+  useEffect(() => {
+    const editId = searchParams.get('edit');
+    const item = events.find((event) => event.id === editId);
+    if (item) {
+      openEdit(item);
+      setSearchParams({}, { replace: true });
+    }
+  }, [events, searchParams, setSearchParams]);
 
   const submit = async (event) => {
     event.preventDefault();
@@ -350,7 +361,7 @@ export default function InstructorEvents() {
       const response = await axios.get(`${API_BASE}/${editing.id}`);
       setExistingImages(response.data.images || []);
       setNotice('Đã upload ảnh thành công.');
-    } catch (err) {
+    } catch {
       setImageError('Không thể upload ảnh. Vui lòng thử lại.');
     } finally {
       setUploadingImages(false);
@@ -490,6 +501,9 @@ export default function InstructorEvents() {
               </div>
 
               <div className="flex flex-wrap gap-2 border-t border-slate-100 bg-slate-50/60 px-5 py-4">
+                <Link to={`/instructor/events/${item.id}`} className="inline-flex items-center gap-1.5 rounded-full border border-purple-200 bg-white px-4 py-2 text-xs font-semibold text-purple-700 transition hover:bg-purple-50">
+                  <ExternalLink className="h-4 w-4" /> Xem chi tiết
+                </Link>
                 {item.status === 'PUBLISHED' && (item.format === 'ONLINE' || item.format === 'HYBRID') && new Date(item.endAt) > new Date() && (
                   <button
                     type="button"

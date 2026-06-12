@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Bell,
@@ -27,6 +27,7 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import UserAvatar from '../components/UserAvatar';
 
 const defaultSettings = {
   theme: 'light',
@@ -130,18 +131,6 @@ const Settings = () => {
 
   const displayName = formData.name || user?.name || 'Học viên';
   const isInstructor = user?.role === 'INSTRUCTOR';
-  const initials = useMemo(
-    () =>
-      displayName
-        .split(' ')
-        .filter(Boolean)
-        .slice(-2)
-        .map((part) => part[0])
-        .join('')
-        .toUpperCase(),
-    [displayName]
-  );
-
   const loadSettings = async () => {
     setLoading(true);
     setMessage(null);
@@ -345,9 +334,7 @@ const Settings = () => {
     try {
       const payload = new FormData();
       payload.append('avatar', file);
-      const response = await axios.post('/api/user/avatar', payload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const response = await axios.post('/api/user/avatar', payload);
       setAvatarUrl(response.data.avatarUrl);
       await refreshUser?.();
       setMessage({ type: 'success', text: 'Đã cập nhật ảnh đại diện.' });
@@ -468,7 +455,10 @@ const Settings = () => {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    setMessage(null);
+                  }}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
                     isActive
                       ? item.danger
@@ -496,16 +486,10 @@ const Settings = () => {
               </div>
 
               <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-4 md:flex-row md:items-center">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Ảnh đại diện" className="h-16 w-16 rounded-2xl object-cover shadow-sm" />
-                ) : (
-                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-300 to-purple-500 text-xl font-bold text-white shadow-sm">
-                    {initials || 'S'}
-                  </div>
-                )}
+                <UserAvatar src={avatarUrl} name={displayName} className="h-16 w-16 shrink-0 rounded-2xl shadow-sm" fallbackClassName="text-xl" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-900">Ảnh đại diện</p>
-                  <p className="text-xs text-slate-500">PNG, JPG hoặc WebP dưới 2MB. Hệ thống sẽ tạo avatar an toàn cho tài khoản.</p>
+                  <p className="text-xs text-slate-500">PNG, JPG hoặc WebP dưới 2MB. Ảnh sẽ được lưu và hiển thị trên tài khoản của bạn.</p>
                 </div>
                 <input
                   ref={fileInputRef}

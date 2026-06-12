@@ -371,18 +371,19 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
     }
 
     [HttpPost("/api/events/{id}/register")]
+    [HttpPost("/api/student/events/{id}/register")]
     public async Task<IResult> DangKy(string id)
     {
         if (User.FindFirstValue(ClaimTypes.Role) != "STUDENT") return Results.Forbid();
         var userId = TroGiup.LayUserId(User)!;
         var item = await db.Events.Include(item => item.Registrations).FirstOrDefaultAsync(item => item.Id == id);
         if (item is null || item.Status != "PUBLISHED") return Results.NotFound(new { message = "Không tìm thấy sự kiện đang mở đăng ký." });
-        if (item.StartAt <= DateTime.UtcNow) return Results.BadRequest(new { message = "Sự kiện đã bắt đầu, không thể đăng ký." });
+        if (item.EndAt <= DateTime.UtcNow) return Results.BadRequest(new { message = "Sự kiện đã kết thúc, không thể đăng ký." });
 
         var registration = item.Registrations.FirstOrDefault(entry => entry.UserId == userId);
         var activeCount = item.Registrations.Count(entry => entry.Status == "REGISTERED");
         if (registration?.Status == "REGISTERED") return Results.BadRequest(new { message = "Bạn đã đăng ký sự kiện này." });
-        if (activeCount >= item.Capacity) return Results.BadRequest(new { message = "Sự kiện đã đủ số lượng người tham gia." });
+        if (activeCount >= item.Capacity) return Results.BadRequest(new { message = "Sự kiện đã đủ số lượng đăng ký." });
 
         var now = DateTime.UtcNow;
         if (registration is null)
@@ -393,6 +394,7 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
                 EventId = id,
                 UserId = userId,
                 RegisteredAt = now,
+                CreatedAt = now,
                 UpdatedAt = now
             };
             db.EventRegistrations.Add(registration);
@@ -421,10 +423,18 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
         });
 
         await db.SaveChangesAsync();
-        return Results.Ok(new { message = "Đăng ký sự kiện thành công." });
+        return Results.Ok(new
+        {
+            message = "Đăng ký sự kiện thành công",
+            isRegistered = true,
+            registrationCount = activeCount + 1,
+            linkThamGia = item.LinkThamGia,
+            onlineUrl = item.LinkThamGia
+        });
     }
 
     [HttpDelete("/api/events/{id}/register")]
+    [HttpDelete("/api/student/events/{id}/register")]
     public async Task<IResult> HuyDangKy(string id)
     {
         if (User.FindFirstValue(ClaimTypes.Role) != "STUDENT") return Results.Forbid();
@@ -495,6 +505,8 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
     private static object MapEvent(SuKien item, string? userId, bool includeAttendees = false)
     {
         var activeRegistrations = item.Registrations.Where(entry => entry.Status == "REGISTERED").ToList();
+        var isRegistered = activeRegistrations.Any(entry => entry.UserId == userId);
+        var joinLink = includeAttendees || isRegistered ? item.LinkThamGia : null;
         var images = item.Images?.OrderByDescending(img => img.IsCover).ThenBy(img => img.CreatedAt)
             .Select(img => new { id = img.Id, imageUrl = img.ImageUrl, isCover = img.IsCover, createdAt = img.CreatedAt })
             .ToList();
@@ -510,15 +522,15 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
             startAt = item.StartAt,
             endAt = item.EndAt,
             location = item.Location,
-            onlineUrl = item.LinkThamGia,
-            linkThamGia = item.LinkThamGia,
+            onlineUrl = joinLink,
+            linkThamGia = joinLink,
             imageUrl = coverImage?.ImageUrl ?? item.ImageUrl,
             capacity = item.Capacity,
             status = item.Status,
             instructorId = item.InstructorId,
             instructorName = item.Instructor?.Name ?? "Giảng viên",
             registrationCount = activeRegistrations.Count,
-            isRegistered = activeRegistrations.Any(entry => entry.UserId == userId),
+            isRegistered,
             images,
             attendees = includeAttendees
                 ? activeRegistrations.Select(entry => new { id = entry.UserId, name = entry.User?.Name, email = entry.User?.Email, registeredAt = entry.RegisteredAt })

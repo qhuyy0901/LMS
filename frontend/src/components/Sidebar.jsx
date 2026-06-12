@@ -4,7 +4,7 @@ import { PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { getMenuByRole } from '../config/sidebar.config';
-import { resolveMediaUrl } from '../utils/mediaUrl';
+import UserAvatar from './UserAvatar';
 
 const TIER_LABELS = {
   BRONZE: 'Đồng',
@@ -27,6 +27,7 @@ const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('skillio_sidebar_collapsed') === 'true');
 
   const menuItems = getMenuByRole(activeView);
+  const settingsPath = activeView === 'INSTRUCTOR' ? '/instructor/settings' : '/settings';
 
   const roleBadge = isImpersonating ? null : ROLE_BADGES[realRole];
   const toggleSidebar = () => {
@@ -140,20 +141,12 @@ const Sidebar = () => {
       {/* User Card */}
       <div className="mt-8 pt-6 border-t border-slate-100">
         <Link
-          to="/settings"
+          to={settingsPath}
           title="Mở cài đặt tài khoản"
           className={`group flex items-center rounded-xl p-2 transition hover:bg-purple-50 ${collapsed ? 'justify-center' : 'gap-3'}`}
         >
           <div className="relative">
-            {user?.avatar ? (
-              <img
-                src={resolveMediaUrl(user.avatar)}
-                alt={user.name}
-                className="w-10 h-10 rounded-full object-cover ring-2 ring-purple-100"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-pink-300 to-orange-300 ring-2 ring-purple-100" />
-            )}
+            <UserAvatar src={user?.avatar} name={user?.name} className="h-10 w-10 rounded-full ring-2 ring-purple-100" />
             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
           </div>
           {!collapsed && <div className="flex-1 min-w-0">

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
+import UserAvatar from './UserAvatar';
 
 const TIER_LABELS = {
   BRONZE: 'Đồng',
@@ -37,6 +38,7 @@ const Topbar = () => {
   const { user, logout } = useAuth();
   const { activeView, canImpersonate, isImpersonating, enterStudentView, exitImpersonation, realRole } = useDashboardView();
   const tierLabel = isImpersonating ? 'Đồng' : TIER_LABELS[user?.memberTier] || 'Đồng';
+  const settingsPath = activeView === 'INSTRUCTOR' ? '/instructor/settings' : '/settings';
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -287,11 +289,11 @@ const Topbar = () => {
       <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 shadow-sm">
         <button
           type="button"
-          onClick={() => navigate('/settings')}
+          onClick={() => navigate(settingsPath)}
           title="Mở cài đặt tài khoản"
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-pink-300 to-purple-400 text-xs font-bold text-white transition-transform duration-300 hover:scale-105"
+          className="flex h-8 w-8 items-center justify-center rounded-full transition-transform duration-300 hover:scale-105"
         >
-          {user?.email?.charAt(0).toUpperCase() || 'U'}
+          <UserAvatar src={user?.avatar} name={user?.name || user?.email} className="h-8 w-8 rounded-full" />
         </button>
         <button
           type="button"

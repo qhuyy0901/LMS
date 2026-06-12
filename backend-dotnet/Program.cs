@@ -79,8 +79,7 @@ var authentication = builder.Services
         options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
     });
 
-// TODO: Uncomment Google and Facebook authentication when packages are available for .NET 9.0
-/*
+// Google and Facebook authentication configuration
 var googleClientId = builder.Configuration["Authentication:Google:ClientId"] ?? builder.Configuration["GOOGLE_CLIENT_ID"];
 var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? builder.Configuration["GOOGLE_CLIENT_SECRET"];
 if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
@@ -106,7 +105,6 @@ if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(face
         options.Fields.Add("email");
     });
 }
-*/
 
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>

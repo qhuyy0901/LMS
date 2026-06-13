@@ -17,3 +17,7 @@ backend-dotnet/obj/
 backend-dotnet/build-check/
 backend-dotnet/appsettings.Development.json
 .logs/
+.agents/
+.tmp/
+*.log
+skills-lock.json

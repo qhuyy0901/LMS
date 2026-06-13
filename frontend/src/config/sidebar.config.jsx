@@ -9,6 +9,7 @@ import {
   FileCheck,
   GraduationCap,
   LayoutDashboard,
+  MessageCircle,
   PlayCircle,
   PlusCircle,
   Settings,
@@ -33,6 +34,7 @@ export const STUDENT_MENU = [
   { name: 'Chứng chỉ', path: '/certificates', icon: Award },
 
   { section: 'Tài khoản' },
+  { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
   { name: 'Giảng viên', path: '/instructors', icon: Users },
   { name: 'Dạy học trên Skillio', path: '/become-instructor', icon: Briefcase },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
@@ -53,6 +55,7 @@ export const INSTRUCTOR_MENU = [
   { name: 'Thống kê doanh thu', path: '/instructor/revenue', icon: DollarSign },
 
   { section: 'Khác' },
+  { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
   { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
@@ -69,6 +72,7 @@ export const ADMIN_MENU = [
 
   { section: 'Khác' },
   { name: 'Khám phá', path: '/explore', icon: Compass },
+  { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
   { name: 'Bảo mật', path: '/admin/security', icon: ShieldCheck },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
   { name: 'Cài đặt', path: '/settings', icon: Settings },

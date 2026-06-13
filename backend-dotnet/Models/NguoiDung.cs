@@ -60,4 +60,7 @@ public class NguoiDung
     public ICollection<SuKien> OrganizedEvents { get; set; } = [];
     public ICollection<DangKySuKien> EventRegistrations { get; set; } = [];
     public ICollection<RutTienGiangVien> InstructorWithdrawals { get; set; } = [];
+    
+    public ICollection<NguoiThamGiaTroChuyen> Conversations { get; set; } = [];
+    public ICollection<TinNhan> SentMessages { get; set; } = [];
 }

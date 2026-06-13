@@ -329,6 +329,37 @@ namespace LMS.Api.Migrations
                     b.ToTable("Section", (string)null);
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.CuocTroChuyen", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CourseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsGroup")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.ToTable("Conversation", (string)null);
+                });
+
             modelBuilder.Entity("LMS.Api.Models.DangKySuKien", b =>
                 {
                     b.Property<string>("Id")
@@ -828,6 +859,27 @@ namespace LMS.Api.Migrations
                     b.ToTable("User", (string)null);
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.NguoiThamGiaTroChuyen", b =>
+                {
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("JoinedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastReadAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ConversationId", "UserId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ConversationParticipant", (string)null);
+                });
+
             modelBuilder.Entity("LMS.Api.Models.NhatKyHeThong", b =>
                 {
                     b.Property<string>("Id")
@@ -1204,6 +1256,37 @@ namespace LMS.Api.Migrations
                     b.ToTable("LessonProgress", (string)null);
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.TinNhan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ConversationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SenderId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConversationId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("SentAt");
+
+                    b.ToTable("Message", (string)null);
+                });
+
             modelBuilder.Entity("LMS.Api.Models.BaiHoc", b =>
                 {
                     b.HasOne("LMS.Api.Models.KhoaHoc", "Course")
@@ -1467,6 +1550,25 @@ namespace LMS.Api.Migrations
                     b.Navigation("Course");
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.NguoiThamGiaTroChuyen", b =>
+                {
+                    b.HasOne("LMS.Api.Models.CuocTroChuyen", "Conversation")
+                        .WithMany("Participants")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Models.NguoiDung", "User")
+                        .WithMany("Conversations")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("LMS.Api.Models.NopBaiKiemTra", b =>
                 {
                     b.HasOne("LMS.Api.Models.BaiKiemTra", "Quiz")
@@ -1560,6 +1662,25 @@ namespace LMS.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.TinNhan", b =>
+                {
+                    b.HasOne("LMS.Api.Models.CuocTroChuyen", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Models.NguoiDung", "Sender")
+                        .WithMany("SentMessages")
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
             modelBuilder.Entity("LMS.Api.Models.BaiHoc", b =>
                 {
                     b.Navigation("Assignments");
@@ -1586,6 +1707,13 @@ namespace LMS.Api.Migrations
             modelBuilder.Entity("LMS.Api.Models.ChuongHoc", b =>
                 {
                     b.Navigation("Lessons");
+                });
+
+            modelBuilder.Entity("LMS.Api.Models.CuocTroChuyen", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Participants");
                 });
 
             modelBuilder.Entity("LMS.Api.Models.GiaoDichMua", b =>
@@ -1620,6 +1748,8 @@ namespace LMS.Api.Migrations
 
                     b.Navigation("Comments");
 
+                    b.Navigation("Conversations");
+
                     b.Navigation("CourseReviews");
 
                     b.Navigation("Courses");
@@ -1643,6 +1773,8 @@ namespace LMS.Api.Migrations
                     b.Navigation("Purchases");
 
                     b.Navigation("QuizSubmissions");
+
+                    b.Navigation("SentMessages");
 
                     b.Navigation("WalletTransactions");
                 });

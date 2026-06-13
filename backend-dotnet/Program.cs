@@ -42,6 +42,7 @@ builder.Services.AddControllers()
     });
 builder.Services.AddControllersWithViews();
 builder.Services.AddOpenApi();
+builder.Services.AddSignalR();
 
 var authentication = builder.Services
     .AddAuthentication(options =>
@@ -55,7 +56,14 @@ var authentication = builder.Services
         {
             OnMessageReceived = context =>
             {
-                if (string.IsNullOrWhiteSpace(context.Token) &&
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/chatHub"))
+                {
+                    context.Token = accessToken;
+                }
+                else if (string.IsNullOrWhiteSpace(context.Token) &&
                     context.Request.Cookies.TryGetValue("LmsAuthToken", out var cookieToken))
                 {
                     context.Token = cookieToken;
@@ -151,5 +159,6 @@ app.MapControllers();
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=SinhVien}/{action=Vi}/{id?}");
+app.MapHub<LMS.Api.Hubs.ChatHub>("/chatHub");
 
 app.Run();

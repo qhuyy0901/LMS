@@ -53,22 +53,45 @@ public class DichVuGhiDanh(LmsDbContext db) : IDichVuGhiDanh
         if (baiHoc is null) return Results.NotFound(new { message = "Không tìm thấy bài học" });
 
         var now = DateTime.UtcNow;
-        var tongThoiGian = Math.Max(1, tongGiay ?? baiHoc.DurationSeconds ?? 0);
-        var daXem = Math.Max(0, giayDaXem ?? baiHoc.DurationSeconds ?? tongThoiGian);
-        var viTri = Math.Max(0, viTriCuoi ?? daXem);
-        var tiLe = Math.Clamp((daXem / (double)tongThoiGian) * 100, 0, 100);
-        var canHoanThanh = hoanThanh == true || tiLe >= 90;
+        var duration = baiHoc.DurationSeconds ?? 0;
+        var tongThoiGian = duration > 0 ? duration : Math.Max(1, tongGiay ?? 0);
 
         var tienDo = await db.LessonProgresses.FirstOrDefaultAsync(p => p.UserId == userId && p.LessonId == baiHocId);
+        
+        // 1. Kiểm soát giá trị giayDaXem được gửi lên: không cho phép vượt quá tổng thời lượng bài học
+        var daXemGuiLen = giayDaXem ?? tongThoiGian;
+        var daXemChuan = Math.Clamp(daXemGuiLen, 0, tongThoiGian);
+
+        // 2. Chống tăng tiến độ phi thực tế (Ví dụ: nhảy vọt xem từ 0 giây lên 1000 giây chỉ trong 10 giây)
+        if (tienDo is not null && duration > 0)
+        {
+            var thoiGianTroiQua = (now - tienDo.UpdatedAt).TotalSeconds;
+            var soGiayTangThem = daXemChuan - tienDo.WatchedSeconds;
+            
+            // Cho phép sai số nhỏ do mạng và buffer, tối đa tăng 1.5 lần thời gian trôi qua thực tế
+            if (soGiayTangThem > Math.Max(15, thoiGianTroiQua * 1.5))
+            {
+                daXemChuan = tienDo.WatchedSeconds + (int)Math.Max(10, thoiGianTroiQua);
+                daXemChuan = Math.Min(daXemChuan, tongThoiGian);
+            }
+        }
+
+        var viTri = Math.Clamp(viTriCuoi ?? daXemChuan, 0, tongThoiGian);
+        
         if (tienDo is null)
         {
             tienDo = new TienDoBaiHoc { Id = TaoId.Moi(), UserId = userId, LessonId = baiHocId, CreatedAt = now };
             db.LessonProgresses.Add(tienDo);
         }
 
+        var daXemMax = Math.Max(tienDo.WatchedSeconds, daXemChuan);
+        var tiLe = Math.Clamp((daXemMax / (double)tongThoiGian) * 100, 0, 100);
+
+        // 3. Quyết định hoàn thành dựa trên tỷ lệ xem thực tế đạt từ 90% trở lên (Không tin cờ hoanThanh của client gửi trực tiếp nữa)
+        var canHoanThanh = tiLe >= 90;
         var daHoanThanhTruocDo = tienDo.IsCompleted;
 
-        tienDo.WatchedSeconds = Math.Max(tienDo.WatchedSeconds, daXem);
+        tienDo.WatchedSeconds = daXemMax;
         tienDo.LastPositionSeconds = viTri;
         tienDo.CompletionRate = Math.Max(tienDo.CompletionRate, tiLe);
         if (canHoanThanh && !tienDo.IsCompleted) { tienDo.IsCompleted = true; tienDo.CompletedAt = now; }

@@ -29,6 +29,9 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<DangKySuKien> EventRegistrations => Set<DangKySuKien>();
     public DbSet<SuKienAnh> EventImages => Set<SuKienAnh>();
     public DbSet<RutTienGiangVien> InstructorWithdrawals => Set<RutTienGiangVien>();
+    public DbSet<CuocTroChuyen> Conversations => Set<CuocTroChuyen>();
+    public DbSet<NguoiThamGiaTroChuyen> ConversationParticipants => Set<NguoiThamGiaTroChuyen>();
+    public DbSet<TinNhan> Messages => Set<TinNhan>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -404,6 +407,45 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasOne(item => item.User)
                 .WithMany(item => item.Notifications)
                 .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<CuocTroChuyen>(entity =>
+        {
+            entity.ToTable("Conversation");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.CourseId);
+            entity.Property(item => item.Title).HasMaxLength(255);
+            entity.Property(item => item.IsGroup).HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<NguoiThamGiaTroChuyen>(entity =>
+        {
+            entity.ToTable("ConversationParticipant");
+            entity.HasKey(item => new { item.ConversationId, item.UserId });
+            entity.HasOne(item => item.Conversation)
+                .WithMany(item => item.Participants)
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.User)
+                .WithMany(item => item.Conversations)
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<TinNhan>(entity =>
+        {
+            entity.ToTable("Message");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.ConversationId);
+            entity.HasIndex(item => item.SentAt);
+            entity.HasOne(item => item.Conversation)
+                .WithMany(item => item.Messages)
+                .HasForeignKey(item => item.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Sender)
+                .WithMany(item => item.SentMessages)
+                .HasForeignKey(item => item.SenderId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
     }

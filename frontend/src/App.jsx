@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
 import { AuthProvider } from './context/AuthContext';
+import { ChatProvider } from './context/ChatContext';
 import { DashboardViewProvider } from './context/DashboardViewContext';
 
 const AdminCoupons = lazy(() => import('./pages/AdminCoupons'));
@@ -27,6 +28,7 @@ const Instructors = lazy(() => import('./pages/Instructors'));
 const InstructorRegister = lazy(() => import('./pages/InstructorRegister'));
 const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
 const Login = lazy(() => import('./pages/Login'));
+const Messages = lazy(() => import('./pages/Messages'));
 const MyLearning = lazy(() => import('./pages/MyLearning'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback'));
 const PaymentCancel = lazy(() => import('./pages/PaymentCancel'));
@@ -45,8 +47,9 @@ const PageFallback = () => (
 function App() {
   return (
     <AuthProvider>
-      <DashboardViewProvider>
-        <BrowserRouter>
+      <ChatProvider>
+        <DashboardViewProvider>
+          <BrowserRouter>
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -82,6 +85,7 @@ function App() {
                   <Route path="explore" element={<Explore />} />
                   <Route path="course/:id" element={<CourseDetails />} />
                   <Route path="instructors" element={<Instructors />} />
+                  <Route path="messages" element={<Messages />} />
                   <Route path="reports" element={<Reports />} />
                   <Route path="certificates" element={<Certificates />} />
                   <Route path="upgrade" element={<Pricing />} />
@@ -214,7 +218,8 @@ function App() {
           </Suspense>
         </BrowserRouter>
       </DashboardViewProvider>
-    </AuthProvider>
+    </ChatProvider>
+  </AuthProvider>
   );
 }
 

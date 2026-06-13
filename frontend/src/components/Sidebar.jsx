@@ -4,6 +4,7 @@ import { PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { getMenuByRole } from '../config/sidebar.config';
+import { useChat } from '../context/ChatContext';
 import UserAvatar from './UserAvatar';
 
 const TIER_LABELS = {
@@ -25,6 +26,7 @@ const Sidebar = () => {
   const { user } = useAuth();
   const { activeView, realRole, isImpersonating } = useDashboardView();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('skillio_sidebar_collapsed') === 'true');
+  const { onlineUsers } = useChat();
 
   const menuItems = getMenuByRole(activeView);
   const settingsPath = activeView === 'INSTRUCTOR' ? '/instructor/settings' : '/settings';
@@ -39,7 +41,7 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className={`relative hidden shrink-0 border-r border-slate-100 transition-[width,padding] duration-300 lg:block ${
+    <aside className={`relative hidden shrink-0 border-r border-slate-100 transition-[width,padding] duration-300 lg:flex lg:flex-col ${
       collapsed ? 'w-20 px-3 py-6' : 'w-64 p-6'
     }`}>
       <button
@@ -70,7 +72,7 @@ const Sidebar = () => {
       </button>
 
       {/* Navigation */}
-      <nav className="space-y-1">
+      <nav className="space-y-1 flex-1 overflow-y-auto custom-scrollbar mb-4">
         {menuItems.map((item, index) => {
           // Section headers
           if (item.section) {
@@ -138,35 +140,92 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* User Card */}
-      <div className="mt-8 pt-6 border-t border-slate-100">
-        <Link
-          to={settingsPath}
-          title="Mở cài đặt tài khoản"
-          className={`group flex items-center rounded-xl p-2 transition hover:bg-purple-50 ${collapsed ? 'justify-center' : 'gap-3'}`}
-        >
-          <div className="relative">
-            <UserAvatar src={user?.avatar} name={user?.name} className="h-10 w-10 rounded-full ring-2 ring-purple-100" />
-            <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
-          </div>
-          {!collapsed && <div className="flex-1 min-w-0">
-            <p className="truncate text-sm font-medium text-slate-800 transition group-hover:text-purple-700">
-              {user?.name || 'Thành viên'}
+      {/* Footer Section */}
+      <div className="mt-auto pt-4 space-y-4 border-t border-slate-100">
+        {/* Online Users */}
+        {!collapsed && onlineUsers && onlineUsers.length > 0 && (
+          <div className="space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-1">
+              Đang hoạt động ({onlineUsers.length})
             </p>
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs text-slate-400">
-                {TIER_LABELS[user?.memberTier] || 'Đồng'}
-              </span>
-              {roleBadge && (
-                <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${roleBadge.color}`}
+            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+              {onlineUsers.map((u) => (
+                <Link
+                  key={u.id}
+                  to={`/messages?userId=${u.id}`}
+                  className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-purple-50/50 transition duration-200 group"
                 >
-                  {roleBadge.label}
-                </span>
-              )}
+                  <div className="relative shrink-0">
+                    <UserAvatar src={u.avatar} name={u.name} className="h-8 w-8 rounded-full" />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-slate-700 truncate group-hover:text-purple-700 transition-colors">
+                      {u.name}
+                    </p>
+                    <span className="text-[9px] font-medium text-slate-400 uppercase tracking-wide">
+                      {u.role === 'INSTRUCTOR' ? 'Giảng viên' : u.role === 'ADMIN' ? 'Admin' : 'Học viên'}
+                    </span>
+                  </div>
+                </Link>
+              ))}
             </div>
-          </div>}
-        </Link>
+          </div>
+        )}
+
+        {collapsed && onlineUsers && onlineUsers.length > 0 && (
+          <div className="flex flex-col items-center gap-2">
+            <Link
+              to="/messages"
+              title={`Có ${onlineUsers.length} tài khoản đang hoạt động`}
+              className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition duration-200"
+            >
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
+              </span>
+              <span className="text-xs font-bold">{onlineUsers.length}</span>
+            </Link>
+          </div>
+        )}
+
+        {/* Current User Card */}
+        <div className={`${collapsed ? '' : 'pt-2'}`}>
+          <Link
+            to={settingsPath}
+            title="Mở cài đặt tài khoản"
+            className={`group flex items-center rounded-xl p-2.5 transition border ${
+              collapsed 
+                ? 'justify-center border-transparent hover:bg-purple-50' 
+                : 'gap-3 border-slate-100/80 bg-slate-50/60 hover:bg-purple-50/50 hover:border-purple-100 hover:shadow-sm'
+            }`}
+          >
+            <div className="relative shrink-0">
+              <UserAvatar src={user?.avatar} name={user?.name} className="h-9 w-9 rounded-full ring-2 ring-purple-100" />
+              <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white" />
+            </div>
+            {!collapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-800 transition group-hover:text-purple-700">
+                  {user?.name || 'Thành viên'}
+                </p>
+                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] text-green-600 font-semibold uppercase tracking-wider">Online</span>
+                  <span className="text-[10px] text-slate-300">•</span>
+                  <span className="text-[10px] text-slate-400">
+                    {TIER_LABELS[user?.memberTier] || 'Đồng'}
+                  </span>
+                  {roleBadge && (
+                    <span className={`text-[9px] font-semibold px-1 py-0.5 rounded-full ${roleBadge.color}`}>
+                      {roleBadge.label}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </Link>
+        </div>
       </div>
     </aside>
   );

@@ -15,7 +15,7 @@ public interface IDichVuThanhToan
 {
     Task<IResult> NapViAsync(string userId, int soTien, string frontendUrl);
     Task<IResult> MuaKhoaHocAsync(string userId, string khoaHocId, string frontendUrl, string? maGiamGia);
-    Task<(bool HopLe, MaGiamGia? MaGiam, int SoTienGiam, string? Loi)> KiemTraMaGiamGiaAsync(string? code, string khoaHocId, int giaKhoaHoc);
+    Task<(bool HopLe, MaGiamGia? MaGiam, int SoTienGiam, string? Loi)> KiemTraMaGiamGiaAsync(string? code, string khoaHocId, int giaKhoaHoc, string userId);
 }
 
 public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
@@ -90,7 +90,7 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
                 MaGiamGia? coupon = null;
                 if (!string.IsNullOrWhiteSpace(maGiamGia))
                 {
-                    var ketQua = await KiemTraMaGiamGiaAsync(maGiamGia, khoaHocId, kh.Price);
+                    var ketQua = await KiemTraMaGiamGiaAsync(maGiamGia, khoaHocId, kh.Price, userId);
                     if (!ketQua.HopLe) return Results.BadRequest(new { message = ketQua.Loi });
                     coupon = ketQua.MaGiam;
                     soTienGiam = ketQua.SoTienGiam;
@@ -133,7 +133,20 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
                     CreatedAt = now
                 });
 
-                if (coupon is not null) { coupon.UsageCount += 1; coupon.UpdatedAt = now; }
+                if (coupon is not null)
+                {
+                    coupon.UsageCount += 1;
+                    coupon.UpdatedAt = now;
+                    db.CouponUsages.Add(new LichSuDungMaGiamGia
+                    {
+                        Id = TaoId.Moi(),
+                        CouponId = coupon.Id,
+                        UserId = userId,
+                        CourseId = khoaHocId,
+                        PurchaseId = muaHang.Id,
+                        CreatedAt = now
+                    });
+                }
 
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -149,20 +162,42 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
         });
     }
 
-    public async Task<(bool HopLe, MaGiamGia? MaGiam, int SoTienGiam, string? Loi)> KiemTraMaGiamGiaAsync(string? code, string khoaHocId, int giaKhoaHoc)
+    public async Task<(bool HopLe, MaGiamGia? MaGiam, int SoTienGiam, string? Loi)> KiemTraMaGiamGiaAsync(string? code, string khoaHocId, int giaKhoaHoc, string userId)
     {
         if (string.IsNullOrWhiteSpace(code)) return (false, null, 0, "Mã giảm giá không hợp lệ");
 
+        var course = await db.Courses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == khoaHocId && c.IsPublished);
+        if (course is null) return (false, null, 0, "Khóa học không tồn tại hoặc chưa được mở bán");
+        giaKhoaHoc = course.Price;
+
         var maChuan = code.Trim().ToUpperInvariant();
-        var coupon = await db.Coupons.FirstOrDefaultAsync(c => c.Code == maChuan);
+        var coupon = await db.Coupons
+            .Include(c => c.Course)
+            .Include(c => c.Recipients)
+            .FirstOrDefaultAsync(c => c.Code == maChuan);
         if (coupon is null) return (false, null, 0, "Mã giảm giá không tồn tại");
-        if (!coupon.IsActive) return (false, coupon, 0, "Mã giảm giá đã bị vô hiệu hóa");
+        if (!coupon.IsActive || string.Equals(coupon.Status, "INACTIVE", StringComparison.OrdinalIgnoreCase))
+            return (false, coupon, 0, "Mã giảm giá đã bị vô hiệu hóa");
 
         var now = DateTime.UtcNow;
         if (coupon.StartDate is not null && now < coupon.StartDate.Value) return (false, coupon, 0, "Mã giảm giá chưa tới thời gian hiệu lực");
         if (coupon.EndDate is not null && now > coupon.EndDate.Value) return (false, coupon, 0, "Mã giảm giá đã hết hạn");
         if (coupon.UsageLimit is not null && coupon.UsageCount >= coupon.UsageLimit.Value) return (false, coupon, 0, "Mã giảm giá đã hết lượt sử dụng");
         if (!string.IsNullOrWhiteSpace(coupon.CourseId) && coupon.CourseId != khoaHocId) return (false, coupon, 0, "Mã giảm giá không áp dụng cho khóa học này");
+        if (!string.IsNullOrWhiteSpace(coupon.TeacherId) && coupon.TeacherId != course.InstructorId)
+            return (false, coupon, 0, "Mã giảm giá không thuộc giảng viên của khóa học này");
+        if (coupon.IsPrivate || coupon.Recipients.Count > 0)
+        {
+            var recipient = coupon.Recipients.FirstOrDefault(item => item.UserId == userId);
+            if (recipient is null) return (false, coupon, 0, "Bạn không nằm trong danh sách được nhận mã này");
+            if (!string.IsNullOrWhiteSpace(recipient.SourceCourseId) && recipient.SourceCourseId == khoaHocId)
+                return (false, coupon, 0, "Mã này chỉ áp dụng cho khóa học khác của cùng giảng viên");
+        }
+        if (!string.IsNullOrWhiteSpace(coupon.TeacherId) &&
+            await db.CouponUsages.AsNoTracking().AnyAsync(usage => usage.CouponId == coupon.Id && usage.UserId == userId))
+        {
+            return (false, coupon, 0, "Bạn đã sử dụng mã giảm giá này trước đó");
+        }
         if (coupon.MinPurchaseAmount > 0 && giaKhoaHoc < coupon.MinPurchaseAmount) return (false, coupon, 0, $"Giá khóa học phải từ {coupon.MinPurchaseAmount} VND trở lên");
 
         var soTienGiam = TinhGiamGia(coupon, giaKhoaHoc);
@@ -171,7 +206,8 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
 
     private static int TinhGiamGia(MaGiamGia coupon, int giaKhoaHoc)
     {
-        if (coupon.DiscountType == "PERCENTAGE")
+        var discountType = coupon.DiscountType.Trim().ToUpperInvariant();
+        if (discountType is "PERCENTAGE" or "PERCENT" or "PERCENTAGE_AMOUNT")
         {
             var giam = (int)Math.Floor(giaKhoaHoc * (coupon.DiscountValue / 100.0));
             if (coupon.MaxDiscountAmount is not null) giam = Math.Min(giam, coupon.MaxDiscountAmount.Value);

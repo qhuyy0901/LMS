@@ -88,9 +88,10 @@ public record KhoaHocDto(
 
 /// <summary>Thông tin chi tiết khóa học (trang xem khóa học)</summary>
 public record ChiTietKhoaHocDto(
-    string Id, string Title, string Slug, string? Description, string? Thumbnail,
+    string Id, string Title, string Slug, string? ShortDescription, string? Description, string? DetailedDescription, string? Thumbnail,
     int Price, double AverageRating, int ReviewCount, string MinimumMemberTier,
     int TotalDurationSeconds, bool IsPublished,
+    string Category, string Level, int StudentCount, int PurchaseCount, object _count,
     string InstructorName, object? Instructor,
     IEnumerable<ChuongDto> Sections, IEnumerable<ChiTietBaiDto> Lessons,
     bool IsEnrolled, double Progress, IEnumerable<string> CompletedLessons,
@@ -98,7 +99,7 @@ public record ChiTietKhoaHocDto(
     bool CanPreview, bool CanReview, bool CanPurchase,
     DateTime? StartDate, DateTime? EndDate)
 {
-    public static ChiTietKhoaHocDto TuKhoaHoc(KhoaHoc kh, GhiDanh? ghiDanh, IEnumerable<string> baiHoanThanh, DanhGiaKhoaHoc? danhGiaCuaToi, bool laChuSoHuu)
+    public static ChiTietKhoaHocDto TuKhoaHoc(KhoaHoc kh, GhiDanh? ghiDanh, IEnumerable<string> baiHoanThanh, DanhGiaKhoaHoc? danhGiaCuaToi, bool laChuSoHuu, int studentCount, int purchaseCount)
     {
         var coQuyenHoc = ghiDanh is not null || laChuSoHuu;
         var tongThoiLuong = kh.TotalDurationSeconds > 0
@@ -140,16 +141,17 @@ public record ChiTietKhoaHocDto(
                 b.Quiz == null ? null : new { b.Quiz.Id, b.Quiz.Title, b.Quiz.PassingScore });
         }));
 
-        return new(kh.Id, kh.Title, kh.Slug, kh.Description, kh.Thumbnail,
+        return new(kh.Id, kh.Title, kh.Slug, kh.ShortDescription, kh.Description, kh.DetailedDescription, kh.Thumbnail,
             kh.Price, kh.AverageRating, kh.ReviewCount, kh.MinimumMemberTier,
             tongThoiLuong, kh.IsPublished,
+            kh.Category, kh.Level, studentCount, purchaseCount, new { enrollments = studentCount, purchases = purchaseCount, reviews = kh.ReviewCount },
             kh.Instructor?.Name ?? "Giảng viên",
-            kh.Instructor == null ? null : new { kh.Instructor.Id, kh.Instructor.Name, kh.Instructor.Email },
+            kh.Instructor == null ? null : new { kh.Instructor.Id, kh.Instructor.Name, kh.Instructor.Avatar, kh.Instructor.Bio },
             sections, baiGiang,
             ghiDanh is not null, ghiDanh?.Progress ?? 0, baiHoanThanh, danhGiaCuaToi,
             kh.Reviews.Select(DanhGiaDto.TuDanhGia),
             chuongHienThi.SelectMany(c => c.Lessons).Any(b => b.IsPreview),
-            ghiDanh is not null && !laChuSoHuu, true, kh.StartDate, kh.EndDate);
+            ghiDanh is not null && !laChuSoHuu, !coQuyenHoc, kh.StartDate, kh.EndDate);
     }
 }
 
@@ -258,13 +260,21 @@ public record MaGiamGiaDto(
     int MinPurchaseAmount, int? MaxDiscountAmount,
     DateTime? StartDate, DateTime? EndDate, bool IsActive,
     int? UsageLimit, int UsageCount, string? CourseId, object? Course,
-    DateTime CreatedAt, DateTime UpdatedAt)
+    DateTime CreatedAt, DateTime UpdatedAt,
+    string? TeacherId, string Status, bool IsPrivate, int RecipientCount, int UsedCount)
 {
     public static MaGiamGiaDto TuCoupon(MaGiamGia c) =>
         new(c.Id, c.Code, c.DiscountType, c.DiscountValue, c.MinPurchaseAmount, c.MaxDiscountAmount,
             c.StartDate, c.EndDate, c.IsActive, c.UsageLimit, c.UsageCount, c.CourseId,
             c.Course == null ? null : new { c.Course.Id, c.Course.Title, c.Course.Slug },
-            c.CreatedAt, c.UpdatedAt);
+            c.CreatedAt, c.UpdatedAt, c.TeacherId, TinhTrangThai(c), c.IsPrivate, c.Recipients.Count, c.UsageCount);
+
+    private static string TinhTrangThai(MaGiamGia c)
+    {
+        if (!c.IsActive || string.Equals(c.Status, "INACTIVE", StringComparison.OrdinalIgnoreCase)) return "INACTIVE";
+        if (c.EndDate is not null && DateTime.UtcNow > c.EndDate.Value) return "EXPIRED";
+        return "ACTIVE";
+    }
 }
 
 /// <summary>Giao dịch ví</summary>

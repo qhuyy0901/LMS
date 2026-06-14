@@ -8,6 +8,23 @@ namespace LMS.Api.Controllers;
 [ApiController]
 public class GiangVienCongKhaiController(LmsDbContext db) : ControllerBase
 {
+    [HttpGet("/api/teachers/{id}")]
+    [HttpGet("/api/instructors/{id}")]
+    public async Task<IResult> ChiTietGiangVien(string id)
+    {
+        var user = await db.Users.AsNoTracking()
+            .Where(item => item.Id == id && (item.Role == "INSTRUCTOR" || item.Role == "TEACHER" || item.Role == "GIANGVIEN"))
+            .Include(item => item.Courses)
+                .ThenInclude(course => course.Enrollments)
+            .Include(item => item.Courses)
+                .ThenInclude(course => course.Reviews)
+            .FirstOrDefaultAsync();
+
+        if (user is null) return Results.NotFound(new { message = "Không tìm thấy giảng viên" });
+
+        return Results.Ok(TaoChiTietGiangVien(user));
+    }
+
     [HttpGet("/api/instructors")]
     public async Task<IResult> DanhSachGiangVien()
     {
@@ -97,7 +114,7 @@ public class GiangVienCongKhaiController(LmsDbContext db) : ControllerBase
         return new InstructorSummary(
             id: user.Id,
             name: string.IsNullOrWhiteSpace(user.Name) ? user.Email : user.Name,
-            email: user.Email,
+            email: null,
             avatar: user.Avatar,
             bio: user.Bio,
             headline: string.IsNullOrWhiteSpace(user.Bio)
@@ -123,6 +140,57 @@ public class GiangVienCongKhaiController(LmsDbContext db) : ControllerBase
         );
     }
 
+    private static object TaoChiTietGiangVien(NguoiDung user)
+    {
+        var publishedCourses = user.Courses
+            .Where(IsPublished)
+            .OrderByDescending(course => course.Enrollments.Count)
+            .ThenByDescending(course => course.AverageRating)
+            .ToList();
+
+        var studentCount = publishedCourses
+            .SelectMany(course => course.Enrollments.Select(enrollment => enrollment.UserId))
+            .Distinct()
+            .Count();
+        var reviewCount = publishedCourses.Sum(course => Math.Max(course.ReviewCount, course.Reviews.Count));
+        var averageRating = reviewCount == 0
+            ? 0
+            : Math.Round(publishedCourses.Sum(course => course.AverageRating * Math.Max(course.ReviewCount, course.Reviews.Count)) / reviewCount, 1);
+        var categories = publishedCourses
+            .GroupBy(course => string.IsNullOrWhiteSpace(course.Category) ? "Khác" : course.Category)
+            .Select(group => new { name = group.Key, courseCount = group.Count() })
+            .OrderByDescending(item => item.courseCount)
+            .ThenBy(item => item.name)
+            .ToList();
+        var specialty = categories.FirstOrDefault()?.name ?? "Giảng viên Skillio";
+
+        return new
+        {
+            id = user.Id,
+            name = string.IsNullOrWhiteSpace(user.Name) ? "Giảng viên Skillio" : user.Name,
+            avatar = user.Avatar,
+            bio = user.Bio,
+            specialty,
+            courseCount = publishedCourses.Count,
+            studentCount,
+            averageRating,
+            reviewCount,
+            categories,
+            courses = publishedCourses.Select(course => new
+            {
+                id = course.Id,
+                title = course.Title,
+                thumbnail = course.Thumbnail,
+                category = course.Category,
+                level = course.Level,
+                price = course.Price,
+                students = course.Enrollments.Count,
+                averageRating = course.AverageRating,
+                reviewCount = Math.Max(course.ReviewCount, course.Reviews.Count)
+            }).ToList()
+        };
+    }
+
     private static bool IsPublished(KhoaHoc course)
         => course.IsPublished || course.Status.Equals("PUBLIC", StringComparison.OrdinalIgnoreCase)
                               || course.Status.Equals("PUBLISHED", StringComparison.OrdinalIgnoreCase);
@@ -130,7 +198,7 @@ public class GiangVienCongKhaiController(LmsDbContext db) : ControllerBase
     private sealed record InstructorSummary(
         string id,
         string name,
-        string email,
+        string? email,
         string? avatar,
         string? bio,
         string headline,

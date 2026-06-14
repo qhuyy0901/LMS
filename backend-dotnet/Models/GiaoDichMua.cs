@@ -13,6 +13,7 @@ public class GiaoDichMua
     public string CourseId { get; set; } = string.Empty;
     public KhoaHoc? Course { get; set; }
     public string? CouponId { get; set; }
+    public MaGiamGia? Coupon { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

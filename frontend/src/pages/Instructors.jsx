@@ -12,6 +12,7 @@ import {
   Star,
   UserRound,
   Users,
+  X,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { getFileUrl } from '../utils/fileUtils';
@@ -70,10 +71,16 @@ const InstructorAvatar = ({ instructor, index = 0, size = 'large' }) => {
   );
 };
 
-const InstructorCard = ({ instructor, index }) => (
+const InstructorCard = ({ instructor, index, onClick }) => (
   <div className="p-4 rounded-xl border border-slate-100 hover:border-purple-200 hover:bg-purple-50/30 transition">
     <div className="flex items-start gap-3 mb-3">
-      <InstructorAvatar instructor={instructor} index={index} size="small" />
+      <button 
+        onClick={onClick}
+        className="rounded-xl outline-none ring-purple-400 focus-visible:ring-2 hover:opacity-80 transition cursor-pointer"
+        title="Xem chi tiết giảng viên"
+      >
+        <InstructorAvatar instructor={instructor} index={index} size="small" />
+      </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-semibold text-slate-900 truncate">{instructor.name}</p>
@@ -112,6 +119,86 @@ const InstructorCard = ({ instructor, index }) => (
   </div>
 );
 
+const InstructorModal = ({ instructor, onClose, index }) => {
+  if (!instructor) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+      <div 
+        className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden relative animate-fade-in-up"
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        
+        <div className="p-6">
+          <div className="flex flex-col items-center text-center mb-6 mt-2">
+            <InstructorAvatar instructor={instructor} index={index} size="large" />
+            <div className="mt-4 flex items-center gap-1.5 justify-center">
+              <h3 className="text-xl font-bold text-slate-900">{instructor.name}</h3>
+              {instructor.verified && <BadgeCheck className="w-5 h-5 text-purple-600" />}
+            </div>
+            <p className="text-sm text-slate-500 mt-1">{instructor.headline || 'Giảng viên tại Skillio'}</p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 mb-6 p-4 bg-slate-50 rounded-xl">
+            <div className="text-center">
+              <p className="text-xl font-semibold text-slate-900">{instructor.averageRating > 0 ? instructor.averageRating.toFixed(1) : '-'}</p>
+              <p className="text-xs text-slate-500 mt-1">Đánh giá</p>
+            </div>
+            <div className="text-center border-x border-slate-200">
+              <p className="text-xl font-semibold text-slate-900">{formatNumber(instructor.studentCount)}</p>
+              <p className="text-xs text-slate-500 mt-1">Học viên</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xl font-semibold text-slate-900">{numberFormat.format(instructor.courseCount)}</p>
+              <p className="text-xs text-slate-500 mt-1">Khóa học</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {instructor.categories && instructor.categories.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Lĩnh vực giảng dạy</p>
+                <div className="flex flex-wrap gap-2">
+                  {instructor.categories.map((cat) => (
+                    <span key={cat.name} className="text-xs px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 font-medium">
+                      {cat.name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {instructor.specialty && (
+              <div>
+                <p className="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-2">Chuyên môn</p>
+                <p className="text-sm text-slate-600">{instructor.specialty}</p>
+              </div>
+            )}
+          </div>
+
+          {instructor.email && (
+            <div className="mt-6 pt-6 border-t border-slate-100">
+              <a
+                href={`mailto:${instructor.email}`}
+                className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-xl text-sm font-medium transition"
+              >
+                <Mail className="w-4 h-4" />
+                Liên hệ với giảng viên
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const Instructors = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +206,7 @@ const Instructors = () => {
   const [query, setQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Tất cả');
   const [sortBy, setSortBy] = useState('students');
+  const [selectedInstructor, setSelectedInstructor] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -178,9 +266,6 @@ const Instructors = () => {
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-slate-900 mb-1">
             Giảng viên
           </h1>
-          <p className="text-sm text-slate-500">
-            Khám phá đội ngũ giảng viên đang có khóa học thật trên Skillio.
-          </p>
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -239,15 +324,12 @@ const Instructors = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
+      <div className="flex flex-col gap-6">
+        <div className="space-y-6">
           <div className="bg-white rounded-2xl p-6 border border-slate-100">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">Giảng viên nổi bật</h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  Xếp hạng theo số học viên, đánh giá và số khóa học hiện có.
-                </p>
               </div>
               <Filter className="w-5 h-5 text-slate-300" />
             </div>
@@ -326,7 +408,7 @@ const Instructors = () => {
             </div>
 
             {loading && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {[0, 1, 2, 3].map((item) => (
                   <div key={item} className="h-36 rounded-xl bg-slate-100 animate-pulse" />
                 ))}
@@ -340,9 +422,9 @@ const Instructors = () => {
             )}
 
             {!loading && filteredInstructors.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {filteredInstructors.map((instructor, index) => (
-                  <InstructorCard key={instructor.id} instructor={instructor} index={index} />
+                  <InstructorCard key={instructor.id} instructor={instructor} index={index} onClick={() => setSelectedInstructor(instructor)} />
                 ))}
               </div>
             )}
@@ -352,14 +434,13 @@ const Instructors = () => {
             <div className="flex items-center justify-between mb-5">
               <div>
                 <h3 className="text-xl font-semibold tracking-tight text-slate-900">Lĩnh vực giảng dạy</h3>
-                <p className="text-xs text-slate-400 mt-1">Tổng hợp theo khóa học công khai trong hệ thống.</p>
               </div>
               <ArrowUpDown className="w-5 h-5 text-slate-300" />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {categories.length === 0 && !loading && (
-                <div className="md:col-span-2 rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
+                <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4 rounded-2xl border border-dashed border-slate-200 p-8 text-center text-sm text-slate-500">
                   Chưa có lĩnh vực giảng dạy nào.
                 </div>
               )}
@@ -388,35 +469,16 @@ const Instructors = () => {
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-2xl p-6 text-white relative overflow-hidden">
-            <div className="absolute top-5 right-5 w-16 h-16 rounded-full bg-white/10 flex items-center justify-center">
-              <Star className="w-8 h-8 text-white/30" />
-            </div>
-            <div className="relative">
-              <p className="text-xs text-purple-200 mb-1">Giảng viên nổi bật</p>
-              <p className="text-3xl font-semibold tracking-tight mb-2">
-                {featured?.name || 'Chưa có dữ liệu'}
-              </p>
-              <p className="text-sm text-purple-100 mb-4">
-                {featured
-                  ? `${formatNumber(featured.studentCount)} học viên · ${numberFormat.format(featured.courseCount)} khóa học`
-                  : 'Khi có khóa học công khai, hệ thống sẽ tự động chọn giảng viên nổi bật.'}
-              </p>
-              {featured?.email && (
-                <a
-                  href={`mailto:${featured.email}`}
-                  className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full text-sm font-medium inline-flex items-center gap-1.5"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  Nhắn tin
-                </a>
-              )}
-            </div>
-          </div>
-
-        </div>
       </div>
+      
+      {/* Instructor Modal */}
+      {selectedInstructor && (
+        <InstructorModal 
+          instructor={selectedInstructor} 
+          onClose={() => setSelectedInstructor(null)} 
+          index={filteredInstructors.findIndex(i => i.id === selectedInstructor.id)} 
+        />
+      )}
     </div>
   );
 };

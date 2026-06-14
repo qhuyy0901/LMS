@@ -236,6 +236,16 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
             .FirstOrDefaultAsync(c => c.Id == khoaHocId);
 
         if (kh is null) return null;
+        var studentCount = await db.Enrollments.AsNoTracking()
+            .Where(enrollment => enrollment.CourseId == khoaHocId)
+            .Select(enrollment => enrollment.UserId)
+            .Union(db.Purchases.AsNoTracking()
+                .Where(purchase => purchase.CourseId == khoaHocId && purchase.Status == "COMPLETED")
+                .Select(purchase => purchase.UserId))
+            .Distinct()
+            .CountAsync();
+        var purchaseCount = await db.Purchases.AsNoTracking()
+            .CountAsync(purchase => purchase.CourseId == khoaHocId && purchase.Status == "COMPLETED");
 
         var userId = TroGiup.LayUserId(nguoiDung!);
         var laXemThuSinhVien = nguoiDung?.HasClaim("StudentPreview", "true") == true;
@@ -265,7 +275,7 @@ public class DichVuKhoaHoc(LmsDbContext db) : IDichVuKhoaHoc
             danhGiaCuaToi = null;
         }
 
-        return ChiTietKhoaHocDto.TuKhoaHoc(kh, ghiDanh, baiHoanThanh, danhGiaCuaToi, laChuSoHuu);
+        return ChiTietKhoaHocDto.TuKhoaHoc(kh, ghiDanh, baiHoanThanh, danhGiaCuaToi, laChuSoHuu, studentCount, purchaseCount);
     }
 
     public async Task<object?> LayBaiHocThuAsync(string khoaHocId)

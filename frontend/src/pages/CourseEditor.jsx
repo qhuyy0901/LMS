@@ -579,9 +579,6 @@ const CourseEditor = () => {
               <option key={category} value={category} />
             ))}
           </datalist>
-          <p className="mt-2 text-xs text-slate-500">
-            Sinh viên có thể tìm khóa học theo ngành hoặc mảng này trên trang Khám phá.
-          </p>
         </div>
         <div>
           <p className="text-sm font-medium text-slate-900">Ảnh bìa khóa học</p>
@@ -1143,7 +1140,6 @@ const CourseEditor = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">{isEditing ? 'Trình tạo khóa học' : 'Tạo khóa học mới'}</h1>
-            <p className="mt-1 text-sm text-slate-500">Quy trình từng bước cho giảng viên: thông tin, giáo trình, giá bán và xuất bản.</p>
           </div>
         </div>
         <button

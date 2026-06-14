@@ -220,12 +220,6 @@ export default function Register() {
           disabled={isLoading || Boolean(socialLoading)}
           loading={socialLoading === 'Google'}
         />
-        <AuthSocialButton
-          provider="Facebook"
-          onClick={() => handleSocialLogin('Facebook')}
-          disabled={isLoading || Boolean(socialLoading)}
-          loading={socialLoading === 'Facebook'}
-        />
       </div>
     </AuthShell>
   );

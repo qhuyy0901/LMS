@@ -40,6 +40,8 @@ public record TaoMaGiamGiaRequest(
     int? UsageLimit,
     string? CourseId);
 
+public record GuiMaGiamGiaRequest(List<string>? StudentIds, string? SourceCourseId);
+
 /// <summary>Yêu cầu tạo/cập nhật khóa học</summary>
 public record LuuKhoaHocRequest(string? Title, string? Description, string? Thumbnail, int? Price, string? MinimumMemberTier);
 

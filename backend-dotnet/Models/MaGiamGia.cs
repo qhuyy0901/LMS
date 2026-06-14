@@ -15,6 +15,13 @@ public class MaGiamGia
     public int UsageCount { get; set; }
     public string? CourseId { get; set; }
     public KhoaHoc? Course { get; set; }
+    public string? TeacherId { get; set; }
+    public NguoiDung? Teacher { get; set; }
+    public string Status { get; set; } = "ACTIVE";
+    public bool IsPrivate { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+
+    public ICollection<NguoiNhanMaGiamGia> Recipients { get; set; } = [];
+    public ICollection<LichSuDungMaGiamGia> Usages { get; set; } = [];
 }

@@ -200,7 +200,6 @@ export default function InstructorCourses() {
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">
             Khóa học của tôi
           </h1>
-          <p className="text-sm text-slate-500">Quản lý, chỉnh sửa và theo dõi các khóa học bạn đang phụ trách.</p>
         </div>
         <button
           type="button"

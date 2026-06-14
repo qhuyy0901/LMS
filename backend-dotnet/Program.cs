@@ -20,6 +20,8 @@ var connectionString =
 var frontendUrl = builder.Configuration["FRONTEND_URL"] ?? "http://localhost:5173";
 var jwtSecret = builder.Configuration["JWT_SECRET"] ?? "change-me-to-a-long-random-secret";
 var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+static string? FirstConfigured(params string?[] values) =>
+    values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
 builder.Services.AddDbContext<LmsDbContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
@@ -88,9 +90,9 @@ var authentication = builder.Services
         options.ExpireTimeSpan = TimeSpan.FromMinutes(10);
     });
 
-// Google and Facebook authentication configuration
-var googleClientId = builder.Configuration["Authentication:Google:ClientId"] ?? builder.Configuration["GOOGLE_CLIENT_ID"];
-var googleClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? builder.Configuration["GOOGLE_CLIENT_SECRET"];
+// Google authentication configuration
+var googleClientId = FirstConfigured(builder.Configuration["Authentication:Google:ClientId"], builder.Configuration["GOOGLE_CLIENT_ID"]);
+var googleClientSecret = FirstConfigured(builder.Configuration["Authentication:Google:ClientSecret"], builder.Configuration["GOOGLE_CLIENT_SECRET"]);
 if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(googleClientSecret))
 {
     authentication.AddGoogle("Google", options =>
@@ -98,20 +100,20 @@ if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(goo
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
         options.SignInScheme = "External";
-    });
-}
+        options.Events.OnRemoteFailure = context =>
+        {
+            context.HandleResponse();
 
-var facebookAppId = builder.Configuration["Authentication:Facebook:AppId"] ?? builder.Configuration["FACEBOOK_APP_ID"];
-var facebookAppSecret = builder.Configuration["Authentication:Facebook:AppSecret"] ?? builder.Configuration["FACEBOOK_APP_SECRET"];
-if (!string.IsNullOrWhiteSpace(facebookAppId) && !string.IsNullOrWhiteSpace(facebookAppSecret))
-{
-    authentication.AddFacebook("Facebook", options =>
-    {
-        options.AppId = facebookAppId;
-        options.AppSecret = facebookAppSecret;
-        options.SignInScheme = "External";
-        options.Fields.Add("name");
-        options.Fields.Add("email");
+            var message = "Không thể đăng nhập bằng Google. Vui lòng kiểm tra lại Google Client ID và Client Secret.";
+            if (context.Failure?.Message.Contains("invalid_client", StringComparison.OrdinalIgnoreCase) == true ||
+                context.Failure?.Message.Contains("client secret", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                message = "Google Client Secret không đúng với Client ID hiện tại. Vui lòng cập nhật lại Client Secret trong cấu hình.";
+            }
+
+            context.Response.Redirect($"{frontendUrl}/oauth-callback?error={Uri.EscapeDataString(message)}");
+            return Task.CompletedTask;
+        };
     });
 }
 

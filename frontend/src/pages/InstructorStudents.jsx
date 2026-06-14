@@ -129,7 +129,6 @@ export default function InstructorStudents() {
     <div className="animate-fade-in-up pb-20">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Danh sách học viên</h1>
-        <p className="mt-1 text-sm text-slate-500">Theo dõi học viên theo từng khóa học bạn sở hữu.</p>
       </div>
 
       <section className="mb-6 rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">

@@ -410,7 +410,6 @@ export default function InstructorEvents() {
       <header className="flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Quản lý sự kiện</h1>
-          <p className="mt-1 text-sm text-slate-500">Tạo workshop, hội thảo và chuyên đề dành cho học viên.</p>
         </div>
         <button type="button" onClick={openCreate} className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-sm shadow-purple-200 transition hover:bg-purple-700">
           <Plus className="h-4 w-4" />

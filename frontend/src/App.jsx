@@ -24,6 +24,7 @@ const InstructorDashboard = lazy(() => import('./pages/InstructorDashboard'));
 const InstructorEvents = lazy(() => import('./pages/InstructorEvents'));
 const InstructorRevenue = lazy(() => import('./pages/InstructorRevenue'));
 const InstructorStudents = lazy(() => import('./pages/InstructorStudents'));
+const InstructorVouchers = lazy(() => import('./pages/InstructorVouchers'));
 const Instructors = lazy(() => import('./pages/Instructors'));
 const InstructorRegister = lazy(() => import('./pages/InstructorRegister'));
 const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
@@ -137,6 +138,14 @@ function App() {
                     element={
                       <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
                         <InstructorStudents />
+                      </RoleRoute>
+                    }
+                  />
+                  <Route
+                    path="instructor/vouchers"
+                    element={
+                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
+                        <InstructorVouchers />
                       </RoleRoute>
                     }
                   />

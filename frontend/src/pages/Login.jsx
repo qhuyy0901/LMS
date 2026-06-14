@@ -166,12 +166,6 @@ export default function Login() {
                   disabled={isLoading || Boolean(socialLoading)}
                   loading={socialLoading === 'Google'}
                 />
-                <AuthSocialButton
-                  provider="Facebook"
-                  onClick={() => handleSocialLogin('Facebook')}
-                  disabled={isLoading || Boolean(socialLoading)}
-                  loading={socialLoading === 'Facebook'}
-                />
               </div>
             </div>
 

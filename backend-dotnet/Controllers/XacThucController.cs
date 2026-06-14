@@ -11,6 +11,13 @@ namespace LMS.Api.Controllers;
 public class XacThucController(IDichVuXacThuc dichVu, IConfiguration cauHinh) : ControllerBase
 {
     private string FrontendUrl => cauHinh["FRONTEND_URL"] ?? "http://localhost:5173";
+    private bool GoogleDaDuocCauHinh =>
+        !string.IsNullOrWhiteSpace(FirstConfigured(cauHinh["Authentication:Google:ClientId"], cauHinh["GOOGLE_CLIENT_ID"])) &&
+        !string.IsNullOrWhiteSpace(FirstConfigured(cauHinh["Authentication:Google:ClientSecret"], cauHinh["GOOGLE_CLIENT_SECRET"]));
+
+    private static string? FirstConfigured(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
     private void LuuTokenVaoCookie(string token)
     {
         Response.Cookies.Append("LmsAuthToken", token, new CookieOptions
@@ -54,9 +61,7 @@ public class XacThucController(IDichVuXacThuc dichVu, IConfiguration cauHinh) : 
     [HttpGet("/api/auth/providers")]
     public IResult NhaCungCap()
     {
-        var google = !string.IsNullOrWhiteSpace(cauHinh["Authentication:Google:ClientId"] ?? cauHinh["GOOGLE_CLIENT_ID"]);
-        var facebook = !string.IsNullOrWhiteSpace(cauHinh["Authentication:Facebook:AppId"] ?? cauHinh["FACEBOOK_APP_ID"]);
-        return Results.Ok(new { google, facebook });
+        return Results.Ok(new { google = GoogleDaDuocCauHinh });
     }
 
     [HttpGet("/api/auth/social/{provider}")]
@@ -64,8 +69,7 @@ public class XacThucController(IDichVuXacThuc dichVu, IConfiguration cauHinh) : 
     {
         var scheme = provider.ToLowerInvariant() switch
         {
-            "google" when !string.IsNullOrWhiteSpace(cauHinh["Authentication:Google:ClientId"] ?? cauHinh["GOOGLE_CLIENT_ID"]) => "Google",
-            "facebook" when !string.IsNullOrWhiteSpace(cauHinh["Authentication:Facebook:AppId"] ?? cauHinh["FACEBOOK_APP_ID"]) => "Facebook",
+            "google" when GoogleDaDuocCauHinh => "Google",
             _ => null
         };
         if (scheme is null) return Results.BadRequest(new { message = $"Đăng nhập {provider} chưa được cấu hình." });

@@ -71,8 +71,9 @@ const Sidebar = () => {
         )}
       </button>
 
-      {/* Navigation */}
-      <nav className="space-y-1 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar mb-4">
+      {/* Navigation and Footer Wrapper */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar mb-4">
+        <nav className="space-y-1 mb-4">
         {menuItems.map((item, index) => {
           // Section headers
           if (item.section) {
@@ -143,7 +144,7 @@ const Sidebar = () => {
       </nav>
 
       {/* Footer Section */}
-      <div className="mt-auto pt-4 space-y-4 border-t border-slate-100">
+      <div className="pt-4 space-y-4 border-t border-slate-100">
         {/* Online Users */}
         {!collapsed && onlineUsers && onlineUsers.length > 0 && (
           <div className="space-y-3">
@@ -227,6 +228,7 @@ const Sidebar = () => {
             )}
           </div>
         </div>
+      </div>
       </div>
     </aside>
   );

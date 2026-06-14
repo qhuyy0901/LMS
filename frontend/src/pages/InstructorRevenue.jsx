@@ -12,7 +12,6 @@ const numberFormatter = new Intl.NumberFormat('vi-VN');
 
 const text = {
   title: 'Th\u1ed1ng k\u00ea doanh thu',
-  description: 'Theo d\u00f5i doanh thu th\u1eadt t\u1eeb c\u00e1c giao d\u1ecbch mua kh\u00f3a h\u1ecdc \u0111\u00e3 ho\u00e0n t\u1ea5t.',
   totalRevenue: 'T\u1ed5ng doanh thu',
   totalPurchases: 'Giao d\u1ecbch',
   totalStudents: 'H\u1ecdc vi\u00ean mua kh\u00f3a',
@@ -76,7 +75,6 @@ const InstructorRevenue = () => {
     <div className="animate-fade-in-up">
       <div className="mb-6">
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">{text.title}</h1>
-        <p className="max-w-2xl text-sm text-slate-500">{text.description}</p>
       </div>
 
       {error && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}

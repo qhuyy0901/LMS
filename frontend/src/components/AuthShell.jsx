@@ -93,19 +93,6 @@ export const GoogleIcon = ({ className }) => (
   </svg>
 );
 
-export const FacebookIcon = ({ className }) => (
-  <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      fill="#1877F2"
-      d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.8-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.96h-1.51c-1.49 0-1.96.93-1.96 1.89v2.27h3.33l-.53 3.49h-2.8V24C19.61 23.1 24 18.1 24 12.07z"
-    />
-    <path
-      fill="#fff"
-      d="m16.67 15.56.53-3.49h-3.33V9.8c0-.96.47-1.89 1.96-1.89h1.51V4.95s-1.37-.24-2.68-.24c-2.74 0-4.54 1.67-4.54 4.7v2.66H7.08v3.49h3.05V24a12.12 12.12 0 0 0 3.75 0v-8.44h2.8z"
-    />
-  </svg>
-);
-
 export const SkillioBrand = () => (
   <Link to="/" className="mb-8 inline-flex items-center gap-2.5 rounded-lg text-left transition hover:opacity-80">
     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-700 text-white">
@@ -192,9 +179,7 @@ export const AuthShell = ({ title, subtitle, children, footer, slogan = 'Học t
   </div>
 );
 
-export const AuthSocialButton = ({ provider, onClick, disabled, loading }) => {
-  const Icon = provider === 'Google' ? GoogleIcon : FacebookIcon;
-
+export const AuthSocialButton = ({ onClick, disabled, loading }) => {
   return (
     <button
       type="button"
@@ -202,8 +187,8 @@ export const AuthSocialButton = ({ provider, onClick, disabled, loading }) => {
       disabled={disabled}
       className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-[#EAEAEA] bg-white px-4 py-2.5 text-sm font-semibold text-[#2F3437] transition duration-150 hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
     >
-      {loading ? <LoaderIcon className="h-4 w-4 animate-spin text-purple-600" /> : <Icon className="h-4 w-4" />}
-      Tiếp tục với {provider}
+      {loading ? <LoaderIcon className="h-4 w-4 animate-spin text-purple-600" /> : <GoogleIcon className="h-4 w-4" />}
+      Tiếp tục với Google
     </button>
   );
 };

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { ArrowLeft, BadgeCheck, Bell, ChevronDown, Eye, KeyRound, Loader2, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
+import { ArrowLeft, BadgeCheck, Bell, ChevronDown, Eye, EyeOff, KeyRound, Loader2, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -50,6 +50,7 @@ const Topbar = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [showBalance, setShowBalance] = useState(false);
   const notificationPanelRef = useRef(null);
   const accountPanelRef = useRef(null);
   const isInstructorArea = location.pathname.startsWith('/instructor');
@@ -257,7 +258,17 @@ const Topbar = () => {
           <div className="h-5 w-px bg-slate-200" />
           <div className="flex items-center gap-2 text-slate-700">
             <Wallet className="h-4 w-4" />
-            <span className="text-sm font-semibold">{formatCurrency(isImpersonating ? 0 : user?.walletBalance || 0)}</span>
+            <span className="text-sm font-semibold">
+              {showBalance ? formatCurrency(isImpersonating ? 0 : user?.walletBalance || 0) : '••••••'}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowBalance(!showBalance)}
+              className="ml-1 flex items-center justify-center text-slate-400 transition-colors hover:text-slate-600 focus:outline-none"
+              title={showBalance ? 'Ẩn số dư' : 'Hiện số dư'}
+            >
+              {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
           </div>
         </div>
       )}

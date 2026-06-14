@@ -22,6 +22,8 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<CauHoiKiemTra> QuizQuestions => Set<CauHoiKiemTra>();
     public DbSet<NopBaiKiemTra> QuizSubmissions => Set<NopBaiKiemTra>();
     public DbSet<MaGiamGia> Coupons => Set<MaGiamGia>();
+    public DbSet<NguoiNhanMaGiamGia> CouponRecipients => Set<NguoiNhanMaGiamGia>();
+    public DbSet<LichSuDungMaGiamGia> CouponUsages => Set<LichSuDungMaGiamGia>();
     public DbSet<NhatKyHeThong> AuditLogs => Set<NhatKyHeThong>();
     public DbSet<BaiTap> Assignments => Set<BaiTap>();
     public DbSet<DoiThuongSuKien> EventRewardRedemptions => Set<DoiThuongSuKien>();
@@ -317,13 +319,70 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => item.Code).IsUnique();
             entity.HasIndex(item => item.CourseId);
+            entity.HasIndex(item => item.TeacherId);
             entity.Property(item => item.DiscountType).HasDefaultValue("PERCENTAGE");
             entity.Property(item => item.MinPurchaseAmount).HasDefaultValue(0);
             entity.Property(item => item.IsActive).HasDefaultValue(true);
             entity.Property(item => item.UsageCount).HasDefaultValue(0);
+            entity.Property(item => item.Status).HasDefaultValue("ACTIVE");
+            entity.Property(item => item.IsPrivate).HasDefaultValue(false);
             entity.HasOne(item => item.Course)
                 .WithMany(item => item.Coupons)
                 .HasForeignKey(item => item.CourseId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Teacher)
+                .WithMany()
+                .HasForeignKey(item => item.TeacherId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<NguoiNhanMaGiamGia>(entity =>
+        {
+            entity.ToTable("CouponRecipient");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.CouponId, item.UserId }).IsUnique();
+            entity.HasIndex(item => item.TeacherId);
+            entity.HasIndex(item => item.SourceCourseId);
+            entity.HasOne(item => item.Coupon)
+                .WithMany(item => item.Recipients)
+                .HasForeignKey(item => item.CouponId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.User)
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Teacher)
+                .WithMany()
+                .HasForeignKey(item => item.TeacherId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.SourceCourse)
+                .WithMany()
+                .HasForeignKey(item => item.SourceCourseId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<LichSuDungMaGiamGia>(entity =>
+        {
+            entity.ToTable("CouponUsage");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.CouponId, item.UserId }).IsUnique();
+            entity.HasIndex(item => item.CourseId);
+            entity.HasIndex(item => item.PurchaseId).IsUnique();
+            entity.HasOne(item => item.Coupon)
+                .WithMany(item => item.Usages)
+                .HasForeignKey(item => item.CouponId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.User)
+                .WithMany()
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Course)
+                .WithMany()
+                .HasForeignKey(item => item.CourseId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Purchase)
+                .WithOne()
+                .HasForeignKey<LichSuDungMaGiamGia>(item => item.PurchaseId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 
@@ -354,6 +413,10 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasOne(item => item.Course)
                 .WithMany(item => item.Purchases)
                 .HasForeignKey(item => item.CourseId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.Coupon)
+                .WithMany()
+                .HasForeignKey(item => item.CouponId)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 

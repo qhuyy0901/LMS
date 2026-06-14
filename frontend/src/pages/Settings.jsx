@@ -498,7 +498,6 @@ const Settings = () => {
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900">Hồ sơ cá nhân</h2>
-                <p className="mt-1 text-xs text-slate-400">Thông tin này được dùng để hiển thị trong lớp học và chứng chỉ.</p>
               </div>
 
               <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-4 md:flex-row md:items-center">
@@ -591,7 +590,6 @@ const Settings = () => {
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900">Bảo mật tài khoản</h2>
-                <p className="mt-1 text-xs text-slate-400">Đổi mật khẩu định kỳ để bảo vệ tài khoản học tập của bạn.</p>
               </div>
 
               <form onSubmit={handlePasswordChange} className="max-w-xl space-y-4">
@@ -648,7 +646,6 @@ const Settings = () => {
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900">Thông báo</h2>
-                <p className="mt-1 text-xs text-slate-400">Chọn loại thông báo bạn muốn nhận từ hệ thống.</p>
               </div>
               <div className="divide-y divide-slate-100">
                 {[
@@ -674,14 +671,12 @@ const Settings = () => {
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               <div className="mb-5">
                 <h2 className="text-xl font-semibold tracking-tight text-slate-900">Tùy chọn học tập</h2>
-                <p className="mt-1 text-xs text-slate-400">Cá nhân hóa trải nghiệm trong lớp học.</p>
               </div>
               <div className="divide-y divide-slate-100">
                 {isInstructor && (
                   <form onSubmit={handleSaveGoogleMeet} className="pb-5">
                     <div className="mb-3">
                       <p className="text-sm font-semibold text-slate-900">Liên kết Google Meet</p>
-                      <p className="text-xs text-slate-400">Liên kết mặc định dùng cho các sự kiện trực tuyến demo.</p>
                     </div>
                     <div className="flex flex-col gap-3 lg:flex-row">
                       <input
@@ -705,7 +700,6 @@ const Settings = () => {
                 <div className="flex items-center justify-between gap-4 py-4">
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Tự động phát video</p>
-                    <p className="text-xs text-slate-400">Tự động chuyển bài tiếp theo khi video kết thúc.</p>
                   </div>
                   <Toggle checked={formData.settings.autoPlayVideo} onChange={(value) => updateSetting('autoPlayVideo', value)} />
                 </div>
@@ -740,7 +734,6 @@ const Settings = () => {
                   <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h2 className="text-xl font-semibold tracking-tight text-slate-900">Doanh thu & tài khoản nhận tiền</h2>
-                      <p className="mt-1 text-xs text-slate-400">Theo dõi doanh thu khóa học và lưu tài khoản nhận tiền cho bản demo đồ án.</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button

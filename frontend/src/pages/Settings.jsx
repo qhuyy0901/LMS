@@ -25,7 +25,7 @@ import {
   X,
 } from 'lucide-react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
 
@@ -42,13 +42,23 @@ const defaultSettings = {
 };
 
 const tabs = [
-  { id: 'profile', icon: User, label: 'Hồ sơ' },
-  { id: 'security', icon: Shield, label: 'Bảo mật' },
+  { id: 'profile', icon: User, label: 'Hồ sơ cá nhân' },
+  { id: 'security', icon: Shield, label: 'Đổi mật khẩu' },
   { id: 'notifications', icon: Bell, label: 'Thông báo' },
   { id: 'learning', icon: GraduationCap, label: 'Học tập' },
   { id: 'billing', icon: CreditCard, label: 'Ví & giao dịch' },
   { id: 'danger', icon: AlertTriangle, label: 'Dữ liệu & tài khoản', danger: true },
 ];
+
+const normalizeTab = (value) => {
+  if (value === 'account' || value === 'settings') {
+    return 'notifications';
+  }
+  if (value === 'password') {
+    return 'security';
+  }
+  return tabs.some((item) => item.id === value) ? value : 'profile';
+};
 
 const formatCurrency = (value = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -95,9 +105,10 @@ const StatusMessage = ({ message }) => {
 const Settings = () => {
   const { user, logout, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fileInputRef = useRef(null);
 
-  const [activeTab, setActiveTab] = useState('profile');
+  const [activeTab, setActiveTab] = useState(() => normalizeTab(searchParams.get('tab')));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -131,6 +142,17 @@ const Settings = () => {
 
   const displayName = formData.name || user?.name || 'Học viên';
   const isInstructor = user?.role === 'INSTRUCTOR';
+
+  useEffect(() => {
+    setActiveTab(normalizeTab(searchParams.get('tab')));
+  }, [searchParams]);
+
+  const selectTab = (tabId) => {
+    setActiveTab(tabId);
+    setMessage(null);
+    setSearchParams(tabId === 'profile' ? {} : { tab: tabId }, { replace: true });
+  };
+
   const loadSettings = async () => {
     setLoading(true);
     setMessage(null);
@@ -415,8 +437,7 @@ const Settings = () => {
     <div className="animate-fade-in-up">
       <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Cài đặt</h1>
-
+          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Tài khoản cá nhân</h1>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -453,10 +474,7 @@ const Settings = () => {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    setMessage(null);
-                  }}
+                  onClick={() => selectTab(item.id)}
                   className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
                     isActive
                       ? item.danger

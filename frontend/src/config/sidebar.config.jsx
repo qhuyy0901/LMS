@@ -11,7 +11,6 @@ import {
   LayoutDashboard,
   MessageCircle,
   PlusCircle,
-  Settings,
   ShieldCheck,
   Tag,
   UserCog,
@@ -36,7 +35,6 @@ export const STUDENT_MENU = [
   { name: 'Giảng viên', path: '/instructors', icon: Users },
   { name: 'Dạy học trên Skillio', path: '/become-instructor', icon: Briefcase },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
-  { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
 export const INSTRUCTOR_MENU = [
@@ -55,7 +53,6 @@ export const INSTRUCTOR_MENU = [
   { section: 'Khác' },
   { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
-  { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
 export const ADMIN_MENU = [
@@ -73,7 +70,6 @@ export const ADMIN_MENU = [
   { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
   { name: 'Bảo mật', path: '/admin/security', icon: ShieldCheck },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
-  { name: 'Cài đặt', path: '/settings', icon: Settings },
 ];
 
 export const getMenuByRole = (role) => {

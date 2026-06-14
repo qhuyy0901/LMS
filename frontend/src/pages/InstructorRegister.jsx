@@ -1093,7 +1093,7 @@ export default function InstructorRegister() {
               <div className="flex items-center justify-between pt-6 border-t border-[#EAEAEA]">
                 {/* Back Button */}
                 <div>
-                  {step > 1 && !(user && step === 2) && (
+                  {step > 1 && !(user && step === 2) ? (
                     <button
                       type="button"
                       onClick={handleBack}
@@ -1102,6 +1102,16 @@ export default function InstructorRegister() {
                     >
                       <ChevronLeft className="w-4 h-4" />
                       Quay lại
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => navigate('/')}
+                      disabled={loading}
+                      className="inline-flex items-center gap-1 text-xs font-mono uppercase tracking-wider text-[#787774] hover:text-[#111111] transition py-2 cursor-pointer disabled:opacity-50"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                      Về trang chủ
                     </button>
                   )}
                 </div>

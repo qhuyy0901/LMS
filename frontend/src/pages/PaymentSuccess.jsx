@@ -20,7 +20,7 @@ const PaymentSuccess = () => {
   const kind = searchParams.get('kind');
   const amount = Number(searchParams.get('amount') || 0);
 
-  const redirectPath = kind === 'topup' ? '/settings' : '/my-courses';
+  const redirectPath = kind === 'topup' ? '/profile?tab=billing' : '/my-courses';
 
   const copy = useMemo(() => {
     if (kind === 'topup') {
@@ -30,7 +30,7 @@ const PaymentSuccess = () => {
         description: amount
           ? `Bạn vừa nạp ${formatCurrency(amount)} vào ví nội bộ. Bây giờ bạn có thể dùng ví để mua khóa học.`
           : 'Ví nội bộ của bạn đã được cập nhật thành công.',
-        cta: 'Đến cài đặt ví',
+        cta: 'Đến ví của tôi',
         icon: Wallet,
       };
     }

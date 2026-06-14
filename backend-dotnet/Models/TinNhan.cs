@@ -17,4 +17,6 @@ public class TinNhan
     public string Content { get; set; } = string.Empty;
 
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
+
+    public ICollection<TinNhanDinhKem> Attachments { get; set; } = [];
 }

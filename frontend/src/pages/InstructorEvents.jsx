@@ -119,7 +119,7 @@ export default function InstructorEvents() {
 
   const useSavedGoogleMeet = () => {
     if (!googleMeetLink) {
-      setError('Bạn chưa cấu hình Google Meet. Vui lòng vào Cài đặt để thêm liên kết.');
+      setError('Bạn chưa cấu hình Google Meet. Vui lòng mở Avatar > Cài đặt tài khoản để thêm liên kết.');
       return;
     }
     setForm((prev) => ({ ...prev, linkThamGia: googleMeetLink }));
@@ -562,7 +562,7 @@ export default function InstructorEvents() {
                       className="inline-flex items-center gap-1 rounded-full border border-purple-200 bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700 hover:bg-purple-100"
                     >
                       <ExternalLink className="h-3.5 w-3.5" />
-                      Dùng Google Meet từ Cài đặt
+                      Dùng Google Meet từ tài khoản
                     </button>
                   </span>
                   <input required type="url" value={form.linkThamGia} onChange={(event) => setForm({ ...form, linkThamGia: event.target.value })} placeholder="Tạo phòng Meet, sau đó dán liên kết vào đây" className={fieldClass} />

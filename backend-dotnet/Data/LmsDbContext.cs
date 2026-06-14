@@ -32,6 +32,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<CuocTroChuyen> Conversations => Set<CuocTroChuyen>();
     public DbSet<NguoiThamGiaTroChuyen> ConversationParticipants => Set<NguoiThamGiaTroChuyen>();
     public DbSet<TinNhan> Messages => Set<TinNhan>();
+    public DbSet<TinNhanDinhKem> MessageAttachments => Set<TinNhanDinhKem>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -415,6 +416,10 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.ToTable("Conversation");
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => item.CourseId);
+            entity.HasIndex(item => new { item.CourseId, item.ClassId, item.SubjectId });
+            entity.Property(item => item.CourseId).HasMaxLength(450);
+            entity.Property(item => item.ClassId).HasMaxLength(450);
+            entity.Property(item => item.SubjectId).HasMaxLength(450);
             entity.Property(item => item.Title).HasMaxLength(255);
             entity.Property(item => item.IsGroup).HasDefaultValue(false);
         });
@@ -439,6 +444,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => item.ConversationId);
             entity.HasIndex(item => item.SentAt);
+            entity.Property(item => item.Content).HasDefaultValue(string.Empty);
             entity.HasOne(item => item.Conversation)
                 .WithMany(item => item.Messages)
                 .HasForeignKey(item => item.ConversationId)
@@ -447,6 +453,20 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
                 .WithMany(item => item.SentMessages)
                 .HasForeignKey(item => item.SenderId)
                 .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<TinNhanDinhKem>(entity =>
+        {
+            entity.ToTable("MessageAttachment");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.MessageId);
+            entity.Property(item => item.FileName).HasMaxLength(255);
+            entity.Property(item => item.OriginalFileName).HasMaxLength(255);
+            entity.Property(item => item.ContentType).HasMaxLength(100);
+            entity.HasOne(item => item.Message)
+                .WithMany(item => item.Attachments)
+                .HasForeignKey(item => item.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -12,7 +12,9 @@ public class CuocTroChuyen
     
     public bool IsGroup { get; set; }
     
-    public Guid? CourseId { get; set; }
+    public string? CourseId { get; set; }
+    public string? ClassId { get; set; }
+    public string? SubjectId { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

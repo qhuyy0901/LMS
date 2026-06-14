@@ -29,7 +29,7 @@ const Sidebar = () => {
   const { onlineUsers } = useChat();
 
   const menuItems = getMenuByRole(activeView);
-  const settingsPath = activeView === 'INSTRUCTOR' ? '/instructor/settings' : '/settings';
+  const exactActivePath = menuItems.find((item) => !item.section && item.path === location.pathname)?.path;
 
   const roleBadge = isImpersonating ? null : ROLE_BADGES[realRole];
   const toggleSidebar = () => {
@@ -72,7 +72,7 @@ const Sidebar = () => {
       </button>
 
       {/* Navigation */}
-      <nav className="space-y-1 flex-1 overflow-y-auto custom-scrollbar mb-4">
+      <nav className="space-y-1 flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar mb-4">
         {menuItems.map((item, index) => {
           // Section headers
           if (item.section) {
@@ -92,11 +92,13 @@ const Sidebar = () => {
           }
 
           const isActive =
-            item.path === '/'
-              ? location.pathname === '/'
-              : item.path === '/instructor'
-                ? location.pathname === '/instructor'
-                : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
+            exactActivePath
+              ? item.path === exactActivePath
+              : item.path === '/'
+                ? location.pathname === '/'
+                : item.path === '/instructor'
+                  ? location.pathname === '/instructor'
+                  : location.pathname.startsWith(`${item.path}/`);
           const Icon = item.icon;
 
           const itemClassName = `flex items-center rounded-xl py-2.5 transition-all duration-200 group ${
@@ -148,7 +150,7 @@ const Sidebar = () => {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-1">
               Đang hoạt động ({onlineUsers.length})
             </p>
-            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 custom-scrollbar">
+            <div className="max-h-36 overflow-y-auto overflow-x-hidden space-y-1.5 pr-1 custom-scrollbar">
               {onlineUsers.map((u) => (
                 <Link
                   key={u.id}
@@ -191,13 +193,12 @@ const Sidebar = () => {
 
         {/* Current User Card */}
         <div className={`${collapsed ? '' : 'pt-2'}`}>
-          <Link
-            to={settingsPath}
-            title="Mở cài đặt tài khoản"
-            className={`group flex items-center rounded-xl p-2.5 transition border ${
+          <div
+            title="Tài khoản đang đăng nhập"
+            className={`flex items-center rounded-xl p-2.5 border ${
               collapsed 
-                ? 'justify-center border-transparent hover:bg-purple-50' 
-                : 'gap-3 border-slate-100/80 bg-slate-50/60 hover:bg-purple-50/50 hover:border-purple-100 hover:shadow-sm'
+                ? 'justify-center border-transparent' 
+                : 'gap-3 border-slate-100/80 bg-slate-50/60'
             }`}
           >
             <div className="relative shrink-0">
@@ -206,7 +207,7 @@ const Sidebar = () => {
             </div>
             {!collapsed && (
               <div className="flex-1 min-w-0">
-                <p className="truncate text-xs font-semibold text-slate-800 transition group-hover:text-purple-700">
+                <p className="truncate text-xs font-semibold text-slate-800">
                   {user?.name || 'Thành viên'}
                 </p>
                 <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -224,7 +225,7 @@ const Sidebar = () => {
                 </div>
               </div>
             )}
-          </Link>
+          </div>
         </div>
       </div>
     </aside>

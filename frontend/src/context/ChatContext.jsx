@@ -1,5 +1,5 @@
 import * as signalR from '@microsoft/signalr';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useAuth } from './AuthContext';
 
@@ -67,7 +67,12 @@ export const ChatProvider = ({ children }) => {
       setConversations(prev => {
         return prev.map(c => {
           if (c.id === message.conversationId) {
-            return { ...c, lastMessage: message.content, lastMessageAt: message.sentAt };
+            return {
+              ...c,
+              lastMessage: message.content || (message.attachments?.length ? 'Đã gửi ảnh' : ''),
+              lastMessageHasImages: Boolean(message.attachments?.length),
+              lastMessageAt: message.sentAt
+            };
           }
           return c;
         });
@@ -87,6 +92,9 @@ export const ChatProvider = ({ children }) => {
     };
 
     connection.on('ReceiveMessage', handleReceiveMessage);
+    connection.on('MessageRejected', (payload) => {
+      console.error('Chat message rejected', payload?.message);
+    });
     connection.on('UserOnline', handleUserOnline);
     connection.on('UserOffline', handleUserOffline);
     
@@ -96,21 +104,38 @@ export const ChatProvider = ({ children }) => {
 
     return () => {
       connection.off('ReceiveMessage', handleReceiveMessage);
+      connection.off('MessageRejected');
       connection.off('UserOnline', handleUserOnline);
       connection.off('UserOffline', handleUserOffline);
     };
   }, [connection]);
 
-  const sendMessage = async (conversationId, content) => {
-    if (connection && connection.state === signalR.HubConnectionState.Connected) {
-      try {
-        await connection.send('SendMessage', { conversationId, content });
-      } catch (e) {
-        console.error('Send message failed', e);
-      }
-    } else {
-      alert('Chưa kết nối tới máy chủ chat');
-    }
+  const sendMessage = async (conversationId, content, images = []) => {
+    const formData = new FormData();
+    formData.append('Content', content || '');
+    images.forEach((image) => formData.append('Images', image));
+
+    const response = await axios.post(`/api/chat/conversations/${conversationId}/messages`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+
+    const message = response.data;
+    setMessages(prev => {
+      if (prev.some(m => m.id === message.id)) return prev;
+      return [...prev, message];
+    });
+
+    setConversations(prev => prev.map(c => {
+      if (c.id !== message.conversationId) return c;
+      return {
+        ...c,
+        lastMessage: message.content || (message.attachments?.length ? 'Đã gửi ảnh' : ''),
+        lastMessageHasImages: Boolean(message.attachments?.length),
+        lastMessageAt: message.sentAt
+      };
+    }));
+
+    return message;
   };
 
   return (

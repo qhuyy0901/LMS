@@ -67,15 +67,9 @@ function App() {
                   <Route path="events" element={<Events />} />
                   <Route path="student/events" element={<Events />} />
                   <Route path="student/events/:eventId" element={<EventDetails />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route
-                    path="instructor/settings"
-                    element={
-                      <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
-                        <Settings />
-                      </RoleRoute>
-                    }
-                  />
+                  <Route path="profile" element={<Settings />} />
+                  <Route path="settings" element={<Navigate to="/profile" replace />} />
+                  <Route path="instructor/settings" element={<Navigate to="/profile" replace />} />
 
                   {/* ── Học tập của tôi (gộp my-courses + my-classes) ── */}
                   <Route path="my-learning" element={<MyLearning />} />

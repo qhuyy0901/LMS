@@ -1,9 +1,8 @@
 using System.Security.Claims;
 using System.Collections.Concurrent;
 using LMS.Api.Data;
-using LMS.Api.DTOs.PhanHoi;
 using LMS.Api.DTOs.YeuCau;
-using LMS.Api.Models;
+using LMS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LMS.Api.Hubs;
 
 [Authorize]
-public class ChatHub(LmsDbContext db) : Hub
+public class ChatHub(LmsDbContext db, IDichVuChat chat) : Hub
 {
     private static readonly ConcurrentDictionary<string, int> ActiveUsers = new();
 
@@ -85,53 +84,16 @@ public class ChatHub(LmsDbContext db) : Hub
         var userId = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId)) return;
 
-        // Verify user is in conversation
-        var participant = await db.ConversationParticipants
-            .FirstOrDefaultAsync(cp => cp.ConversationId == request.ConversationId && cp.UserId == userId);
-            
-        if (participant == null) return;
-
-        var message = new TinNhan
+        var result = await chat.GuiTinNhanAsync(userId, request.ConversationId, request.Content);
+        if (!result.ThanhCong || result.GiaTri is null)
         {
-            Id = Guid.NewGuid(),
-            ConversationId = request.ConversationId,
-            SenderId = userId,
-            Content = request.Content,
-            SentAt = DateTime.UtcNow
-        };
-
-        db.Messages.Add(message);
-        
-        var conversation = await db.Conversations.FindAsync(request.ConversationId);
-        if (conversation != null)
-        {
-            conversation.UpdatedAt = DateTime.UtcNow;
+            await Clients.Caller.SendAsync("MessageRejected", new { message = result.Loi ?? "Bạn không có quyền gửi tin nhắn này." });
+            return;
         }
 
-        await db.SaveChangesAsync();
-
-        var sender = await db.Users.FindAsync(userId);
-        
-        var messageDto = new TinNhanDto
+        foreach (var participantId in result.GiaTri.ParticipantIds)
         {
-            Id = message.Id,
-            ConversationId = message.ConversationId,
-            SenderId = message.SenderId,
-            SenderName = sender?.Name ?? "Unknown",
-            SenderAvatar = sender?.Avatar,
-            Content = message.Content,
-            SentAt = message.SentAt
-        };
-
-        // Broadcast to everyone in the conversation by sending to their personal user group
-        var participants = await db.ConversationParticipants
-            .Where(cp => cp.ConversationId == request.ConversationId)
-            .Select(cp => cp.UserId)
-            .ToListAsync();
-            
-        foreach (var participantId in participants)
-        {
-            await Clients.Group($"user_{participantId}").SendAsync("ReceiveMessage", messageDto);
+            await Clients.Group($"user_{participantId}").SendAsync("ReceiveMessage", result.GiaTri.Message);
         }
     }
 }

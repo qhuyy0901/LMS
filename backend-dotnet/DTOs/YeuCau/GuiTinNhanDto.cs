@@ -7,6 +7,5 @@ public class GuiTinNhanDto
     [Required]
     public Guid ConversationId { get; set; }
     
-    [Required]
-    public string Content { get; set; } = string.Empty;
+    public string? Content { get; set; }
 }

@@ -1,9 +1,11 @@
 using System.Security.Claims;
 using LMS.Api.Data;
 using LMS.Api.DTOs.PhanHoi;
-using LMS.Api.Models;
+using LMS.Api.Hubs;
+using LMS.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Api.Controllers;
@@ -11,7 +13,7 @@ namespace LMS.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ChatController(LmsDbContext db) : ControllerBase
+public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatHub> hubContext) : ControllerBase
 {
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
@@ -19,154 +21,183 @@ public class ChatController(LmsDbContext db) : ControllerBase
     public async Task<IActionResult> GetConversations()
     {
         var userId = GetUserId();
-        
+
         var conversations = await db.ConversationParticipants
-            .Where(cp => cp.UserId == userId)
-            .Include(cp => cp.Conversation)
-                .ThenInclude(c => c.Participants)
-                    .ThenInclude(p => p.User)
-            .Include(cp => cp.Conversation)
-                .ThenInclude(c => c.Messages.OrderByDescending(m => m.SentAt).Take(1))
-            .OrderByDescending(cp => cp.Conversation.UpdatedAt)
+            .Where(participant => participant.UserId == userId)
+            .Include(participant => participant.Conversation)
+                .ThenInclude(conversation => conversation.Participants)
+                    .ThenInclude(participant => participant.User)
+            .Include(participant => participant.Conversation)
+                .ThenInclude(conversation => conversation.Messages.OrderByDescending(message => message.SentAt).Take(1))
+                    .ThenInclude(message => message.Attachments)
+            .OrderByDescending(participant => participant.Conversation.UpdatedAt)
             .ToListAsync();
 
-        var dtos = conversations.Select(cp => 
-        {
-            var otherParticipant = cp.Conversation.Participants.FirstOrDefault(p => p.UserId != userId)?.User;
-            var lastMessage = cp.Conversation.Messages.FirstOrDefault();
+        var courseIds = conversations
+            .Select(item => item.Conversation.CourseId)
+            .Where(courseId => !string.IsNullOrWhiteSpace(courseId))
+            .Distinct()
+            .ToList();
 
-            return new CuocTroChuyenDto
+        var courseTitles = await db.Courses.AsNoTracking()
+            .Where(course => courseIds.Contains(course.Id))
+            .ToDictionaryAsync(course => course.Id, course => course.Title);
+
+        var dtos = new List<CuocTroChuyenDto>();
+        foreach (var participant in conversations)
+        {
+            if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, participant.ConversationId)) continue;
+
+            var conversation = participant.Conversation;
+            var otherParticipant = conversation.Participants.FirstOrDefault(item => item.UserId != userId)?.User;
+            var lastMessage = conversation.Messages.OrderByDescending(message => message.SentAt).FirstOrDefault();
+            var lastMessageHasImages = lastMessage?.Attachments.Count > 0;
+
+            dtos.Add(new CuocTroChuyenDto
             {
-                Id = cp.ConversationId,
-                Title = cp.Conversation.Title,
-                IsGroup = cp.Conversation.IsGroup,
-                CourseId = cp.Conversation.CourseId,
-                CreatedAt = cp.Conversation.CreatedAt,
-                UpdatedAt = cp.Conversation.UpdatedAt,
+                Id = participant.ConversationId,
+                Title = conversation.Title,
+                IsGroup = conversation.IsGroup,
+                CourseId = conversation.CourseId,
+                CourseTitle = conversation.CourseId is not null && courseTitles.TryGetValue(conversation.CourseId, out var courseTitle)
+                    ? courseTitle
+                    : null,
+                ClassId = conversation.ClassId,
+                SubjectId = conversation.SubjectId,
+                CreatedAt = conversation.CreatedAt,
+                UpdatedAt = conversation.UpdatedAt,
                 OtherUserId = otherParticipant?.Id ?? string.Empty,
                 OtherUserName = otherParticipant?.Name ?? string.Empty,
                 OtherUserAvatar = otherParticipant?.Avatar,
-                LastMessage = lastMessage?.Content,
+                LastMessage = !string.IsNullOrWhiteSpace(lastMessage?.Content)
+                    ? lastMessage.Content
+                    : lastMessageHasImages == true ? "Đã gửi ảnh" : null,
+                LastMessageHasImages = lastMessageHasImages == true,
                 LastMessageAt = lastMessage?.SentAt,
-                UnreadCount = 0 // Future implementation
-            };
-        });
+                UnreadCount = 0
+            });
+        }
 
         return Ok(dtos);
     }
 
-    [HttpGet("conversations/{conversationId}/messages")]
+    [HttpGet("conversations/{conversationId:guid}/messages")]
     public async Task<IActionResult> GetMessages(Guid conversationId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
     {
         var userId = GetUserId();
-        
-        // Verify user is in conversation
-        var isParticipant = await db.ConversationParticipants
-            .AnyAsync(cp => cp.ConversationId == conversationId && cp.UserId == userId);
-            
-        if (!isParticipant) return Forbid();
+        if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, conversationId))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Bạn không có quyền xem cuộc trò chuyện này." });
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
 
         var messages = await db.Messages
-            .Where(m => m.ConversationId == conversationId)
-            .Include(m => m.Sender)
-            .OrderByDescending(m => m.SentAt)
+            .Where(message => message.ConversationId == conversationId)
+            .Include(message => message.Sender)
+            .Include(message => message.Attachments)
+            .OrderByDescending(message => message.SentAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(m => new TinNhanDto
-            {
-                Id = m.Id,
-                ConversationId = m.ConversationId,
-                SenderId = m.SenderId,
-                SenderName = m.Sender.Name,
-                SenderAvatar = m.Sender.Avatar,
-                Content = m.Content,
-                SentAt = m.SentAt
-            })
             .ToListAsync();
 
-        messages.Reverse(); // Return chronological order for UI
-        return Ok(messages);
+        messages.Reverse();
+        return Ok(messages.Select(message => chat.TaoTinNhanDto(message)));
     }
 
     [HttpPost("conversations/direct/{otherUserId}")]
-    public async Task<IActionResult> GetOrCreateDirectConversation(string otherUserId)
+    public async Task<IActionResult> GetOrCreateDirectConversation(
+        string otherUserId,
+        [FromBody] TaoCuocTroChuyenRequest? request,
+        [FromQuery] string? courseId = null,
+        [FromQuery] string? classId = null,
+        [FromQuery] string? subjectId = null)
     {
         var userId = GetUserId();
-        if (userId == otherUserId) return BadRequest("Cannot start conversation with yourself.");
+        var result = await chat.LayHoacTaoCuocTroChuyenAsync(
+            userId,
+            otherUserId,
+            request?.CourseId ?? courseId,
+            request?.ClassId ?? classId,
+            request?.SubjectId ?? subjectId);
 
-        var otherUser = await db.Users.FindAsync(otherUserId);
-        if (otherUser == null) return NotFound("User not found.");
+        if (!result.ThanhCong) return ChatError(result);
+        return Ok(new { ConversationId = result.GiaTri });
+    }
 
-        // Find existing 1-1 conversation
-        var existingConv = await db.Conversations
-            .Where(c => !c.IsGroup)
-            .Where(c => c.Participants.Any(p => p.UserId == userId) && c.Participants.Any(p => p.UserId == otherUserId))
-            .FirstOrDefaultAsync();
+    [HttpPost("conversations/{conversationId:guid}/messages")]
+    [RequestSizeLimit(30 * 1024 * 1024)]
+    public async Task<IActionResult> SendMessage(Guid conversationId, [FromForm] GuiTinNhanForm form)
+    {
+        var userId = GetUserId();
+        var result = await chat.GuiTinNhanAsync(userId, conversationId, form.Content, form.Images);
+        if (!result.ThanhCong || result.GiaTri is null) return ChatError(result);
 
-        if (existingConv != null)
+        foreach (var participantId in result.GiaTri.ParticipantIds)
         {
-            return Ok(new { ConversationId = existingConv.Id });
+            await hubContext.Clients.Group($"user_{participantId}").SendAsync("ReceiveMessage", result.GiaTri.Message);
         }
 
-        // Create new
-        var newConv = new CuocTroChuyen
-        {
-            Id = Guid.NewGuid(),
-            IsGroup = false,
-            Title = null,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow,
-            Participants = new List<NguoiThamGiaTroChuyen>
-            {
-                new() { UserId = userId },
-                new() { UserId = otherUserId }
-            }
-        };
+        return Ok(result.GiaTri.Message);
+    }
 
-        db.Conversations.Add(newConv);
-        await db.SaveChangesAsync();
-
-        return Ok(new { ConversationId = newConv.Id });
+    [HttpGet("users/scopes")]
+    public async Task<IActionResult> GetChatScopes()
+    {
+        var userId = GetUserId();
+        return Ok(await chat.LayPhamViAsync(userId));
     }
 
     [HttpGet("users/search")]
-    public async Task<IActionResult> SearchUsers([FromQuery] string query = "")
+    [HttpGet("users/available")]
+    public async Task<IActionResult> SearchUsers(
+        [FromQuery] string query = "",
+        [FromQuery] string? courseId = null,
+        [FromQuery] string? classId = null,
+        [FromQuery] string? subjectId = null)
     {
         var userId = GetUserId();
-        var users = await db.Users
-            .Where(u => u.Id != userId && (string.IsNullOrEmpty(query) || u.Name.Contains(query) || u.Email.Contains(query)))
-            .Take(10)
-            .Select(u => new 
-            {
-                u.Id,
-                u.Name,
-                u.Email,
-                u.Avatar,
-                u.Role
-            })
-            .ToListAsync();
-            
+        var users = await chat.LayNguoiCoTheNhanAsync(userId, query, courseId, classId, subjectId);
         return Ok(users);
     }
 
     [HttpGet("users/online")]
-    public async Task<IActionResult> GetOnlineUsers()
+    public async Task<IActionResult> GetOnlineUsers(
+        [FromQuery] string query = "",
+        [FromQuery] string? courseId = null,
+        [FromQuery] string? classId = null,
+        [FromQuery] string? subjectId = null)
     {
         var userId = GetUserId();
-        var onlineIds = LMS.Api.Hubs.ChatHub.GetOnlineUserIds();
-        
-        var users = await db.Users
-            .Where(u => u.Id != userId && onlineIds.Contains(u.Id))
-            .Select(u => new
-            {
-                u.Id,
-                u.Name,
-                u.Avatar,
-                u.Role
-            })
-            .ToListAsync();
-
+        var onlineIds = ChatHub.GetOnlineUserIds().ToList();
+        var users = await chat.LayNguoiCoTheNhanAsync(userId, query, courseId, classId, subjectId, onlineIds);
         return Ok(users);
+    }
+
+    [HttpGet("images/{attachmentId:guid}")]
+    public async Task<IActionResult> GetImage(Guid attachmentId)
+    {
+        var userId = GetUserId();
+        var result = await chat.LayAnhAsync(userId, attachmentId);
+        if (!result.ThanhCong || result.GiaTri is null) return ChatError(result);
+
+        return PhysicalFile(result.GiaTri.FullPath, result.GiaTri.ContentType, enableRangeProcessing: false);
+    }
+
+    private ObjectResult ChatError<T>(KetQuaChat<T> result)
+    {
+        return StatusCode(result.StatusCode, new { message = result.Loi ?? "Không thể xử lý yêu cầu chat." });
     }
 }
 
+public sealed class TaoCuocTroChuyenRequest
+{
+    public string? CourseId { get; set; }
+    public string? ClassId { get; set; }
+    public string? SubjectId { get; set; }
+}
+
+public sealed class GuiTinNhanForm
+{
+    public string? Content { get; set; }
+    public List<IFormFile> Images { get; set; } = [];
+}

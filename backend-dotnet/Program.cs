@@ -33,6 +33,7 @@ builder.Services.AddScoped<IDichVuKhoaHoc, DichVuKhoaHoc>();
 builder.Services.AddScoped<IDichVuGhiDanh, DichVuGhiDanh>();
 builder.Services.AddScoped<IDichVuThanhToan, DichVuThanhToan>();
 builder.Services.AddScoped<IDichVuBaiKiemTra, DichVuBaiKiemTra>();
+builder.Services.AddScoped<IDichVuChat, DichVuChat>();
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>

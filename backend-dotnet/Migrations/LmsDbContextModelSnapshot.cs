@@ -723,6 +723,34 @@ namespace LMS.Api.Migrations
                     b.ToTable("Course", (string)null);
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.KhoaHocDaLuu", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("CourseId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourseId");
+
+                    b.HasIndex("UserId", "CourseId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("SavedCourse", (string)null);
+                });
+
             modelBuilder.Entity("LMS.Api.Models.LichSuDungMaGiamGia", b =>
                 {
                     b.Property<string>("Id")
@@ -1691,6 +1719,25 @@ namespace LMS.Api.Migrations
                     b.Navigation("Instructor");
                 });
 
+            modelBuilder.Entity("LMS.Api.Models.KhoaHocDaLuu", b =>
+                {
+                    b.HasOne("LMS.Api.Models.KhoaHoc", "Course")
+                        .WithMany("SavedByUsers")
+                        .HasForeignKey("CourseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Models.NguoiDung", "User")
+                        .WithMany("SavedCourses")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Course");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("LMS.Api.Models.LichSuDungMaGiamGia", b =>
                 {
                     b.HasOne("LMS.Api.Models.MaGiamGia", "Coupon")
@@ -1975,6 +2022,8 @@ namespace LMS.Api.Migrations
 
                     b.Navigation("Reviews");
 
+                    b.Navigation("SavedByUsers");
+
                     b.Navigation("Sections");
 
                     b.Navigation("WalletTransactions");
@@ -2018,6 +2067,8 @@ namespace LMS.Api.Migrations
                     b.Navigation("Purchases");
 
                     b.Navigation("QuizSubmissions");
+
+                    b.Navigation("SavedCourses");
 
                     b.Navigation("SentMessages");
 

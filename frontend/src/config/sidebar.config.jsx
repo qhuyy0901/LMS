@@ -5,7 +5,6 @@ import {
   Briefcase,
   Calendar,
   Compass,
-  DollarSign,
   FileCheck,
   GraduationCap,
   LayoutDashboard,
@@ -49,11 +48,10 @@ export const INSTRUCTOR_MENU = [
   { name: 'Quản lý sự kiện', path: '/instructor/events', icon: Calendar },
 
   { section: 'Doanh thu' },
-  { name: 'Thống kê doanh thu', path: '/instructor/revenue', icon: DollarSign },
+  { name: 'Ví doanh thu', path: '/instructor/wallet', icon: Wallet },
 
   { section: 'Khác' },
   { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
-  { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
 ];
 
 export const ADMIN_MENU = [

@@ -27,6 +27,11 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
 
         if (yeuCau.Type == "topup")
         {
+            if (User.IsInRole("INSTRUCTOR") || User.IsInRole("ADMIN"))
+            {
+                return Results.Json(new { message = "Ví nạp tiền chỉ dành cho học viên." }, statusCode: 403);
+            }
+
             return await dichVu.NapViAsync(userId, yeuCau.Amount ?? 0, FrontendUrl);
         }
 

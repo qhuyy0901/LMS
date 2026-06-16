@@ -7,11 +7,11 @@ import {
   GraduationCap,
   Plus,
   RefreshCw,
-  Star,
   Trophy,
   Users,
 } from 'lucide-react';
 import { getInstructorDashboard } from '../api/instructorDashboardApi';
+import { getInstructorWallet } from '../api/instructorWalletApi';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -37,8 +37,11 @@ const InstructorDashboard = () => {
     setError('');
 
     try {
-      const response = await getInstructorDashboard();
-      setData(response);
+      const [response, walletResponse] = await Promise.all([
+        getInstructorDashboard(),
+        getInstructorWallet(),
+      ]);
+      setData({ ...response, wallet: walletResponse });
     } catch (err) {
       if (err.status === 401) {
         navigate('/login', { replace: true });
@@ -60,49 +63,49 @@ const InstructorDashboard = () => {
   }, [loadDashboard]);
 
   const stats = useMemo(() => {
-    const rating = data?.danhGiaTrungBinh;
+    const wallet = data?.wallet || {};
     return [
       {
         label: 'Tổng doanh thu',
-        value: formatCurrency(data?.tongDoanhThu),
+        value: formatCurrency(wallet.totalRevenue ?? data?.tongDoanhThu),
         icon: DollarSign,
         color: 'text-emerald-600',
         bg: 'bg-emerald-50',
       },
       {
-        label: 'Tổng học viên',
-        value: `${formatNumber(data?.tongHocVien)} học viên`,
+        label: 'Doanh thu tháng này',
+        value: formatCurrency(wallet.monthRevenue),
+        icon: Trophy,
+        color: 'text-sky-600',
+        bg: 'bg-sky-50',
+      },
+      {
+        label: 'Doanh thu chờ thanh toán',
+        value: formatCurrency(wallet.pendingRevenue),
+        icon: RefreshCw,
+        color: 'text-amber-600',
+        bg: 'bg-amber-50',
+      },
+      {
+        label: 'Số dư khả dụng để rút',
+        value: formatCurrency(wallet.availableBalance),
         icon: Users,
         color: 'text-blue-600',
         bg: 'bg-blue-50',
       },
       {
-        label: 'Tổng khóa học',
-        value: `${formatNumber(data?.tongKhoaHoc)} khóa học`,
+        label: 'Số tiền đã rút',
+        value: formatCurrency(wallet.totalWithdrawn ?? wallet.paidRevenue),
         icon: BookOpen,
         color: 'text-purple-600',
         bg: 'bg-purple-50',
       },
       {
-        label: 'Đã xuất bản',
-        value: `${formatNumber(data?.khoaHocCongKhai)} khóa học`,
-        icon: Trophy,
-        color: 'text-amber-600',
-        bg: 'bg-amber-50',
-      },
-      {
-        label: 'Bản nháp',
-        value: `${formatNumber(data?.khoaHocBanNhap)} khóa học`,
+        label: 'Số tiền đang xử lý',
+        value: formatCurrency(wallet.processingWithdrawals),
         icon: GraduationCap,
         color: 'text-slate-600',
         bg: 'bg-slate-100',
-      },
-      {
-        label: 'Đánh giá trung bình',
-        value: rating === null || rating === undefined ? 'Chưa có đánh giá' : `${Number(rating).toFixed(1)}/5`,
-        icon: Star,
-        color: 'text-orange-500',
-        bg: 'bg-orange-50',
       },
     ];
   }, [data]);
@@ -261,8 +264,9 @@ const InstructorDashboard = () => {
 };
 
 const HeaderActions = () => (
-  <div className="flex justify-end">
-    <div className="flex flex-wrap gap-3">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <h1 className="text-2xl font-bold text-slate-900">Dashboard giáo viên</h1>
+    <div className="flex flex-wrap gap-3 sm:justify-end">
       <Link
         to="/instructor/courses"
         className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:border-purple-200 hover:text-purple-700"

@@ -35,6 +35,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
     public DbSet<NguoiThamGiaTroChuyen> ConversationParticipants => Set<NguoiThamGiaTroChuyen>();
     public DbSet<TinNhan> Messages => Set<TinNhan>();
     public DbSet<TinNhanDinhKem> MessageAttachments => Set<TinNhanDinhKem>();
+    public DbSet<KhoaHocDaLuu> SavedCourses => Set<KhoaHocDaLuu>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -529,6 +530,22 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasOne(item => item.Message)
                 .WithMany(item => item.Attachments)
                 .HasForeignKey(item => item.MessageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<KhoaHocDaLuu>(entity =>
+        {
+            entity.ToTable("SavedCourse");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => new { item.UserId, item.CourseId }).IsUnique();
+            entity.HasIndex(item => new { item.UserId, item.CreatedAt });
+            entity.HasOne(item => item.User)
+                .WithMany(item => item.SavedCourses)
+                .HasForeignKey(item => item.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(item => item.Course)
+                .WithMany(item => item.SavedByUsers)
+                .HasForeignKey(item => item.CourseId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

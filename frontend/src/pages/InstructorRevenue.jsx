@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { Banknote, BookOpen, CreditCard, ReceiptText, Search, Users } from 'lucide-react';
+import {
+  BanknoteArrowDown,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  Landmark,
+  Loader2,
+  ReceiptText,
+  Search,
+  ShieldCheck,
+  WalletCards,
+} from 'lucide-react';
+import { getInstructorWallet } from '../api/instructorWalletApi';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -8,134 +20,265 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   maximumFractionDigits: 0,
 });
 
-const numberFormatter = new Intl.NumberFormat('vi-VN');
+const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
+  day: '2-digit',
+  month: '2-digit',
+  year: 'numeric',
+});
 
-const text = {
-  title: 'Th\u1ed1ng k\u00ea doanh thu',
-  totalRevenue: 'T\u1ed5ng doanh thu',
-  totalPurchases: 'Giao d\u1ecbch',
-  totalStudents: 'H\u1ecdc vi\u00ean mua kh\u00f3a',
-  averageOrderValue: 'Gi\u00e1 tr\u1ecb trung b\u00ecnh',
-  revenueByCourse: 'Doanh thu theo kh\u00f3a h\u1ecdc',
-  recentPurchases: 'Giao d\u1ecbch g\u1ea7n \u0111\u00e2y',
-  search: 'T\u00ecm kh\u00f3a h\u1ecdc...',
-  course: 'Kh\u00f3a h\u1ecdc',
-  status: 'Tr\u1ea1ng th\u00e1i',
-  price: 'Gi\u00e1',
-  sales: 'L\u01b0\u1ee3t mua',
-  students: 'H\u1ecdc vi\u00ean',
-  revenue: 'Doanh thu',
-  published: 'C\u00f4ng khai',
-  draft: 'B\u1ea3n nh\u00e1p',
-  noCourses: 'Ch\u01b0a c\u00f3 doanh thu t\u1eeb kh\u00f3a h\u1ecdc n\u00e0o.',
-  noPurchases: 'Ch\u01b0a c\u00f3 giao d\u1ecbch ho\u00e0n t\u1ea5t.',
+const formatCurrency = (value = 0) => currencyFormatter.format(Number(value || 0));
+const formatDate = (value) => (value ? dateFormatter.format(new Date(value)) : '-');
+const normalizeMoney = (value) => Number(String(value || '').replace(/[^\d]/g, '')) || 0;
+
+const statusClasses = {
+  PENDING: 'bg-amber-50 text-amber-700 border-amber-100',
+  APPROVED: 'bg-blue-50 text-blue-700 border-blue-100',
+  REJECTED: 'bg-rose-50 text-rose-700 border-rose-100',
+  PAID: 'bg-emerald-50 text-emerald-700 border-emerald-100',
 };
 
 const InstructorRevenue = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState('');
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState(null);
+  const [form, setForm] = useState({
+    bankName: '',
+    accountHolder: '',
+    accountNumber: '',
+    amount: '',
+    note: '',
+  });
+
+  const loadWallet = async () => {
+    setLoading(true);
+    try {
+      const wallet = await getInstructorWallet();
+      setData(wallet);
+      setForm((current) => ({
+        ...current,
+        bankName: current.bankName || wallet?.payoutAccount?.bankName || '',
+        accountHolder: current.accountHolder || wallet?.payoutAccount?.accountHolder || '',
+        accountNumber: current.accountNumber || wallet?.payoutAccount?.accountNumber || '',
+      }));
+      setMessage(null);
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể tải ví doanh thu.' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchRevenue = async () => {
-      try {
-        const response = await axios.get('/api/instructor/revenue');
-        setData(response.data);
-        setError('');
-      } catch (error) {
-        console.error('Revenue fetch error:', error);
-        setError(error.response?.data?.message || 'Không thể tải dữ liệu doanh thu.');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRevenue();
+    loadWallet();
   }, []);
 
-  const courses = useMemo(() => {
+  const amount = useMemo(() => normalizeMoney(form.amount), [form.amount]);
+  const minimumWithdrawal = Number(data?.minimumWithdrawal || 100000);
+  const availableBalance = Number(data?.availableBalance || 0);
+  const canWithdraw = availableBalance >= minimumWithdrawal;
+
+  const history = useMemo(() => {
     const keyword = query.trim().toLowerCase();
-    const source = data?.courses || [];
-    if (!keyword) {
-      return source;
-    }
-    return source.filter((course) => course.title?.toLowerCase().includes(keyword));
+    const source = data?.history || data?.recentTransactions || [];
+    if (!keyword) return source;
+    return source.filter((item) =>
+      [
+        item.typeLabel,
+        item.status,
+        item.statusLabel,
+        item.note,
+        item.course?.title,
+        item.user?.name,
+        item.bankName,
+        item.accountHolder,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(keyword))
+    );
   }, [data, query]);
+
+  const updateForm = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+    setMessage(null);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setMessage(null);
+
+    if (!form.bankName.trim() || !form.accountHolder.trim() || !form.accountNumber.trim()) {
+      setMessage({ type: 'error', text: 'Vui lòng nhập đầy đủ thông tin nhận tiền.' });
+      return;
+    }
+
+    if (amount < minimumWithdrawal) {
+      setMessage({ type: 'error', text: `Số tiền rút tối thiểu là ${formatCurrency(minimumWithdrawal)}.` });
+      return;
+    }
+
+    if (amount > availableBalance) {
+      setMessage({ type: 'error', text: 'Không được rút vượt quá số dư khả dụng.' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const response = await axios.post('/api/instructor/withdraw-request', {
+        soTien: amount,
+        bankName: form.bankName.trim(),
+        accountHolder: form.accountHolder.trim(),
+        accountNumber: form.accountNumber.trim(),
+        ghiChu: form.note.trim() || null,
+      });
+      setData(response.data?.wallet || data);
+      setForm((current) => ({ ...current, amount: '', note: '' }));
+      setMessage({ type: 'success', text: response.data?.message || 'Đã tạo yêu cầu rút tiền.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể tạo yêu cầu rút tiền.' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-500 border-t-transparent" />
+        <Loader2 className="h-9 w-9 animate-spin text-purple-600" />
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in-up">
-      <div className="mb-6">
-        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">{text.title}</h1>
-      </div>
+    <div className="animate-fade-in-up space-y-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Ví doanh thu</h1>
+        </div>
+      </header>
 
-      {error && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {message ? (
+        <div
+          className={`rounded-2xl border px-4 py-3 text-sm font-medium ${
+            message.type === 'error'
+              ? 'border-rose-100 bg-rose-50 text-rose-700'
+              : 'border-emerald-100 bg-emerald-50 text-emerald-700'
+          }`}
+        >
+          {message.text}
+        </div>
+      ) : null}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard icon={Banknote} label={text.totalRevenue} value={currencyFormatter.format(data?.totalRevenue || 0)} color="bg-emerald-50 text-emerald-600" />
-        <MetricCard icon={ReceiptText} label={text.totalPurchases} value={numberFormatter.format(data?.totalPurchases || 0)} color="bg-purple-50 text-purple-600" />
-        <MetricCard icon={Users} label={text.totalStudents} value={numberFormatter.format(data?.totalStudents || 0)} color="bg-sky-50 text-sky-600" />
-        <MetricCard icon={CreditCard} label={text.averageOrderValue} value={currencyFormatter.format(data?.averageOrderValue || 0)} color="bg-amber-50 text-amber-600" />
-      </div>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <MetricCard icon={WalletCards} label="Tổng doanh thu" value={formatCurrency(data?.totalRevenue)} tone="emerald" />
+        <MetricCard icon={CalendarDays} label="Doanh thu tháng này" value={formatCurrency(data?.monthRevenue)} tone="sky" />
+        <MetricCard icon={Clock3} label="Doanh thu chờ thanh toán" value={formatCurrency(data?.pendingRevenue)} tone="amber" />
+        <MetricCard icon={ShieldCheck} label="Số dư khả dụng để rút" value={formatCurrency(data?.availableBalance)} tone="purple" />
+        <MetricCard icon={CheckCircle2} label="Số tiền đã rút" value={formatCurrency(data?.totalWithdrawn || data?.paidRevenue)} tone="slate" />
+        <MetricCard icon={ReceiptText} label="Số tiền đang xử lý" value={formatCurrency(data?.processingWithdrawals)} tone="rose" />
+      </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_0.8fr]">
+      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.4fr]">
+        <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
+              <BanknoteArrowDown className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-slate-900">Yêu cầu rút tiền</h2>
+              <p className="text-xs text-slate-500">Tối thiểu {formatCurrency(minimumWithdrawal)}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <Input label="Ngân hàng" value={form.bankName} onChange={(value) => updateForm('bankName', value)} placeholder="Ví dụ: Vietcombank" />
+            <Input label="Chủ tài khoản" value={form.accountHolder} onChange={(value) => updateForm('accountHolder', value)} placeholder="Tên chủ tài khoản" />
+            <Input label="Số tài khoản" value={form.accountNumber} onChange={(value) => updateForm('accountNumber', value)} placeholder="Nhập số tài khoản" />
+            <Input label="Số tiền rút" value={form.amount} onChange={(value) => updateForm('amount', value)} placeholder="Ví dụ: 500.000" inputMode="numeric" />
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-slate-500">Ghi chú</label>
+              <textarea
+                rows={3}
+                value={form.note}
+                onChange={(event) => updateForm('note', event.target.value)}
+                placeholder="Thông tin bổ sung nếu cần"
+                className="w-full resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+              />
+            </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
+            <p>Số dư khả dụng: <span className="font-semibold text-slate-900">{formatCurrency(availableBalance)}</span></p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || !canWithdraw}
+            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <BanknoteArrowDown className="h-4 w-4" />}
+            Yêu cầu rút tiền
+          </button>
+        </form>
+
         <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="flex flex-col gap-3 border-b border-slate-100 p-5 md:flex-row md:items-center md:justify-between">
-            <h2 className="font-semibold text-slate-900">{text.revenueByCourse}</h2>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600">
+                <Landmark className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-slate-900">Lịch sử giao dịch</h2>
+                <p className="text-xs text-slate-500">Bán khóa học, hoàn tiền và rút tiền.</p>
+              </div>
+            </div>
             <div className="relative w-full md:w-72">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={text.search}
-                className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm transition-colors focus:border-purple-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-100"
+                placeholder="Tìm giao dịch..."
+                className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm outline-none transition focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
               />
             </div>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/50">
-                  <TableHead>{text.course}</TableHead>
-                  <TableHead>{text.status}</TableHead>
-                  <TableHead>{text.price}</TableHead>
-                  <TableHead>{text.sales}</TableHead>
-                  <TableHead>{text.students}</TableHead>
-                  <TableHead className="text-right">{text.revenue}</TableHead>
+            <table className="w-full min-w-[760px] text-left">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-5 py-3 font-semibold">Ngày</th>
+                  <th className="px-5 py-3 font-semibold">Loại giao dịch</th>
+                  <th className="px-5 py-3 font-semibold">Nội dung</th>
+                  <th className="px-5 py-3 text-right font-semibold">Số tiền</th>
+                  <th className="px-5 py-3 text-right font-semibold">Trạng thái</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50">
-                {courses.length === 0 ? (
+              <tbody className="divide-y divide-slate-100">
+                {history.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-12 text-center text-sm text-slate-500">{text.noCourses}</td>
+                    <td colSpan="5" className="px-5 py-10 text-center text-sm text-slate-500">Chưa có giao dịch doanh thu.</td>
                   </tr>
                 ) : (
-                  courses.map((course) => (
-                    <tr key={course.id} className="transition-colors hover:bg-slate-50/50">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50">
-                            <BookOpen className="h-5 w-5 text-purple-600" />
-                          </div>
-                          <p className="line-clamp-1 text-sm font-medium text-slate-900">{course.title}</p>
-                        </div>
+                  history.map((item) => (
+                    <tr key={`${item.type}-${item.id}`} className="text-sm">
+                      <td className="whitespace-nowrap px-5 py-4 text-slate-500">{formatDate(item.createdAt || item.date)}</td>
+                      <td className="px-5 py-4 font-semibold text-slate-900">{item.typeLabel || mapType(item.type)}</td>
+                      <td className="px-5 py-4 text-slate-600">
+                        <p className="line-clamp-1">{item.note || item.course?.title || item.bankName || '-'}</p>
+                        {item.user?.name || item.accountHolder ? (
+                          <p className="mt-1 text-xs text-slate-400">{item.user?.name || item.accountHolder}</p>
+                        ) : null}
                       </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge label={course.isPublished ? text.published : text.draft} published={course.isPublished} />
+                      <td className={`whitespace-nowrap px-5 py-4 text-right font-semibold ${Number(item.amount) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                        {formatCurrency(item.amount)}
                       </td>
-                      <td className="px-5 py-4 text-sm text-slate-600">{currencyFormatter.format(course.price || 0)}</td>
-                      <td className="px-5 py-4 text-sm text-slate-600">{numberFormatter.format(course.purchases || 0)}</td>
-                      <td className="px-5 py-4 text-sm text-slate-600">{numberFormatter.format(course.students ?? course.enrollments ?? 0)}</td>
-                      <td className="px-5 py-4 text-right text-sm font-semibold text-slate-900">{currencyFormatter.format(course.revenue || 0)}</td>
+                      <td className="px-5 py-4 text-right">
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClasses[item.status] || statusClasses.PENDING}`}>
+                          {item.statusLabel || item.status || 'Pending'}
+                        </span>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -143,57 +286,54 @@ const InstructorRevenue = () => {
             </table>
           </div>
         </section>
-
-        <aside className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <h2 className="font-semibold text-slate-900">{text.recentPurchases}</h2>
-          <div className="mt-4 space-y-3">
-            {(data?.recentPurchases || []).length === 0 ? (
-              <p className="rounded-2xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">{text.noPurchases}</p>
-            ) : (
-              data.recentPurchases.map((purchase) => (
-                <div key={purchase.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{purchase.course?.title}</p>
-                      <p className="mt-1 truncate text-xs text-slate-500">{purchase.user?.name || purchase.user?.email}</p>
-                    </div>
-                    <p className="shrink-0 text-sm font-semibold text-emerald-700">{currencyFormatter.format(purchase.amount || 0)}</p>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-400">{new Date(purchase.createdAt).toLocaleDateString('vi-VN')}</p>
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
       </div>
     </div>
   );
 };
 
-const MetricCard = ({ icon: Icon, label, value, color }) => (
-  <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-    <div className="flex items-center gap-4">
-      <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${color}`}>
-        <Icon className="h-6 w-6" />
-      </div>
-      <div>
-        <p className="text-sm font-medium text-slate-500">{label}</p>
-        <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+const MetricCard = ({ icon: Icon, label, value, tone }) => {
+  const tones = {
+    emerald: 'bg-emerald-50 text-emerald-600',
+    sky: 'bg-sky-50 text-sky-600',
+    amber: 'bg-amber-50 text-amber-600',
+    purple: 'bg-purple-50 text-purple-600',
+    slate: 'bg-slate-100 text-slate-600',
+    rose: 'bg-rose-50 text-rose-600',
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tones[tone]}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-slate-500">{label}</p>
+          <p className="mt-1 break-words text-2xl font-bold text-slate-900">{value}</p>
+        </div>
       </div>
     </div>
+  );
+};
+
+const Input = ({ label, value, onChange, placeholder, inputMode = 'text' }) => (
+  <div>
+    <label className="mb-1.5 block text-xs font-semibold text-slate-500">{label}</label>
+    <input
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      placeholder={placeholder}
+      inputMode={inputMode}
+      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+    />
   </div>
 );
 
-const TableHead = ({ children, className = '' }) => (
-  <th className={`px-5 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 ${className}`}>
-    {children}
-  </th>
-);
-
-const StatusBadge = ({ label, published }) => (
-  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${published ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'}`}>
-    {label}
-  </span>
-);
+const mapType = (type) => {
+  if (type === 'WITHDRAWAL') return 'Rút tiền';
+  if (type === 'REFUND') return 'Hoàn tiền';
+  if (type === 'SYSTEM_COMMISSION') return 'Hoa hồng hệ thống';
+  return 'Bán khóa học';
+};
 
 export default InstructorRevenue;

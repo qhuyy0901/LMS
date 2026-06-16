@@ -35,4 +35,5 @@ public class KhoaHoc
     public ICollection<ChungChi> Certificates { get; set; } = [];
     public ICollection<MaGiamGia> Coupons { get; set; } = [];
     public ICollection<BaiTap> Assignments { get; set; } = [];
+    public ICollection<KhoaHocDaLuu> SavedByUsers { get; set; } = [];
 }

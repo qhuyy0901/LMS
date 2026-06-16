@@ -695,6 +695,311 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
         object? User,
         object? Course);
 
+    [HttpGet("/api/instructor/wallet")]
+    [HttpGet("/instructor/wallet")]
+    public async Task<IResult> ViDoanhThuGiangVien()
+    {
+        var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
+        var userId = TroGiup.LayUserId(User)!;
+        var data = await TaoDuLieuViDoanhThu(userId);
+        return Results.Ok(TaoPhanHoiViDoanhThu(data));
+    }
+
+    [HttpGet("/api/instructor/wallet/history")]
+    [HttpGet("/instructor/wallet/history")]
+    public async Task<IResult> LichSuViDoanhThuGiangVien()
+    {
+        var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
+        var userId = TroGiup.LayUserId(User)!;
+        var data = await TaoDuLieuViDoanhThu(userId, 100);
+        return Results.Ok(data.History);
+    }
+
+    [HttpPost("/api/instructor/withdraw-request")]
+    [HttpPost("/instructor/withdraw-request")]
+    public async Task<IResult> TaoYeuCauRutTien([FromBody] RutTienGiangVienRequest yeuCau)
+    {
+        var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
+        var userId = TroGiup.LayUserId(User)!;
+
+        if (yeuCau.SoTien < SoTienRutToiThieu)
+        {
+            return Results.BadRequest(new { message = $"Số tiền rút tối thiểu là {TroGiup.DinhDangTienVND(SoTienRutToiThieu)}." });
+        }
+
+        if (string.IsNullOrWhiteSpace(yeuCau.BankName) ||
+            string.IsNullOrWhiteSpace(yeuCau.AccountHolder) ||
+            string.IsNullOrWhiteSpace(yeuCau.AccountNumber))
+        {
+            return Results.BadRequest(new { message = "Vui lòng nhập đầy đủ ngân hàng, chủ tài khoản và số tài khoản." });
+        }
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        var ketQua = await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            var data = await TaoDuLieuViDoanhThu(userId);
+            if (yeuCau.SoTien > data.AvailableBalance)
+            {
+                await transaction.RollbackAsync();
+                return new KetQuaYeuCauRutTien(false, data);
+            }
+
+            db.InstructorWithdrawals.Add(new RutTienGiangVien
+            {
+                Id = TaoId.Moi(),
+                InstructorId = userId,
+                Amount = yeuCau.SoTien,
+                Status = "PENDING",
+                BankName = yeuCau.BankName.Trim(),
+                AccountHolder = yeuCau.AccountHolder.Trim(),
+                AccountNumber = yeuCau.AccountNumber.Trim(),
+                Note = TaoGhiChuRutTien(yeuCau.Branch, yeuCau.GhiChu),
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            var nextData = await TaoDuLieuViDoanhThu(userId);
+            return new KetQuaYeuCauRutTien(true, nextData);
+        });
+
+        if (!ketQua.ThanhCong)
+        {
+            return Results.BadRequest(new { message = "Số tiền rút vượt quá số dư khả dụng." });
+        }
+
+        return Results.Ok(new
+        {
+            message = "Đã tạo yêu cầu rút tiền.",
+            wallet = TaoPhanHoiViDoanhThu(ketQua.Data)
+        });
+    }
+
+    private const int SoTienRutToiThieu = 100_000;
+    private const int SoNgayXacNhanDoanhThu = 7;
+
+    private async Task<DuLieuViDoanhThu> TaoDuLieuViDoanhThu(string userId, int historyLimit = 30)
+    {
+        var now = DateTime.UtcNow;
+        var cutoff = now.AddDays(-SoNgayXacNhanDoanhThu);
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var giangVien = await db.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+        var taiKhoanNhanTien = DocTaiKhoanNhanTien(giangVien?.Settings);
+        var khoaHocs = await db.Courses.AsNoTracking()
+            .Where(c => c.InstructorId == userId)
+            .Include(c => c.Enrollments)
+            .Include(c => c.Purchases)
+                .ThenInclude(p => p.User)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+
+        var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
+        var giaoDichHoanTat = await db.Purchases.AsNoTracking()
+            .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
+            .Include(p => p.User)
+            .Include(p => p.Course)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
+
+        var lichSuRutTien = await db.InstructorWithdrawals.AsNoTracking()
+            .Where(item => item.InstructorId == userId)
+            .OrderByDescending(item => item.CreatedAt)
+            .ToListAsync();
+
+        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.FinalAmount);
+        var doanhThuThangNay = giaoDichHoanTat.Where(p => p.CreatedAt >= monthStart).Sum(p => p.FinalAmount);
+        var doanhThuChoXacNhan = giaoDichHoanTat.Where(p => p.CreatedAt > cutoff).Sum(p => p.FinalAmount);
+        var doanhThuDaSanSang = giaoDichHoanTat.Where(p => p.CreatedAt <= cutoff).Sum(p => p.FinalAmount);
+        var daRut = lichSuRutTien.Where(item => LaTrangThaiDaTraMoi(item.Status)).Sum(item => item.Amount);
+        var dangXuLy = lichSuRutTien.Where(item => LaTrangThaiDangXuLyMoi(item.Status)).Sum(item => item.Amount);
+        var soDuKhaDung = Math.Max(0, doanhThuDaSanSang - daRut - dangXuLy);
+        var soMua = giaoDichHoanTat.Count;
+        var soHocVienMua = giaoDichHoanTat.Select(p => p.UserId).Distinct().Count();
+        var giaTriTrungBinh = soMua == 0 ? 0 : (int)Math.Round(tongDoanhThu / (double)soMua);
+
+        var history = giaoDichHoanTat.Select(p =>
+        {
+            var sanSang = p.CreatedAt <= cutoff;
+            return (object)new
+            {
+                p.Id,
+                type = "COURSE_SALE",
+                typeLabel = "Bán khóa học",
+                amount = p.FinalAmount,
+                status = sanSang ? "APPROVED" : "PENDING",
+                statusLabel = sanSang ? "Approved" : "Pending",
+                note = p.Course == null ? "Doanh thu khóa học" : $"Doanh thu: {p.Course.Title}",
+                createdAt = p.CreatedAt,
+                date = p.CreatedAt,
+                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
+                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail },
+                bankName = (string?)null,
+                accountNumber = (string?)null,
+                accountHolder = (string?)null
+            };
+        })
+        .Concat(lichSuRutTien.Select(item =>
+        {
+            var status = ChuanHoaTrangThaiRutTienMoi(item.Status);
+            return (object)new
+            {
+                item.Id,
+                type = "WITHDRAWAL",
+                typeLabel = "Rút tiền",
+                amount = -item.Amount,
+                status,
+                statusLabel = VietHoaTrangThaiGiaoDichMoi(status),
+                note = item.Note,
+                createdAt = item.CreatedAt,
+                date = item.CreatedAt,
+                user = (object?)null,
+                course = (object?)null,
+                item.BankName,
+                item.AccountNumber,
+                item.AccountHolder
+            };
+        }))
+        .OrderByDescending(item => LayNgayGiaoDichMoi(item))
+        .Take(historyLimit)
+        .ToList();
+
+        return new DuLieuViDoanhThu(
+            tongDoanhThu,
+            doanhThuThangNay,
+            doanhThuChoXacNhan,
+            soDuKhaDung,
+            daRut,
+            dangXuLy,
+            SoTienRutToiThieu,
+            soMua,
+            soHocVienMua,
+            giaTriTrungBinh,
+            khoaHocs.Count,
+            taiKhoanNhanTien is null ? null : new { taiKhoanNhanTien.BankName, taiKhoanNhanTien.AccountNumber, taiKhoanNhanTien.AccountHolder },
+            khoaHocs.Select(c =>
+            {
+                var purchases = c.Purchases.Where(p => p.Status == "COMPLETED").ToList();
+                return (object)new
+                {
+                    c.Id,
+                    title = c.Title,
+                    price = c.Price,
+                    isPublished = IsCoursePublished(c),
+                    status = c.Status,
+                    enrollments = c.Enrollments.Count,
+                    purchases = purchases.Count,
+                    revenue = purchases.Sum(p => p.FinalAmount),
+                    availableRevenue = purchases.Where(p => p.CreatedAt <= cutoff).Sum(p => p.FinalAmount),
+                    pendingRevenue = purchases.Where(p => p.CreatedAt > cutoff).Sum(p => p.FinalAmount),
+                    averageRating = c.AverageRating,
+                    reviewCount = c.ReviewCount,
+                    createdAt = c.CreatedAt,
+                    updatedAt = c.UpdatedAt
+                };
+            }).ToList(),
+            giaoDichHoanTat.Take(10).Select(p => (object)new
+            {
+                p.Id,
+                amount = p.FinalAmount,
+                payoutStatus = p.CreatedAt <= cutoff ? "APPROVED" : "PENDING",
+                originalAmount = p.OriginalAmount,
+                discountAmount = p.DiscountAmount,
+                status = p.Status,
+                createdAt = p.CreatedAt,
+                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
+                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }
+            }).ToList(),
+            history);
+    }
+
+    private static object TaoPhanHoiViDoanhThu(DuLieuViDoanhThu data) => new
+    {
+        totalRevenue = data.TotalRevenue,
+        monthRevenue = data.MonthRevenue,
+        pendingRevenue = data.PendingRevenue,
+        availableBalance = data.AvailableBalance,
+        availableRevenue = data.AvailableBalance,
+        paidRevenue = data.PaidWithdrawals,
+        totalWithdrawn = data.PaidWithdrawals,
+        processingWithdrawals = data.ProcessingWithdrawals,
+        minimumWithdrawal = data.MinimumWithdrawal,
+        totalPurchases = data.TotalPurchases,
+        totalStudents = data.TotalStudents,
+        averageOrderValue = data.AverageOrderValue,
+        courseCount = data.CourseCount,
+        payoutAccount = data.PayoutAccount,
+        courses = data.Courses,
+        recentPurchases = data.RecentPurchases,
+        recentTransactions = data.History,
+        history = data.History
+    };
+
+    private static DateTime LayNgayGiaoDichMoi(object item)
+    {
+        var property = item.GetType().GetProperty("createdAt");
+        return property?.GetValue(item) is DateTime value ? value : DateTime.MinValue;
+    }
+
+    private static bool LaTrangThaiDaTraMoi(string? status) => ChuanHoaTrangThaiRutTienMoi(status) == "PAID";
+
+    private static bool LaTrangThaiDangXuLyMoi(string? status)
+    {
+        var normalized = ChuanHoaTrangThaiRutTienMoi(status);
+        return normalized is "PENDING" or "APPROVED";
+    }
+
+    private static string ChuanHoaTrangThaiRutTienMoi(string? status)
+    {
+        var normalized = (status ?? "PENDING").Trim().ToUpperInvariant();
+        return normalized switch
+        {
+            "COMPLETED" => "PAID",
+            "SUCCESS" => "PAID",
+            "DONE" => "PAID",
+            "PAID" => "PAID",
+            "APPROVED" => "APPROVED",
+            "REJECTED" => "REJECTED",
+            _ => "PENDING"
+        };
+    }
+
+    private static string VietHoaTrangThaiGiaoDichMoi(string status) => status switch
+    {
+        "APPROVED" => "Approved",
+        "REJECTED" => "Rejected",
+        "PAID" => "Paid",
+        _ => "Pending"
+    };
+
+    private static string? TaoGhiChuRutTien(string? branch, string? note)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(branch)) parts.Add($"Chi nhánh: {branch.Trim()}");
+        if (!string.IsNullOrWhiteSpace(note)) parts.Add(note.Trim());
+        return parts.Count == 0 ? null : string.Join(" | ", parts);
+    }
+
+    private sealed record KetQuaYeuCauRutTien(bool ThanhCong, DuLieuViDoanhThu Data);
+    private sealed record DuLieuViDoanhThu(
+        int TotalRevenue,
+        int MonthRevenue,
+        int PendingRevenue,
+        int AvailableBalance,
+        int PaidWithdrawals,
+        int ProcessingWithdrawals,
+        int MinimumWithdrawal,
+        int TotalPurchases,
+        int TotalStudents,
+        int AverageOrderValue,
+        int CourseCount,
+        object? PayoutAccount,
+        List<object> Courses,
+        List<object> RecentPurchases,
+        List<object> History);
+
     [NonAction]
     public async Task<IResult> DanhSachHocVien()
     {

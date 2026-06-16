@@ -31,7 +31,7 @@ Start-Process cmd.exe `
     -RedirectStandardError (Join-Path $logRoot "frontend.err.log") `
     -WindowStyle Hidden
 
-$deadline = (Get-Date).AddSeconds(20)
+$deadline = (Get-Date).AddSeconds(60)
 do {
     Start-Sleep -Milliseconds 500
     $backendReady = Get-NetTCPConnection -LocalPort 5000 -State Listen -ErrorAction SilentlyContinue

@@ -28,6 +28,7 @@ import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from '../components/UserAvatar';
+import { getInstructorWallet } from '../api/instructorWalletApi';
 
 const defaultSettings = {
   theme: 'light',
@@ -161,7 +162,9 @@ const Settings = () => {
       const profileResponse = await axios.get('/api/user/me');
       const profile = profileResponse.data;
       const instructor = profile.role === 'INSTRUCTOR';
-      const billingResponse = await axios.get(instructor ? '/api/instructor/revenue' : '/api/user/billing-history');
+      const billingResponse = instructor
+        ? { data: await getInstructorWallet() }
+        : await axios.get('/api/user/billing-history');
 
       setAvatarUrl(profile.avatar || null);
       setWalletProfile(profile);
@@ -313,29 +316,32 @@ const Settings = () => {
     event.preventDefault();
     const amount = Number(withdrawForm.soTien);
 
-    if (!Number.isInteger(amount) || amount < 50000) {
-      setMessage({ type: 'error', text: 'Số tiền rút không hợp lệ' });
+    if (!Number.isInteger(amount) || amount < 100000) {
+      setMessage({ type: 'error', text: 'Số tiền rút tối thiểu là 100.000đ' });
       return;
     }
-    if (amount > (revenueProfile?.pendingRevenue || 0)) {
-      setMessage({ type: 'error', text: 'Số tiền rút vượt quá doanh thu chờ thanh toán' });
+    if (amount > (revenueProfile?.availableBalance || 0)) {
+      setMessage({ type: 'error', text: 'Số tiền rút vượt quá số dư khả dụng' });
       return;
     }
 
     setWithdrawing(true);
     setMessage(null);
     try {
-      await axios.post('/api/instructor/revenue/withdraw-demo', {
+      await axios.post('/api/instructor/withdraw-request', {
         soTien: amount,
+        bankName: payoutAccount.bankName.trim(),
+        accountHolder: payoutAccount.accountHolder.trim(),
+        accountNumber: payoutAccount.accountNumber.trim(),
         ghiChu: withdrawForm.ghiChu.trim() || null,
       });
-      const response = await axios.get('/api/instructor/revenue');
-      setRevenueProfile(response.data);
+      const wallet = await getInstructorWallet();
+      setRevenueProfile(wallet);
       setShowWithdrawModal(false);
       setWithdrawForm({ soTien: '', ghiChu: '' });
-      setMessage({ type: 'success', text: 'Rút tiền demo thành công' });
+      setMessage({ type: 'success', text: 'Đã tạo yêu cầu rút tiền' });
     } catch (error) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể rút tiền demo.' });
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể tạo yêu cầu rút tiền.' });
     } finally {
       setWithdrawing(false);
     }
@@ -748,11 +754,11 @@ const Settings = () => {
                       <button
                         type="button"
                         onClick={handleOpenWithdraw}
-                        disabled={(revenueProfile?.pendingRevenue || 0) < 50000}
+                        disabled={(revenueProfile?.availableBalance || 0) < 100000}
                         className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         <BanknoteArrowDown className="h-4 w-4" />
-                        Rút tiền demo
+                        Yêu cầu rút tiền
                       </button>
                     </div>
                   </div>
@@ -763,11 +769,11 @@ const Settings = () => {
                       <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.totalRevenue || 0) : '••••••'}</p>
                     </div>
                     <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Doanh thu chờ thanh toán</p>
-                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.pendingRevenue || 0) : '••••••'}</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Số dư khả dụng để rút</p>
+                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.availableBalance || 0) : '••••••'}</p>
                     </div>
                     <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Đã thanh toán</p>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Đã rút</p>
                       <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.paidRevenue || 0) : '••••••'}</p>
                     </div>
                   </div>
@@ -783,7 +789,7 @@ const Settings = () => {
                         <input
                           value={payoutAccount.bankName}
                           onChange={(event) => setPayoutAccount((prev) => ({ ...prev, bankName: event.target.value }))}
-                          placeholder="Ví dụ: Ngân hàng Demo"
+                          placeholder="Ví dụ: Vietcombank"
                           className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
                         />
                       </div>
@@ -792,7 +798,7 @@ const Settings = () => {
                         <input
                           value={payoutAccount.accountNumber}
                           onChange={(event) => setPayoutAccount((prev) => ({ ...prev, accountNumber: event.target.value }))}
-                          placeholder="Nhập số tài khoản demo"
+                          placeholder="Nhập số tài khoản"
                           className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
                         />
                       </div>
@@ -826,20 +832,20 @@ const Settings = () => {
                         <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-slate-900">
-                              {item.type === 'DEMO_WITHDRAWAL' ? 'Rút tiền demo' : item.course?.title || 'Doanh thu khóa học'}
+                              {item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL' ? 'Yêu cầu rút tiền' : item.course?.title || 'Doanh thu khóa học'}
                             </p>
                             <p className="text-xs text-slate-400">
                               {new Date(item.createdAt).toLocaleString('vi-VN')}
-                              {item.type === 'DEMO_WITHDRAWAL'
+                              {item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL'
                                 ? ` · ${item.bankName} · ${item.accountHolder}${item.note ? ` · ${item.note}` : ''}`
                                 : ` · ${item.user?.name || item.user?.email || 'Học viên'}`}
                             </p>
                           </div>
                           <div className="sm:text-right">
-                            <p className={`text-sm font-semibold ${item.type === 'DEMO_WITHDRAWAL' ? 'text-purple-600' : 'text-emerald-600'}`}>
+                            <p className={`text-sm font-semibold ${item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL' ? 'text-purple-600' : 'text-emerald-600'}`}>
                               {showBalance ? formatCurrency(item.amount || 0) : '••••••'}
                             </p>
-                            <p className={`text-[11px] ${item.type === 'DEMO_WITHDRAWAL' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                            <p className={`text-[11px] ${item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL' ? 'text-emerald-600' : 'text-amber-600'}`}>
                               {item.statusLabel}
                             </p>
                           </div>
@@ -985,8 +991,8 @@ const Settings = () => {
           >
             <div className="mb-5 flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-slate-900">Rút tiền demo</h2>
-                <p className="mt-1 text-xs text-slate-500">Đây là giao dịch mô phỏng, không chuyển khoản ngân hàng thật.</p>
+                <h2 className="text-xl font-semibold text-slate-900">Yêu cầu rút tiền</h2>
+                <p className="mt-1 text-xs text-slate-500">Yêu cầu sẽ được ghi nhận ở trạng thái Pending để quản trị viên xử lý.</p>
               </div>
               <button
                 type="button"
@@ -1010,16 +1016,16 @@ const Settings = () => {
                 <FieldLabel>Số tiền muốn rút</FieldLabel>
                 <input
                   type="number"
-                  min="50000"
+                  min="100000"
                   step="1000"
                   required
                   autoFocus
                   value={withdrawForm.soTien}
                   onChange={(event) => setWithdrawForm((prev) => ({ ...prev, soTien: event.target.value }))}
-                  placeholder="Tối thiểu 50.000 đ"
+                  placeholder="Tối thiểu 100.000 đ"
                   className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
                 />
-                <p className="mt-1 text-xs text-slate-500">Có thể rút: {formatCurrency(revenueProfile?.pendingRevenue || 0)}</p>
+                <p className="mt-1 text-xs text-slate-500">Số dư khả dụng: {formatCurrency(revenueProfile?.availableBalance || 0)}</p>
               </div>
               <div>
                 <FieldLabel>Ghi chú nếu cần</FieldLabel>
@@ -1028,7 +1034,7 @@ const Settings = () => {
                   maxLength={500}
                   value={withdrawForm.ghiChu}
                   onChange={(event) => setWithdrawForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
-                  placeholder="Rút tiền demo về tài khoản ngân hàng"
+                  placeholder="Ghi chú cho yêu cầu rút tiền"
                   className="w-full resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
                 />
               </div>

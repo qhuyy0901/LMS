@@ -63,4 +63,5 @@ public class NguoiDung
     
     public ICollection<NguoiThamGiaTroChuyen> Conversations { get; set; } = [];
     public ICollection<TinNhan> SentMessages { get; set; } = [];
+    public ICollection<KhoaHocDaLuu> SavedCourses { get; set; } = [];
 }

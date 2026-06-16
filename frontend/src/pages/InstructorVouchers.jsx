@@ -4,6 +4,7 @@ import {
   BookOpen,
   Calendar,
   DollarSign,
+  Edit3,
   Percent,
   Plus,
   Search,
@@ -11,6 +12,7 @@ import {
   Tag,
   ToggleLeft,
   ToggleRight,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -31,6 +33,13 @@ const formatDate = (value) => {
     month: '2-digit',
     year: 'numeric',
   }).format(date);
+};
+
+const toDateInput = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
 };
 
 const initialForm = {
@@ -70,12 +79,16 @@ export default function InstructorVouchers() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
   const [form, setForm] = useState(initialForm);
+  const [editingId, setEditingId] = useState(null);
   const [sendVoucher, setSendVoucher] = useState(null);
   const [sourceCourseId, setSourceCourseId] = useState('');
   const [eligibleStudents, setEligibleStudents] = useState([]);
   const [selectedStudents, setSelectedStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(false);
   const [sending, setSending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
   const fetchCourses = useCallback(async () => {
     try {
@@ -122,11 +135,35 @@ export default function InstructorVouchers() {
 
   const resetForm = () => {
     setForm(initialForm);
+    setEditingId(null);
     setNotice('');
     setError('');
   };
 
-  const createVoucher = async (event) => {
+  const openCreateForm = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const openEditForm = (voucher) => {
+    setForm({
+      code: voucher.code || '',
+      discountType: voucher.discountType || 'PERCENTAGE',
+      discountValue: voucher.discountValue?.toString() || '',
+      minPurchaseAmount: voucher.minPurchaseAmount?.toString() || '',
+      maxDiscountAmount: voucher.maxDiscountAmount?.toString() || '',
+      usageLimit: (voucher.maxUses ?? voucher.usageLimit)?.toString() || '',
+      startDate: toDateInput(voucher.startDate),
+      endDate: toDateInput(voucher.endDate),
+      courseId: voucher.courseId || '',
+    });
+    setEditingId(voucher.id);
+    setShowForm(true);
+    setNotice('');
+    setError('');
+  };
+
+  const saveVoucher = async (event) => {
     event.preventDefault();
     setSaving(true);
     setNotice('');
@@ -144,14 +181,40 @@ export default function InstructorVouchers() {
         endDate: form.endDate || null,
         courseId: form.courseId,
       };
-      const response = await axios.post('/api/teacher/vouchers', payload);
-      setVouchers((prev) => [response.data, ...prev]);
+
+      if (editingId) {
+        const response = await axios.put(`/api/teacher/vouchers/${editingId}`, payload);
+        setVouchers((prev) => prev.map((item) => (item.id === editingId ? response.data : item)));
+        setNotice('Đã cập nhật mã giảm giá thành công.');
+      } else {
+        const response = await axios.post('/api/teacher/vouchers', payload);
+        setVouchers((prev) => [response.data, ...prev]);
+        setNotice('Đã tạo mã giảm giá cho khóa học.');
+      }
       setForm(initialForm);
-      setNotice('Đã tạo mã giảm giá cho khóa học.');
+      setEditingId(null);
+      setShowForm(false);
     } catch (err) {
       setError(err.response?.data?.message || err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deleteVoucher = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setError('');
+    setNotice('');
+    try {
+      await axios.delete(`/api/teacher/vouchers/${deleteTarget.id}`);
+      setVouchers((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setNotice('Đã xóa voucher thành công.');
+      setDeleteTarget(null);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -228,7 +291,7 @@ export default function InstructorVouchers() {
         </div>
         <button
           type="button"
-          onClick={resetForm}
+          onClick={openCreateForm}
           className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
         >
           <Plus className="h-4 w-4" />
@@ -264,115 +327,140 @@ export default function InstructorVouchers() {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[380px_1fr]">
-        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-              <Tag className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="font-semibold text-slate-900">Tạo voucher</h2>
-            </div>
-          </div>
+      {/* Create / Edit Form Modal */}
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm">
+          <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">
+            <button
+              type="button"
+              onClick={() => { setShowForm(false); resetForm(); }}
+              className="absolute right-4 top-4 rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Đóng"
+            >
+              <X className="h-5 w-5" />
+            </button>
 
-          <form onSubmit={createVoucher} className="space-y-4">
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Mã giảm giá</label>
-              <input
-                value={form.code}
-                onChange={handleChange('code')}
-                required
-                placeholder="VD: SKILLIO20"
-                className={`${inputClass} font-semibold uppercase tracking-wider`}
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Khóa học áp dụng</label>
-              <select value={form.courseId} onChange={handleChange('courseId')} required className={inputClass}>
-                <option value="">Chọn khóa học</option>
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.title || course.tieuDe}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Loại giảm</label>
-                <select value={form.discountType} onChange={handleChange('discountType')} className={inputClass}>
-                  <option value="PERCENTAGE">Phần trăm</option>
-                  <option value="FIXED_AMOUNT">Số tiền cố định</option>
-                </select>
+            <div className="mb-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+                <Tag className="h-5 w-5" />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Giá trị</label>
+                <h2 className="font-semibold text-slate-900">{editingId ? 'Chỉnh sửa voucher' : 'Tạo voucher mới'}</h2>
+                <p className="text-xs text-slate-500">{editingId ? 'Cập nhật thông tin mã giảm giá' : 'Tạo mã giảm giá cho khóa học của bạn'}</p>
+              </div>
+            </div>
+
+            <form onSubmit={saveVoucher} className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Mã giảm giá</label>
                 <input
-                  type="number"
-                  value={form.discountValue}
-                  onChange={handleChange('discountValue')}
+                  value={form.code}
+                  onChange={handleChange('code')}
                   required
-                  min="1"
-                  max={form.discountType === 'PERCENTAGE' ? '100' : undefined}
-                  className={inputClass}
+                  placeholder="VD: SKILLIO20"
+                  className={`${inputClass} font-semibold uppercase tracking-wider`}
                 />
               </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Lượt dùng tối đa</label>
-                <input type="number" value={form.usageLimit} onChange={handleChange('usageLimit')} min="1" className={inputClass} />
+                <label className="mb-1 block text-sm font-medium text-slate-700">Khóa học áp dụng</label>
+                <select value={form.courseId} onChange={handleChange('courseId')} required className={inputClass}>
+                  <option value="">Chọn khóa học</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title || course.tieuDe}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Đơn tối thiểu</label>
-                <input type="number" value={form.minPurchaseAmount} onChange={handleChange('minPurchaseAmount')} min="0" className={inputClass} />
-              </div>
-            </div>
 
-            {form.discountType === 'PERCENTAGE' ? (
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Giảm tối đa</label>
-                <input type="number" value={form.maxDiscountAmount} onChange={handleChange('maxDiscountAmount')} min="0" className={inputClass} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Loại giảm</label>
+                  <select value={form.discountType} onChange={handleChange('discountType')} className={inputClass}>
+                    <option value="PERCENTAGE">Phần trăm</option>
+                    <option value="FIXED_AMOUNT">Số tiền cố định</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Giá trị</label>
+                  <input
+                    type="number"
+                    value={form.discountValue}
+                    onChange={handleChange('discountValue')}
+                    required
+                    min="1"
+                    max={form.discountType === 'PERCENTAGE' ? '100' : undefined}
+                    className={inputClass}
+                  />
+                </div>
               </div>
-            ) : null}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Bắt đầu</label>
-                <input type="date" value={form.startDate} onChange={handleChange('startDate')} className={inputClass} />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Lượt dùng tối đa</label>
+                  <input type="number" value={form.usageLimit} onChange={handleChange('usageLimit')} min="1" className={inputClass} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Đơn tối thiểu</label>
+                  <input type="number" value={form.minPurchaseAmount} onChange={handleChange('minPurchaseAmount')} min="0" className={inputClass} />
+                </div>
               </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-slate-700">Kết thúc</label>
-                <input type="date" value={form.endDate} onChange={handleChange('endDate')} className={inputClass} />
+
+              {form.discountType === 'PERCENTAGE' ? (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Giảm tối đa</label>
+                  <input type="number" value={form.maxDiscountAmount} onChange={handleChange('maxDiscountAmount')} min="0" className={inputClass} />
+                </div>
+              ) : null}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Bắt đầu</label>
+                  <input type="date" value={form.startDate} onChange={handleChange('startDate')} className={inputClass} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">Kết thúc</label>
+                  <input type="date" value={form.endDate} onChange={handleChange('endDate')} className={inputClass} />
+                </div>
               </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-60"
-            >
-              {saving ? 'Đang tạo...' : 'Tạo voucher'}
-            </button>
-          </form>
-        </section>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); resetForm(); }}
+                  className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-purple-600 py-3 text-sm font-semibold text-white transition hover:bg-purple-700 disabled:opacity-60"
+                >
+                  {saving ? 'Đang lưu...' : editingId ? 'Cập nhật' : 'Tạo voucher'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-        <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="grid gap-3 border-b border-slate-100 p-4 md:grid-cols-[1fr_180px_auto]">
-            <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3">
-              <Search className="h-4 w-4 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && fetchVouchers()}
-                placeholder="Tìm mã hoặc tên khóa học..."
-                className="flex-1 bg-transparent py-2.5 text-sm outline-none"
-              />
-            </label>
-            <select value={status} onChange={(event) => setStatus(event.target.value)} className={inputClass}>
+      {/* Voucher List */}
+      <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center">
+          <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
+            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && fetchVouchers()}
+              placeholder="Tìm mã hoặc tên khóa học..."
+              className="flex-1 bg-transparent py-2.5 text-sm outline-none"
+            />
+          </label>
+          <div className="flex gap-3">
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className={`${inputClass} w-auto min-w-[160px]`}>
               <option value="">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hoạt động</option>
               <option value="INACTIVE">Đã tắt</option>
@@ -381,117 +469,168 @@ export default function InstructorVouchers() {
             <button
               type="button"
               onClick={fetchVouchers}
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="whitespace-nowrap rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
             >
               Tìm kiếm
             </button>
           </div>
+        </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="whitespace-nowrap px-4 py-3">Mã</th>
+                <th className="whitespace-nowrap px-4 py-3">Giảm giá</th>
+                <th className="whitespace-nowrap px-4 py-3">Khóa học</th>
+                <th className="whitespace-nowrap px-4 py-3">Lượt dùng</th>
+                <th className="whitespace-nowrap px-4 py-3">Thời hạn</th>
+                <th className="whitespace-nowrap px-4 py-3">Trạng thái</th>
+                <th className="whitespace-nowrap px-4 py-3 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
                 <tr>
-                  <th className="px-5 py-4">Mã</th>
-                  <th className="px-5 py-4">Giảm giá</th>
-                  <th className="px-5 py-4">Khóa học</th>
-                  <th className="px-5 py-4">Lượt dùng</th>
-                  <th className="px-5 py-4">Thời hạn</th>
-                  <th className="px-5 py-4">Trạng thái</th>
-                  <th className="px-5 py-4 text-right">Thao tác</th>
+                  <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
+                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                      <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
+              ) : vouchers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
+                    Chưa có voucher nào.
+                  </td>
+                </tr>
+              ) : (
+                vouchers.map((voucher) => (
+                  <tr key={voucher.id} className="transition hover:bg-slate-50/80">
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+                          <Tag className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-mono text-sm font-bold tracking-wider text-slate-900">{voucher.code}</p>
+                          {voucher.isPrivate ? <p className="text-xs text-purple-600">Riêng cho học viên</p> : null}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      {voucher.discountType === 'PERCENTAGE' ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                          <Percent className="h-3 w-3" />
+                          {voucher.discountValue}%
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                          <DollarSign className="h-3 w-3" />
+                          {formatCurrency(voucher.discountValue)}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="block max-w-[160px] truncate text-slate-700" title={voucher.course?.title || 'Tất cả khóa học'}>
+                        {voucher.course?.title || 'Tất cả khóa học'}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className="font-semibold text-slate-900">{voucher.usedCount ?? voucher.usageCount ?? 0}</span>
+                      {voucher.maxUses || voucher.usageLimit ? (
+                        <span className="text-xs text-slate-400"> / {voucher.maxUses ?? voucher.usageLimit}</span>
+                      ) : null}
+                      <p className="mt-0.5 text-xs text-slate-400">{voucher.recipientCount || 0} người nhận</p>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <Calendar className="h-3.5 w-3.5 shrink-0" />
+                        <span>{formatDate(voucher.startDate)} - {formatDate(voucher.endDate)}</span>
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[voucher.status] || statusClass.ACTIVE}`}>
+                        {statusLabel[voucher.status] || voucher.status || 'Đang hoạt động'}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3">
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEditForm(voucher)}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+                          title="Chỉnh sửa"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openSendModal(voucher)}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
+                          title="Gửi voucher"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleVoucher(voucher)}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                          title={voucher.status === 'ACTIVE' ? 'Tắt voucher' : 'Bật voucher'}
+                        >
+                          {voucher.status === 'ACTIVE' ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(voucher)}
+                          className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                          title="Xóa voucher"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
-                ) : vouchers.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                      Chưa có voucher nào.
-                    </td>
-                  </tr>
-                ) : (
-                  vouchers.map((voucher) => (
-                    <tr key={voucher.id} className="transition hover:bg-slate-50/80">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
-                            <Tag className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <p className="font-mono font-bold tracking-wider text-slate-900">{voucher.code}</p>
-                            {voucher.isPrivate ? <p className="text-xs text-purple-600">Riêng cho học viên</p> : null}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        {voucher.discountType === 'PERCENTAGE' ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                            <Percent className="h-3 w-3" />
-                            {voucher.discountValue}%
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                            <DollarSign className="h-3 w-3" />
-                            {formatCurrency(voucher.discountValue)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="block max-w-[180px] truncate text-slate-700">
-                          {voucher.course?.title || 'Tất cả khóa học của bạn'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="font-semibold text-slate-900">{voucher.usedCount ?? voucher.usageCount ?? 0}</span>
-                        {voucher.maxUses || voucher.usageLimit ? (
-                          <span className="text-xs text-slate-400"> / {voucher.maxUses ?? voucher.usageLimit}</span>
-                        ) : null}
-                        <p className="mt-1 text-xs text-slate-400">{voucher.recipientCount || 0} người nhận</p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span>{formatDate(voucher.startDate)} - {formatDate(voucher.endDate)}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[voucher.status] || statusClass.ACTIVE}`}>
-                          {statusLabel[voucher.status] || voucher.status || 'Đang hoạt động'}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => openSendModal(voucher)}
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
-                            title="Gửi voucher"
-                          >
-                            <Send className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleVoucher(voucher)}
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                            title={voucher.isActive ? 'Tắt voucher' : 'Bật voucher'}
-                          >
-                            {voucher.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      </div>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
+      {/* Delete Confirmation Modal */}
+      {deleteTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+              <Trash2 className="h-6 w-6" />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900">Xóa voucher</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Bạn có chắc muốn xóa mã giảm giá <span className="font-mono font-bold text-slate-900">{deleteTarget.code}</span> không?
+              Hành động này không thể hoàn tác.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={deleteVoucher}
+                disabled={deleting}
+                className="flex-1 rounded-xl bg-rose-600 py-2.5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
+              >
+                {deleting ? 'Đang xóa...' : 'Xóa voucher'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Send Voucher Modal */}
       {sendVoucher ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-sm">
           <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl bg-white p-6 shadow-2xl">

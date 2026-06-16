@@ -1,9 +1,13 @@
-import { Star, Users } from 'lucide-react';
+import { Bookmark, BookmarkCheck, Star, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getFileUrl } from '../utils/fileUtils';
+import { useAuth } from '../context/AuthContext';
+import { useSavedCourses } from '../context/SavedCoursesContext';
 
-export default function CourseCard({ course }) {
+export default function CourseCard({ course, showSaveButton = false }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { isSaved, saveCourse, removeCourse } = useSavedCourses();
 
   let meta = {};
   if (course.description) {
@@ -20,10 +24,24 @@ export default function CourseCard({ course }) {
   const averageRating = Number(course.averageRating || course.rating || 0);
   const reviewCount = Number(course.reviewCount || course.reviews || 0);
   const category = course.category || meta.category || 'Chung';
+  const saved = isSaved(course.id);
 
   const formatNumber = (num) => {
     if (!num) return 0;
     return num >= 1000 ? `${(num / 1000).toFixed(1)}k` : num;
+  };
+
+  const handleSaveToggle = async (e) => {
+    e.stopPropagation();
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (saved) {
+      await removeCourse(course.id);
+    } else {
+      await saveCourse(course.id);
+    }
   };
 
   return (
@@ -53,6 +71,25 @@ export default function CourseCard({ course }) {
             {meta.badge}
           </span>
         ) : null}
+
+        {/* Nút Lưu — chỉ hiện khi showSaveButton=true */}
+        {showSaveButton && (
+          <button
+            onClick={handleSaveToggle}
+            title={saved ? 'Bỏ lưu' : 'Lưu khóa học'}
+            className={`absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full shadow-md transition-all duration-200 ${
+              saved
+                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                : 'bg-white/90 text-slate-500 hover:bg-white hover:text-purple-600'
+            } ${meta.badge ? 'top-10' : ''}`}
+          >
+            {saved ? (
+              <BookmarkCheck className="h-4 w-4" />
+            ) : (
+              <Bookmark className="h-4 w-4" />
+            )}
+          </button>
+        )}
       </div>
 
       <p className="mb-1 text-xs text-slate-400">

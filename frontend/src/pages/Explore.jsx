@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
-import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bookmark,
+  BookmarkCheck,
   BookOpen,
+  ExternalLink,
   Flame,
   GraduationCap,
   Hash,
@@ -11,13 +13,17 @@ import {
   Play,
   Route,
   Search,
+  ShoppingBag,
   SlidersHorizontal,
   Sparkles,
   Star,
+  Trash2,
   Trophy,
+  X,
 } from 'lucide-react';
 import CourseCard, { CourseSkeleton } from '../components/CourseCard';
 import { useAuth } from '../context/AuthContext';
+import { useSavedCourses } from '../context/SavedCoursesContext';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -31,8 +37,13 @@ const emptyInsights = {
 
 const formatCompact = (value = 0) => numberFormatter.format(Number(value || 0));
 
+const formatPrice = (price) =>
+  price === 0 ? 'Miễn phí' : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+
 const Explore = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { savedCourses, count: savedCount, removeCourse, isSaved, saveCourse } = useSavedCourses();
   const [searchParams, setSearchParams] = useSearchParams();
   const q = searchParams.get('q') || '';
   const category = searchParams.get('category') || '';
@@ -48,6 +59,19 @@ const Explore = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [enrolledIds, setEnrolledIds] = useState(new Set());
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const cartRef = useRef(null);
+
+  // Close cart when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (cartRef.current && !cartRef.current.contains(e.target)) {
+        setIsCartOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch enrolled course IDs once
   useEffect(() => {
@@ -153,9 +177,38 @@ const Explore = () => {
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Khám phá</h1>
-
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {/* Cart / Saved Courses Button */}
+          <div className="relative" ref={cartRef}>
+            <button
+              id="saved-courses-btn"
+              onClick={() => setIsCartOpen((v) => !v)}
+              className={`relative inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
+                isCartOpen
+                  ? 'border-purple-200 bg-purple-50 text-purple-700'
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <ShoppingBag className="h-4 w-4" />
+              Đã lưu
+              {savedCount > 0 && (
+                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[10px] font-bold text-white">
+                  {savedCount}
+                </span>
+              )}
+            </button>
+
+            {/* Cart Dropdown Panel */}
+            {isCartOpen && (
+              <SavedCoursesPanel
+                savedCourses={savedCourses}
+                onRemove={removeCourse}
+                onClose={() => setIsCartOpen(false)}
+              />
+            )}
+          </div>
+
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
@@ -221,7 +274,16 @@ const Explore = () => {
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <main className="space-y-6 xl:col-span-2">
-            {featuredCourse && <FeaturedCourse course={featuredCourse} />}
+            {featuredCourse && (
+              <FeaturedCourse
+                course={featuredCourse}
+                isSaved={isSaved(featuredCourse.id)}
+                onSave={() => {
+                  if (!user) { navigate('/login'); return; }
+                  isSaved(featuredCourse.id) ? removeCourse(featuredCourse.id) : saveCourse(featuredCourse.id);
+                }}
+              />
+            )}
 
             {isLoading ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -236,7 +298,7 @@ const Explore = () => {
               <>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {filteredCourses.map((course) => (
-                    <CourseCard key={course.id} course={course} />
+                    <CourseCard key={course.id} course={course} showSaveButton={true} />
                   ))}
                 </div>
                 {totalPages > 1 && (
@@ -244,13 +306,12 @@ const Explore = () => {
                 )}
               </>
             )}
-
-            <TrendingTopics topics={insights.trendingTopics} onSelect={(value) => updateParam('category', value)} />
           </main>
 
           <aside className="space-y-6">
             <RecommendedCourses courses={recommendedCourses} />
             <TopInstructors instructors={insights.topInstructors} />
+            <TrendingTopics topics={insights.trendingTopics} onSelect={(value) => updateParam('category', value)} />
             <LearningPaths paths={insights.learningPaths} onSelect={(value) => updateParam('category', value)} />
           </aside>
         </div>
@@ -259,6 +320,111 @@ const Explore = () => {
   );
 };
 
+// ─── Saved Courses Panel ──────────────────────────────────────────────────────
+
+const SavedCoursesPanel = ({ savedCourses, onRemove, onClose }) => {
+  return (
+    <div className="absolute right-0 top-full z-50 mt-2 w-96 overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-2xl shadow-slate-200/60">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <ShoppingBag className="h-4 w-4 text-purple-600" />
+          Khóa học đã lưu
+          {savedCourses.length > 0 && (
+            <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+              {savedCourses.length}
+            </span>
+          )}
+        </h3>
+        <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="max-h-80 overflow-y-auto">
+        {savedCourses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center px-5 py-10 text-center">
+            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50">
+              <Bookmark className="h-7 w-7 text-purple-400" />
+            </div>
+            <p className="mb-1 text-sm font-medium text-slate-700">Chưa có khóa học nào được lưu</p>
+            <p className="text-xs text-slate-400">Nhấn nút bookmark trên card khóa học để lưu lại.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {savedCourses.map((item) => (
+              <SavedCourseItem key={item.id} item={item} onRemove={onRemove} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {savedCourses.length > 0 && (
+        <div className="border-t border-slate-100 bg-slate-50/50 px-5 py-3">
+          <p className="text-center text-xs text-slate-400">
+            Bấm vào tên khóa học để xem chi tiết và đăng ký.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const SavedCourseItem = ({ item, onRemove }) => {
+  const course = item.course;
+  if (!course) return null;
+
+  return (
+    <div className="flex items-start gap-3 px-5 py-3.5 transition hover:bg-slate-50">
+      {/* Thumbnail */}
+      <Link to={`/course/${course.id}`} className="shrink-0">
+        <div className="h-12 w-16 overflow-hidden rounded-lg bg-gradient-to-br from-purple-100 to-pink-100">
+          {course.thumbnail ? (
+            <img src={course.thumbnail} alt={course.title} className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <BookOpen className="h-5 w-5 text-purple-400" />
+            </div>
+          )}
+        </div>
+      </Link>
+
+      {/* Info */}
+      <div className="min-w-0 flex-1">
+        <Link to={`/course/${course.id}`} className="group">
+          <p className="line-clamp-2 text-xs font-medium text-slate-800 transition group-hover:text-purple-700">
+            {course.title}
+          </p>
+        </Link>
+        <p className="mt-0.5 text-[10px] text-slate-400">{course.instructorName}</p>
+        <p className="mt-1 text-xs font-semibold text-purple-700">{formatPrice(course.price)}</p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex shrink-0 flex-col items-end gap-1.5">
+        <Link
+          to={`/course/${course.id}`}
+          className="flex items-center gap-1 rounded-lg bg-purple-600 px-2.5 py-1.5 text-[10px] font-medium text-white transition hover:bg-purple-700"
+        >
+          <ExternalLink className="h-3 w-3" />
+          Xem
+        </Link>
+        <button
+          onClick={() => onRemove(course.id)}
+          className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-[10px] font-medium text-slate-400 transition hover:bg-red-50 hover:text-red-500"
+        >
+          <Trash2 className="h-3 w-3" />
+          Xóa
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
 const FilterChip = ({ label, onClear }) => (
   <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-700">
     {label}
@@ -266,7 +432,7 @@ const FilterChip = ({ label, onClear }) => (
   </span>
 );
 
-const FeaturedCourse = ({ course }) => (
+const FeaturedCourse = ({ course, isSaved, onSave }) => (
   <section className="overflow-hidden rounded-2xl border border-purple-100 bg-gradient-to-r from-purple-100 via-purple-50 to-pink-50 p-6">
     <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
       <div className="max-w-xl">
@@ -284,9 +450,16 @@ const FeaturedCourse = ({ course }) => (
             <Play className="h-4 w-4" />
             Xem khóa học
           </Link>
-          <button className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            <Bookmark className="h-4 w-4" />
-            Lưu
+          <button
+            onClick={onSave}
+            className={`inline-flex items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition ${
+              isSaved
+                ? 'border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+            {isSaved ? 'Đã lưu' : 'Lưu'}
           </button>
         </div>
       </div>

@@ -209,6 +209,15 @@ const Topbar = () => {
     navigate(realRole === 'ADMIN' ? '/' : '/instructor/dashboard');
   };
 
+  const isCourseEditor = 
+    /^\/instructor\/courses\/new\/?$/.test(location.pathname) ||
+    /^\/instructor\/courses\/[^/]+\/?$/.test(location.pathname) ||
+    /^\/instructor\/courses\/[^/]+\/edit\/?$/.test(location.pathname);
+
+  if (isCourseEditor) {
+    return null;
+  }
+
   return (
     <div className={`mb-6 flex flex-wrap items-center gap-4 md:flex-nowrap ${hideCourseSearch || activeView === 'INSTRUCTOR' ? 'justify-end' : ''}`}>
       {activeView !== 'INSTRUCTOR' && !hideCourseSearch && (

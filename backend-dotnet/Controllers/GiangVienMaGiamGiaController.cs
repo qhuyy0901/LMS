@@ -130,6 +130,81 @@ public class GiangVienMaGiamGiaController(LmsDbContext db) : ControllerBase
         return Results.Ok(MapVoucher(voucher));
     }
 
+    [HttpPut("/api/teacher/vouchers/{id}")]
+    [HttpPut("/api/instructor/vouchers/{id}")]
+    public async Task<IResult> CapNhat(string id, [FromBody] TaoMaGiamGiaRequest request)
+    {
+        var loi = TroGiup.YeuCauGiangVien(User);
+        if (loi is not null) return loi;
+
+        var teacherId = TroGiup.LayUserId(User)!;
+        var voucher = await db.Coupons
+            .Include(coupon => coupon.Course)
+            .Include(coupon => coupon.Recipients)
+            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.TeacherId == teacherId);
+        if (voucher is null) return Results.NotFound(new { message = "Không tìm thấy voucher" });
+
+        if (!string.IsNullOrWhiteSpace(request.Code))
+        {
+            var code = request.Code.Trim().ToUpperInvariant();
+            if (code != voucher.Code && await db.Coupons.AnyAsync(coupon => coupon.Code == code))
+                return Results.Conflict(new { message = "Mã giảm giá đã tồn tại" });
+            voucher.Code = code;
+        }
+
+        var discountType = NormalizeDiscountType(request.DiscountType);
+        if (request.DiscountValue <= 0) return Results.BadRequest(new { message = "Giá trị giảm phải lớn hơn 0" });
+        if (discountType == "PERCENTAGE" && request.DiscountValue > 100) return Results.BadRequest(new { message = "Giảm theo phần trăm không được vượt quá 100%" });
+        if (request.EndDate is not null && request.StartDate is not null && request.EndDate <= request.StartDate)
+            return Results.BadRequest(new { message = "Ngày kết thúc phải sau ngày bắt đầu" });
+
+        KhoaHoc? course = null;
+        if (!string.IsNullOrWhiteSpace(request.CourseId))
+        {
+            course = await db.Courses.FirstOrDefaultAsync(item => item.Id == request.CourseId && item.InstructorId == teacherId);
+            if (course is null) return Results.Json(new { message = "Bạn không có quyền sử dụng khóa học này" }, statusCode: 403);
+        }
+
+        voucher.DiscountType = discountType;
+        voucher.DiscountValue = request.DiscountValue;
+        voucher.MinPurchaseAmount = Math.Max(0, request.MinPurchaseAmount ?? 0);
+        voucher.MaxDiscountAmount = request.MaxDiscountAmount;
+        voucher.StartDate = request.StartDate;
+        voucher.EndDate = request.EndDate;
+        voucher.UsageLimit = request.UsageLimit;
+        voucher.CourseId = course?.Id;
+        voucher.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        var saved = await db.Coupons.AsNoTracking()
+            .Include(coupon => coupon.Course)
+            .Include(coupon => coupon.Recipients)
+            .FirstAsync(coupon => coupon.Id == voucher.Id);
+        return Results.Ok(MapVoucher(saved));
+    }
+
+    [HttpDelete("/api/teacher/vouchers/{id}")]
+    [HttpDelete("/api/instructor/vouchers/{id}")]
+    public async Task<IResult> Xoa(string id)
+    {
+        var loi = TroGiup.YeuCauGiangVien(User);
+        if (loi is not null) return loi;
+
+        var teacherId = TroGiup.LayUserId(User)!;
+        var voucher = await db.Coupons
+            .Include(coupon => coupon.Recipients)
+            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.TeacherId == teacherId);
+        if (voucher is null) return Results.NotFound(new { message = "Không tìm thấy voucher" });
+
+        if (voucher.Recipients.Count > 0)
+            db.CouponRecipients.RemoveRange(voucher.Recipients);
+
+        db.Coupons.Remove(voucher);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { message = "Đã xóa voucher thành công" });
+    }
+
     [HttpGet("/api/teacher/vouchers/eligible-students")]
     [HttpGet("/api/instructor/vouchers/eligible-students")]
     public async Task<IResult> HocVienCoTheNhan([FromQuery] string sourceCourseId)

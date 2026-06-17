@@ -386,6 +386,18 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
         if (activeCount >= item.Capacity) return Results.BadRequest(new { message = "Sự kiện đã đủ số lượng đăng ký." });
 
         var now = DateTime.UtcNow;
+        var user = await db.Users.FirstOrDefaultAsync(user => user.Id == userId);
+        if (user is null) return Results.Unauthorized();
+        var pointsUsed = Math.Max(0, item.PointCost);
+        if (pointsUsed > 0)
+        {
+            if (user.RewardPoints < pointsUsed)
+                return Results.BadRequest(new { message = "Bạn không đủ điểm để tham gia sự kiện này" });
+
+            user.RewardPoints -= pointsUsed;
+            user.UpdatedAt = now;
+        }
+
         if (registration is null)
         {
             registration = new DangKySuKien
@@ -393,6 +405,7 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
                 Id = TaoId.Moi(),
                 EventId = id,
                 UserId = userId,
+                PointsUsed = pointsUsed,
                 RegisteredAt = now,
                 CreatedAt = now,
                 UpdatedAt = now
@@ -402,14 +415,12 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
         else
         {
             registration.Status = "REGISTERED";
+            registration.PointsUsed = pointsUsed;
             registration.RegisteredAt = now;
             registration.UpdatedAt = now;
         }
 
-        var studentName = await db.Users.AsNoTracking()
-            .Where(user => user.Id == userId)
-            .Select(user => user.Name)
-            .FirstOrDefaultAsync() ?? "Một học viên";
+        var studentName = user.Name;
         db.Notifications.Add(new ThongBao
         {
             Id = TaoId.Moi(),
@@ -428,6 +439,8 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
             message = "Đăng ký sự kiện thành công",
             isRegistered = true,
             registrationCount = activeCount + 1,
+            pointsUsed,
+            rewardPoints = user.RewardPoints,
             linkThamGia = item.LinkThamGia,
             onlineUrl = item.LinkThamGia
         });
@@ -479,6 +492,7 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
         if (!EventFormats.Contains(request.Format?.Trim().ToUpperInvariant() ?? "")) return "Hình thức tổ chức không hợp lệ.";
         if (request.EndAt <= request.StartAt) return "Thời gian kết thúc phải sau thời gian bắt đầu.";
         if (request.Capacity < 1 || request.Capacity > 10000) return "Số lượng người tham gia phải từ 1 đến 10.000.";
+        if (request.PointCost < 0 || request.PointCost > 10000) return "Số điểm cần đổi phải từ 0 đến 10.000.";
         var format = request.Format!.Trim().ToUpperInvariant();
         if (format is "OFFLINE" or "HYBRID" && string.IsNullOrWhiteSpace(request.Location)) return "Vui lòng nhập địa điểm tổ chức.";
         if (format is "ONLINE" or "HYBRID" && string.IsNullOrWhiteSpace(request.LinkThamGia)) return "Vui lòng nhập liên kết tham gia trực tuyến.";
@@ -496,6 +510,7 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
         item.Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
         item.LinkThamGia = string.IsNullOrWhiteSpace(request.LinkThamGia) ? null : request.LinkThamGia.Trim();
         item.Capacity = request.Capacity;
+        item.PointCost = request.PointCost;
         // Note: ImageUrl is now managed via SuKienAnh (cover image sync)
         // Keep backward compat: if request has imageUrl and no images uploaded yet, use it
         if (!string.IsNullOrWhiteSpace(request.ImageUrl))
@@ -526,6 +541,8 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
             linkThamGia = joinLink,
             imageUrl = coverImage?.ImageUrl ?? item.ImageUrl,
             capacity = item.Capacity,
+            pointCost = Math.Max(0, item.PointCost),
+            pointsUsed = activeRegistrations.FirstOrDefault(entry => entry.UserId == userId)?.PointsUsed ?? 0,
             status = item.Status,
             instructorId = item.InstructorId,
             instructorName = item.Instructor?.Name ?? "Giảng viên",
@@ -533,7 +550,7 @@ public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : Contro
             isRegistered,
             images,
             attendees = includeAttendees
-                ? activeRegistrations.Select(entry => new { id = entry.UserId, name = entry.User?.Name, email = entry.User?.Email, registeredAt = entry.RegisteredAt })
+                ? activeRegistrations.Select(entry => new { id = entry.UserId, name = entry.User?.Name, email = entry.User?.Email, pointsUsed = entry.PointsUsed, registeredAt = entry.RegisteredAt })
                 : null,
             createdAt = item.CreatedAt,
             updatedAt = item.UpdatedAt
@@ -571,6 +588,7 @@ public sealed class LuuSuKienRequest
     public string? LinkThamGia { get; set; }
     public string? ImageUrl { get; set; }
     public int Capacity { get; set; } = 50;
+    public int PointCost { get; set; }
 }
 
 public sealed class LuuLienKetMeetRequest

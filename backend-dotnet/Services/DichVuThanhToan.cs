@@ -104,15 +104,6 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
 
                 user.WalletBalance -= giaCuoi;
                 user.TotalSpent += giaCuoi;
-                var homNay = TroGiup.LayNgayDiaPhuong();
-                var tuanHienTai = TroGiup.LayMaTuan(homNay);
-                var diemNhanDuoc = 0;
-                if (user.LastPurchaseRewardWeek != tuanHienTai)
-                {
-                    diemNhanDuoc = Math.Min(15, 100 - user.RewardPoints);
-                    user.RewardPoints += diemNhanDuoc;
-                    user.LastPurchaseRewardWeek = tuanHienTai;
-                }
                 TroGiup.DongBoHangThanhVien(user);
                 user.UpdatedAt = now;
 
@@ -152,7 +143,7 @@ public class DichVuThanhToan(LmsDbContext db) : IDichVuThanhToan
                 await transaction.CommitAsync();
 
                 var hang = TroGiup.TinhHangThanhVien(user.WalletBalance);
-                return Results.Ok(new { message = "Mua khóa học thành công", walletBalance = user.WalletBalance, totalSpent = user.TotalSpent, memberTier = user.MemberTier, memberTierLabel = hang.NhanHieu, discountAmount = soTienGiam, finalPrice = giaCuoi, earnedPoints = diemNhanDuoc, rewardPoints = user.RewardPoints, successUrl = $"{frontendUrl}/course/{khoaHocId}?success=true" });
+                return Results.Ok(new { message = "Mua khóa học thành công", walletBalance = user.WalletBalance, totalSpent = user.TotalSpent, memberTier = user.MemberTier, memberTierLabel = hang.NhanHieu, discountAmount = soTienGiam, finalPrice = giaCuoi, earnedPoints = 0, rewardPoints = user.RewardPoints, successUrl = $"{frontendUrl}/course/{khoaHocId}?success=true" });
             }
             catch (Exception ex)
             {

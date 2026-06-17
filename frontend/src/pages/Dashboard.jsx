@@ -9,11 +9,12 @@ import {
   CalendarDays,
   Check,
   DollarSign,
+  Eye,
+  EyeOff,
   FileCheck,
   Flame,
   GraduationCap,
   Play,
-  ShoppingCart,
   TrendingUp,
   Users,
   Wallet,
@@ -29,6 +30,8 @@ const formatCurrency = (amount = 0) =>
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(Number(amount || 0));
+
+const STUDENT_WALLET_PRIVACY_KEY = 'student-dashboard-wallet-amounts';
 
 const formatDate = (value) =>
   value
@@ -104,6 +107,7 @@ const normalizeDashboardData = (view, payload = {}) => {
       loginStreak: payload.loginStreak ?? 0,
       nextLoginReward: payload.nextLoginReward ?? 3,
       dailyLessonCompleted: payload.dailyLessonCompleted ?? false,
+      dailyQuizPassed: payload.dailyQuizPassed ?? false,
       weeklyPurchaseCompleted: payload.weeklyPurchaseCompleted ?? false,
     },
     recentCourses: (payload.recentCourses ?? []).map((course) => ({
@@ -117,6 +121,47 @@ const normalizeDashboardData = (view, payload = {}) => {
 const StudentDashboard = ({ data, loading }) => {
   const stats = data?.stats;
   const recentCourses = data?.recentCourses || [];
+  const [showWalletAmounts, setShowWalletAmounts] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    return window.localStorage.getItem(STUDENT_WALLET_PRIVACY_KEY) !== 'hidden';
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(STUDENT_WALLET_PRIVACY_KEY, showWalletAmounts ? 'visible' : 'hidden');
+    }
+  }, [showWalletAmounts]);
+
+  const learningPoints = stats?.rewardPoints ?? 0;
+  const dailyTasks = [
+    {
+      icon: Flame,
+      title: 'Đăng nhập học mỗi ngày',
+      subtitle: `Chuỗi ${stats?.loginStreak ?? 0} ngày`,
+      reward: `+${stats?.nextLoginReward ?? 3} điểm`,
+      done: (stats?.loginStreak ?? 0) > 0,
+      color: 'bg-orange-50 text-orange-500',
+    },
+    {
+      icon: BookOpen,
+      title: 'Hoàn thành 1 bài học mỗi ngày',
+      subtitle: '',
+      reward: '+5 điểm',
+      done: Boolean(stats?.dailyLessonCompleted),
+      color: 'bg-green-50 text-green-600',
+    },
+    {
+      icon: FileCheck,
+      title: 'Làm quiz đạt yêu cầu',
+      subtitle: '',
+      reward: '+10 điểm',
+      done: Boolean(stats?.dailyQuizPassed),
+      color: 'bg-blue-50 text-blue-600',
+    },
+  ];
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -234,7 +279,21 @@ const StudentDashboard = ({ data, loading }) => {
 
       <aside className="space-y-6">
         <section className="rounded-2xl border border-slate-100 bg-white p-6">
-          <h3 className="mb-4 text-xl font-semibold tracking-tight text-slate-900">Ví của tôi</h3>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Ví của tôi</h3>
+            {!loading && (
+              <button
+                type="button"
+                onClick={() => setShowWalletAmounts((current) => !current)}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-200"
+                title={showWalletAmounts ? 'Ẩn số tiền' : 'Hiện số tiền'}
+                aria-label={showWalletAmounts ? 'Ẩn số tiền trong ví' : 'Hiện số tiền trong ví'}
+                aria-pressed={!showWalletAmounts}
+              >
+                {showWalletAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            )}
+          </div>
           {loading ? (
             <div className="space-y-3">
               <div className="h-8 w-32 animate-pulse rounded bg-slate-100" />
@@ -242,8 +301,12 @@ const StudentDashboard = ({ data, loading }) => {
             </div>
           ) : (
             <>
-              <p className="mb-1 text-3xl font-bold text-slate-900">{formatCurrency(stats?.walletBalance ?? 0)}</p>
-              <p className="mb-4 text-xs text-slate-400">Đã chi: {formatCurrency(stats?.totalSpent ?? 0)}</p>
+              <p className="mb-1 text-3xl font-bold text-slate-900">
+                {showWalletAmounts ? formatCurrency(stats?.walletBalance ?? 0) : '••••••'}
+              </p>
+              <p className="mb-4 text-xs text-slate-400">
+                Đã chi: {showWalletAmounts ? formatCurrency(stats?.totalSpent ?? 0) : '••••••'}
+              </p>
               <Link
                 to="/upgrade"
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
@@ -264,27 +327,15 @@ const StudentDashboard = ({ data, loading }) => {
           </div>
           <div className="space-y-5">
             <QuestRow
-              icon={Flame}
-              title="Đăng nhập học mỗi ngày"
-              subtitle={`Chuỗi ${stats?.loginStreak ?? 0} ngày · Ngày kế tiếp +${stats?.nextLoginReward ?? 3} điểm`}
-              color="bg-orange-50 text-orange-500"
-              right={`${stats?.rewardPoints ?? 0}/100`}
+              icon={Award}
+              title="Điểm học tập hiện có"
+              subtitle=""
+              color="bg-purple-50 text-purple-600"
+              right={`${learningPoints} điểm`}
             />
-            <Progress value={Math.min(100, stats?.rewardPoints ?? 0)} />
-            <QuestRow
-              icon={BookOpen}
-              title="Hoàn thành 1 bài học mỗi ngày"
-              subtitle="+5 điểm"
-              color="bg-green-50 text-green-600"
-              done={stats?.dailyLessonCompleted}
-            />
-            <QuestRow
-              icon={ShoppingCart}
-              title="Mua 1 khóa học bất kỳ mỗi tuần"
-              subtitle="+15 điểm"
-              color="bg-blue-50 text-blue-600"
-              done={stats?.weeklyPurchaseCompleted}
-            />
+            {dailyTasks.map((task) => (
+              <QuestRow key={task.title} {...task} />
+            ))}
           </div>
         </section>
       </aside>
@@ -516,28 +567,23 @@ const CourseDate = ({ label, value }) => (
   </div>
 );
 
-const QuestRow = ({ icon: Icon, title, subtitle, color, right, done }) => (
+const QuestRow = ({ icon: Icon, title, subtitle, color, right, done, reward }) => (
   <div className="flex items-center gap-3">
     <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}>
       <Icon className="h-5 w-5" />
     </div>
     <div className="min-w-0 flex-1">
       <p className="text-sm font-medium text-slate-900">{title}</p>
-      <p className="text-xs text-slate-500">{subtitle}</p>
+      {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
     </div>
     {right ? (
       <span className="text-lg font-bold text-purple-700">{right}</span>
     ) : (
-      <div className={`flex h-7 w-7 items-center justify-center rounded-full ${done ? 'bg-green-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
-        {done ? <Check className="h-4 w-4" /> : <span className="text-xs">0/1</span>}
+      <div className="shrink-0 text-right">
+        <p className="text-xs font-semibold text-purple-600">{reward}</p>
+        <p className={`text-sm font-bold ${done ? 'text-emerald-600' : 'text-slate-500'}`}>{done ? '1/1' : '0/1'}</p>
       </div>
     )}
-  </div>
-);
-
-const Progress = ({ value }) => (
-  <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-    <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${value}%` }} />
   </div>
 );
 

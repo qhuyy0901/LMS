@@ -85,6 +85,13 @@ function App() {
                     <Route path="messages" element={<Messages />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="certificates" element={<Certificates />} />
+                    <Route path="missions" element={<Navigate to="/" replace />} />
+                    <Route path="tasks" element={<Navigate to="/" replace />} />
+                    <Route path="points" element={<Navigate to="/" replace />} />
+                    <Route path="my-points" element={<Navigate to="/" replace />} />
+                    <Route path="redeem-points" element={<Navigate to="/" replace />} />
+                    <Route path="rewards" element={<Navigate to="/" replace />} />
+                    <Route path="point-exchange" element={<Navigate to="/" replace />} />
                     <Route path="upgrade" element={<Pricing />} />
 
                     <Route

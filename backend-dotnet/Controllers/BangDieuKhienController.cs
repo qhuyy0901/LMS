@@ -98,6 +98,9 @@ public class BangDieuKhienController(LmsDbContext db) : ControllerBase
         var hangThanhVien = TroGiup.TinhHangThanhVien(nguoiDung.WalletBalance);
         var homNay = TroGiup.LayNgayDiaPhuong();
         var tuanHienTai = TroGiup.LayMaTuan(homNay);
+        var dauNgayUtc = DateTime.UtcNow.Date;
+        var dailyQuizPassed = await db.QuizSubmissions.AsNoTracking()
+            .AnyAsync(submission => submission.UserId == userId && submission.Passed && submission.CreatedAt >= dauNgayUtc);
 
         return Results.Ok(new
         {
@@ -116,6 +119,7 @@ public class BangDieuKhienController(LmsDbContext db) : ControllerBase
             lastRewardLoginDate = nguoiDung.LastRewardLoginDate,
             nextLoginReward = Math.Min(10, 3 + nguoiDung.LoginStreak),
             dailyLessonCompleted = nguoiDung.LastLessonRewardDate?.Date == homNay,
+            dailyQuizPassed,
             weeklyPurchaseCompleted = nguoiDung.LastPurchaseRewardWeek == tuanHienTai,
             recentCourses = khoaHocDangHoc
         });

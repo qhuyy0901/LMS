@@ -51,6 +51,7 @@ const emptyForm = {
   location: '',
   linkThamGia: '',
   capacity: 50,
+  pointCost: 0,
 };
 
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
@@ -170,6 +171,7 @@ export default function InstructorEvents() {
       location: item.location || '',
       linkThamGia: item.linkThamGia || item.onlineUrl || '',
       capacity: item.capacity,
+      pointCost: item.pointCost ?? 0,
     });
     setExistingImages(item.images || []);
     setNewFiles([]);
@@ -195,6 +197,7 @@ export default function InstructorEvents() {
       const payload = {
         ...form,
         capacity: Number(form.capacity),
+        pointCost: Number(form.pointCost || 0),
         startAt: new Date(form.startAt).toISOString(),
         endAt: new Date(form.endAt).toISOString(),
       };
@@ -496,6 +499,7 @@ export default function InstructorEvents() {
                     <Users className="h-4 w-4 text-purple-500" />
                     {item.registrationCount}/{item.capacity} người đăng ký
                   </button>
+                  <p className="font-semibold text-purple-700 sm:col-span-2">{(item.pointCost ?? 0) > 0 ? `${item.pointCost} điểm để tham gia` : 'Tham gia miễn phí'}</p>
                 </div>
               </div>
 
@@ -569,6 +573,7 @@ export default function InstructorEvents() {
                 </label>
               )}
               <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Số người tối đa <span className="text-rose-500">*</span></span><input required type="number" min="1" max="10000" value={form.capacity} onChange={(event) => setForm({ ...form, capacity: event.target.value })} className={fieldClass} /></label>
+              <label><span className="mb-1.5 block text-sm font-semibold text-slate-700">Điểm cần đổi</span><input type="number" min="0" max="10000" value={form.pointCost} onChange={(event) => setForm({ ...form, pointCost: event.target.value })} className={fieldClass} /></label>
               <label className="md:col-span-2"><span className="mb-1.5 block text-sm font-semibold text-slate-700">Mô tả sự kiện <span className="text-rose-500">*</span></span><textarea required minLength={20} rows={5} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} className={fieldClass} /></label>
 
               {/* ===== Image Upload Section ===== */}
@@ -698,8 +703,8 @@ export default function InstructorEvents() {
             </div>
             <div className="max-h-96 overflow-y-auto p-4">
               {showAttendees.attendees?.length ? showAttendees.attendees.map((person) => (
-                <div key={person.id} className="flex items-center justify-between border-b border-slate-100 py-3">
-                  <div><p className="text-sm font-medium text-slate-800">{person.name}</p><p className="text-xs text-slate-500">{person.email}</p></div>
+                <div key={person.id} className="flex items-center justify-between gap-3 border-b border-slate-100 py-3">
+                  <div><p className="text-sm font-medium text-slate-800">{person.name}</p><p className="text-xs text-slate-500">{person.email}</p>{person.pointsUsed > 0 && <p className="mt-1 text-xs font-medium text-purple-600">Đã dùng {person.pointsUsed} điểm</p>}</div>
                   <span className="text-xs text-slate-400">{dateTime.format(new Date(person.registeredAt))}</span>
                 </div>
               )) : <p className="py-8 text-center text-sm text-slate-500">Chưa có người đăng ký.</p>}

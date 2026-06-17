@@ -75,10 +75,12 @@ export default function EventDetails() {
         ...current,
         isRegistered: true,
         registrationCount: response.data.registrationCount ?? current.registrationCount + 1,
+        pointsUsed: response.data.pointsUsed ?? current.pointCost ?? 0,
         linkThamGia: response.data.linkThamGia ?? current.linkThamGia,
         onlineUrl: response.data.onlineUrl ?? current.onlineUrl,
       }));
-      setMessage('Đăng ký sự kiện thành công');
+      const pointsUsed = response.data.pointsUsed ?? event.pointCost ?? 0;
+      setMessage(pointsUsed > 0 ? `Đổi ${pointsUsed} điểm thành công` : 'Đăng ký sự kiện miễn phí thành công');
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể đăng ký tham gia.');
     } finally { setBusy(false); }
@@ -108,6 +110,8 @@ export default function EventDetails() {
   const ended = new Date(event.endAt).getTime() <= currentTime;
   const full = event.registrationCount >= event.capacity;
   const images = event.images || [];
+  const pointCost = event.pointCost ?? 0;
+  const pointsUsed = event.pointsUsed ?? 0;
 
   return (
     <div className="animate-fade-in-up space-y-6 pb-16">
@@ -131,23 +135,24 @@ export default function EventDetails() {
               <p className="mt-2 text-sm text-slate-500">Giảng viên {event.instructorName}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {online && ((isInstructor && event.linkThamGia) || (!isInstructor && event.isRegistered)) && <ActionButton icon={Video} onClick={openMeeting}>Tham gia</ActionButton>}
+              {online && ((isInstructor && event.linkThamGia) || (!isInstructor && event.isRegistered)) && <ActionButton icon={Video} onClick={openMeeting}>Vào phòng</ActionButton>}
               {isInstructor && <>
                 <ActionButton icon={Edit3} secondary onClick={() => navigate(`/instructor/events?edit=${event.id}`)}>Sửa</ActionButton>
                 {event.status !== 'PUBLISHED' && <ActionButton icon={Check} onClick={() => runInstructorAction('publish')} disabled={busy}>Xuất bản</ActionButton>}
                 {event.status !== 'CANCELLED' && <ActionButton icon={XCircle} secondary onClick={() => runInstructorAction('cancel')} disabled={busy}>Hủy</ActionButton>}
                 <ActionButton icon={Trash2} danger onClick={() => runInstructorAction('delete')} disabled={busy}>Xóa</ActionButton>
               </>}
-              {!isInstructor && !event.isRegistered && <ActionButton icon={Check} onClick={register} disabled={busy}>{busy ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : 'Đăng ký tham gia'}</ActionButton>}
-              {!isInstructor && event.isRegistered && <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700"><Check className="h-4 w-4" /> Đã đăng ký</span>}
+              {!isInstructor && !event.isRegistered && <ActionButton icon={Check} onClick={register} disabled={busy || ended || full}>{busy ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : pointCost > 0 ? `Đổi ${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}</ActionButton>}
+              {!isInstructor && event.isRegistered && <div className="text-right"><span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700"><Check className="h-4 w-4" /> Đã đăng ký</span>{pointsUsed > 0 && <p className="mt-1 text-xs font-medium text-slate-500">Đã sử dụng {pointsUsed} điểm</p>}</div>}
             </div>
           </div>
 
           <div className="mt-8 grid gap-4 rounded-2xl bg-slate-50 p-5 md:grid-cols-2">
             <Info icon={Clock3} label="Bắt đầu" value={dateTime.format(new Date(event.startAt))} />
             <Info icon={Clock3} label="Kết thúc" value={dateTime.format(new Date(event.endAt))} />
-            <Info icon={online ? Video : MapPin} label={online ? 'Liên kết tham gia' : 'Địa điểm tổ chức'} value={online ? (event.linkThamGia || event.onlineUrl || (!isInstructor && !event.isRegistered ? 'Đăng ký tham gia để xem liên kết.' : 'Sự kiện chưa có liên kết tham gia.')) : (event.location || 'Chưa cập nhật địa điểm')} />
+            <Info icon={online ? Video : MapPin} label={online ? 'Liên kết tham gia' : 'Địa điểm tổ chức'} value={online ? (event.linkThamGia || event.onlineUrl || (!isInstructor && !event.isRegistered ? (pointCost > 0 ? 'Đổi điểm để xem liên kết.' : 'Đăng ký để xem liên kết.') : 'Sự kiện chưa có liên kết tham gia.')) : (event.location || 'Chưa cập nhật địa điểm')} />
             <Info icon={Users} label="Người tham gia" value={`${event.registrationCount}/${event.capacity} người đã đăng ký`} />
+            <Info icon={Check} label="Điểm tham gia" value={pointCost > 0 ? `${pointCost} điểm` : 'Miễn phí'} />
           </div>
 
           <section className="mt-8">

@@ -57,11 +57,12 @@ export default function Events() {
             ...event,
             isRegistered: true,
             registrationCount: response.data.registrationCount ?? event.registrationCount + 1,
+            pointsUsed: response.data.pointsUsed ?? event.pointCost ?? 0,
             linkThamGia: response.data.linkThamGia ?? event.linkThamGia,
             onlineUrl: response.data.onlineUrl ?? event.onlineUrl,
           }
         : event));
-      setNotice('Đăng ký sự kiện thành công');
+      setNotice((response.data.pointsUsed ?? item.pointCost ?? 0) > 0 ? `Đổi ${(response.data.pointsUsed ?? item.pointCost)} điểm thành công` : 'Đăng ký sự kiện miễn phí thành công');
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Không thể đăng ký sự kiện.');
     } finally { setBusyId(''); }
@@ -123,6 +124,8 @@ export default function Events() {
             const ended = new Date(item.endAt).getTime() <= currentTime;
             const full = item.registrationCount >= item.capacity;
             const online = item.format === 'ONLINE' || item.format === 'HYBRID';
+            const pointCost = item.pointCost ?? 0;
+            const pointsUsed = item.pointsUsed ?? 0;
             return (
               <article key={item.id} className="flex overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
                 <div className="flex w-full flex-col">
@@ -146,9 +149,12 @@ export default function Events() {
                         {item.location || FORMATS[item.format]}
                       </p>
                       <p className="flex items-center gap-2"><Users className="h-4 w-4 text-purple-500" />{item.registrationCount}/{item.capacity} người tham gia · Giảng viên {item.instructorName}</p>
+                      <p className="text-sm font-semibold text-purple-700">
+                        {pointCost > 0 ? `${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}
+                      </p>
                     </div>
                     {item.isRegistered && online && !ended && (
-                      <p className="mt-3 text-xs text-amber-600">Sự kiện chưa bắt đầu, bạn có thể vào trước nếu giảng viên đã mở phòng.</p>
+                      <p className="mt-3 text-xs text-amber-600">Sự kiện chưa bắt đầu, bạn có thể vào phòng trước nếu giảng viên đã mở phòng.</p>
                     )}
                     <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
                       <Link to={`/student/events/${item.id}`} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700">
@@ -157,22 +163,25 @@ export default function Events() {
                       <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                         {item.isRegistered && online && (
                           <button type="button" onClick={() => joinOnlineEvent(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100">
-                            Tham gia <ExternalLink className="h-4 w-4" />
+                            Vào phòng <ExternalLink className="h-4 w-4" />
                           </button>
                         )}
                         {item.isRegistered ? (
-                          <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
-                            <Check className="h-4 w-4" /> Đã đăng ký
-                          </span>
+                          <div className="text-right">
+                            <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
+                              <Check className="h-4 w-4" /> Đã đăng ký
+                            </span>
+                            {pointsUsed > 0 && <p className="mt-1 text-xs font-medium text-slate-500">Đã sử dụng {pointsUsed} điểm</p>}
+                          </div>
                         ) : (
                           <button
                             type="button"
-                            disabled={busyId === item.id}
+                            disabled={busyId === item.id || ended || full}
                             onClick={() => registerEvent(item)}
                             className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${ended || full ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
                           >
                             <Check className="h-4 w-4" />
-                            {busyId === item.id ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : 'Đăng ký tham gia'}
+                            {busyId === item.id ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : pointCost > 0 ? `Đổi ${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}
                           </button>
                         )}
                       </div>

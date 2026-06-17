@@ -8,6 +8,7 @@ public class DangKySuKien
     public string UserId { get; set; } = string.Empty;
     public NguoiDung? User { get; set; }
     public string Status { get; set; } = "REGISTERED";
+    public int PointsUsed { get; set; }
     public DateTime RegisteredAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

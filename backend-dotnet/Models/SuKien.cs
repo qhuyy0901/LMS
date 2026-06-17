@@ -13,6 +13,7 @@ public class SuKien
     public string? LinkThamGia { get; set; }
     public string? ImageUrl { get; set; }
     public int Capacity { get; set; } = 50;
+    public int PointCost { get; set; }
     public string Status { get; set; } = "DRAFT";
     public string InstructorId { get; set; } = string.Empty;
     public NguoiDung? Instructor { get; set; }

@@ -13,9 +13,10 @@ public class DiemThuongController(LmsDbContext db) : ControllerBase
 {
     private static readonly PhanThuongSuKien[] DanhSach =
     [
-        new("workshop-starter", "Workshop kỹ năng thực hành", "Workshop", 30, "Trực tuyến", "2 giờ"),
-        new("career-webinar", "Hội thảo định hướng nghề nghiệp", "Hội thảo", 60, "Hybrid", "3 giờ"),
-        new("skillio-summit", "Skillio Learning Summit", "Sự kiện đặc biệt", 100, "Trực tiếp", "Cả ngày")
+        new("workshop-starter", "Workshop thực hành dự án nhỏ", "Workshop", 30, "Online", "2 giờ"),
+        new("career-seminar", "Hội thảo định hướng nghề nghiệp", "Hội thảo", 50, "Hybrid", "3 giờ"),
+        new("soft-skill-class", "Lớp kỹ năng thuyết trình", "Lớp kỹ năng", 35, "Offline", "2 giờ"),
+        new("learning-event", "Sự kiện học tập cộng đồng", "Sự kiện học tập", 70, "Online", "Cả buổi")
     ];
 
     [HttpGet("/api/rewards/events")]

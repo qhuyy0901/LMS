@@ -62,7 +62,7 @@ const TIER_WEIGHTS = {
 
 const TIERS_LIST = [
   { id: 'BRONZE', name: 'Đồng', desc: 'Thành viên mới. Quyền truy cập các khóa học cơ bản.', milestone: 0, badgeColor: 'bg-amber-50 text-amber-800 border border-amber-100' },
-  { id: 'SILVER', name: 'Bạc', desc: 'Ưu đãi giảm 5% học phí. Bắt đầu tích lũy điểm thưởng.', milestone: 1000000, badgeColor: 'bg-slate-50 text-slate-700 border border-slate-100' },
+  { id: 'SILVER', name: 'Bạc', desc: 'Ưu đãi giảm 5% học phí cho thành viên.', milestone: 1000000, badgeColor: 'bg-slate-50 text-slate-700 border border-slate-100' },
   { id: 'GOLD', name: 'Vàng', desc: 'Ưu đãi giảm 10% học phí. Mở khóa học cấp độ Vàng.', milestone: 3000000, badgeColor: 'bg-yellow-50 text-yellow-800 border border-yellow-100' },
   { id: 'PLATINUM', name: 'Bạch kim', desc: 'Ưu đãi giảm 15% học phí. Mở khóa học cấp độ Bạch kim.', milestone: 7000000, badgeColor: 'bg-sky-50 text-sky-800 border border-sky-100' },
   { id: 'DIAMOND', name: 'Kim cương', desc: 'Ưu đãi giảm 20% học phí. Mở khóa toàn bộ khóa học hệ thống.', milestone: 15000000, badgeColor: 'bg-purple-50 text-purple-800 border border-purple-100' },

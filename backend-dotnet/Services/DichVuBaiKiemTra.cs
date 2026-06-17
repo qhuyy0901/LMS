@@ -101,20 +101,34 @@ public class DichVuBaiKiemTra(LmsDbContext db, IDichVuGhiDanh dichVuGhiDanh) : I
 
         var diem = tongCauHoi == 0 ? 0 : Math.Round((soDung / (double)tongCauHoi) * 100);
         var dat = diem >= quiz.PassingScore;
+        var daDatTruocDo = await db.QuizSubmissions.AsNoTracking()
+            .AnyAsync(submission => submission.UserId == userId && submission.QuizId == quiz.Id && submission.Passed);
 
         var baiNop = new NopBaiKiemTra { Id = TaoId.Moi(), UserId = userId, QuizId = quiz.Id, Score = diem, Passed = dat, Answers = JsonSerializer.Serialize(dapAn), CreatedAt = DateTime.UtcNow };
         db.QuizSubmissions.Add(baiNop);
         await db.SaveChangesAsync();
 
         double? tienDoKhoaHoc = null;
+        var diemNhanDuoc = 0;
         if (dat)
         {
+            if (!daDatTruocDo)
+            {
+                var nguoiDung = await db.Users.FirstOrDefaultAsync(user => user.Id == userId);
+                if (nguoiDung is not null)
+                {
+                    diemNhanDuoc = Math.Max(0, Math.Min(10, 100 - nguoiDung.RewardPoints));
+                    nguoiDung.RewardPoints += diemNhanDuoc;
+                    nguoiDung.UpdatedAt = DateTime.UtcNow;
+                    await db.SaveChangesAsync();
+                }
+            }
             await dichVuGhiDanh.HoanThanhBaiHocAsync(userId, baiHoc.CourseId, lessonId);
             tienDoKhoaHoc = await db.Enrollments.Where(e => e.UserId == userId && e.CourseId == baiHoc.CourseId).Select(e => (double?)e.Progress).FirstOrDefaultAsync();
         }
         var chungChi = await dichVuGhiDanh.KiemTraVaCapChungChiAsync(userId, baiHoc.CourseId);
 
-        return Results.Ok(new { submissionId = baiNop.Id, score = diem, passed = dat, passingScore = quiz.PassingScore, correctCount = soDung, totalQuestions = tongCauHoi, detailedResults = chiTiet, progress = tienDoKhoaHoc, certificate = chungChi });
+        return Results.Ok(new { submissionId = baiNop.Id, score = diem, passed = dat, passingScore = quiz.PassingScore, correctCount = soDung, totalQuestions = tongCauHoi, detailedResults = chiTiet, progress = tienDoKhoaHoc, earnedPoints = diemNhanDuoc, certificate = chungChi });
     }
 
     public async Task<IResult> XoaBaiKiemTraAsync(string quizId, string userId, bool laAdmin)

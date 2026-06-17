@@ -74,6 +74,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.Property(item => item.Format).HasDefaultValue("OFFLINE");
             entity.Property(item => item.Status).HasDefaultValue("DRAFT");
             entity.Property(item => item.Capacity).HasDefaultValue(50);
+            entity.Property(item => item.PointCost).HasDefaultValue(0);
             entity.HasOne(item => item.Instructor)
                 .WithMany(item => item.OrganizedEvents)
                 .HasForeignKey(item => item.InstructorId)
@@ -87,6 +88,7 @@ public class LmsDbContext(DbContextOptions<LmsDbContext> options) : DbContext(op
             entity.HasIndex(item => new { item.EventId, item.UserId }).IsUnique();
             entity.HasIndex(item => new { item.UserId, item.RegisteredAt });
             entity.Property(item => item.Status).HasDefaultValue("REGISTERED");
+            entity.Property(item => item.PointsUsed).HasDefaultValue(0);
             entity.HasOne(item => item.Event)
                 .WithMany(item => item.Registrations)
                 .HasForeignKey(item => item.EventId)

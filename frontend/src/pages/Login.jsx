@@ -76,6 +76,15 @@ export default function Login() {
     }
   };
 
+  const handleForgotPassword = (event) => {
+    event.preventDefault();
+    alert('Hệ thống Demo hiện sử dụng các tài khoản mặc định sau:\n\n' +
+          '1. Học viên: student@gmail.com / 123456\n' +
+          '2. Giảng viên: instructor@gmail.com / 123456\n' +
+          '3. Quản trị viên: admin@gmail.com / 123456\n\n' +
+          'Vui lòng sử dụng các thông tin đăng nhập trên.');
+  };
+
   return (
     <div className="min-h-[100dvh] bg-white font-sans text-slate-900">
       <main className="mx-auto grid min-h-[100dvh] max-w-7xl lg:grid-cols-[minmax(0,1fr)_minmax(420px,0.92fr)]">
@@ -113,9 +122,13 @@ export default function Login() {
                   id="login-password"
                   label="Mật khẩu"
                   labelAction={
-                    <Link to="#" className="text-xs font-semibold text-purple-600 transition hover:text-purple-700">
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-xs font-semibold text-purple-600 transition hover:text-purple-700 bg-transparent border-none p-0 cursor-pointer"
+                    >
                       Quên mật khẩu?
-                    </Link>
+                    </button>
                   }
                   value={password}
                   onChange={(event) => {

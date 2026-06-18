@@ -2,15 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   BanknoteArrowDown,
-  CalendarDays,
   CheckCircle2,
-  Clock3,
   Landmark,
   Loader2,
-  ReceiptText,
   Search,
   ShieldCheck,
   WalletCards,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { getInstructorWallet } from '../api/instructorWalletApi';
 
@@ -43,6 +42,10 @@ const InstructorRevenue = () => {
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState(null);
+  const [showBalance, setShowBalance] = useState(() => {
+    const saved = localStorage.getItem('lms_show_balance');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const [form, setForm] = useState({
     bankName: '',
     accountHolder: '',
@@ -104,6 +107,18 @@ const InstructorRevenue = () => {
     setMessage(null);
   };
 
+  const toggleShowBalance = () => {
+    setShowBalance((prev) => {
+      const next = !prev;
+      localStorage.setItem('lms_show_balance', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const displayValue = (val) => {
+    return showBalance ? formatCurrency(val) : '••••••';
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setMessage(null);
@@ -152,9 +167,17 @@ const InstructorRevenue = () => {
 
   return (
     <div className="animate-fade-in-up space-y-6">
-      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
           <h1 className="text-2xl font-bold text-slate-900">Ví doanh thu</h1>
+          <button
+            type="button"
+            onClick={toggleShowBalance}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+            title={showBalance ? 'Ẩn số dư' : 'Hiện số dư'}
+          >
+            {showBalance ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+          </button>
         </div>
       </header>
 
@@ -170,13 +193,10 @@ const InstructorRevenue = () => {
         </div>
       ) : null}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <MetricCard icon={WalletCards} label="Tổng doanh thu" value={formatCurrency(data?.totalRevenue)} tone="emerald" />
-        <MetricCard icon={CalendarDays} label="Doanh thu tháng này" value={formatCurrency(data?.monthRevenue)} tone="sky" />
-        <MetricCard icon={Clock3} label="Doanh thu chờ thanh toán" value={formatCurrency(data?.pendingRevenue)} tone="amber" />
-        <MetricCard icon={ShieldCheck} label="Số dư khả dụng để rút" value={formatCurrency(data?.availableBalance)} tone="purple" />
-        <MetricCard icon={CheckCircle2} label="Số tiền đã rút" value={formatCurrency(data?.totalWithdrawn || data?.paidRevenue)} tone="slate" />
-        <MetricCard icon={ReceiptText} label="Số tiền đang xử lý" value={formatCurrency(data?.processingWithdrawals)} tone="rose" />
+      <section className="grid gap-4 md:grid-cols-3">
+        <MetricCard icon={WalletCards} label="Tổng doanh thu" value={displayValue(data?.totalRevenue)} tone="emerald" />
+        <MetricCard icon={ShieldCheck} label="Số dư khả dụng để rút" value={displayValue(data?.availableBalance)} tone="purple" />
+        <MetricCard icon={CheckCircle2} label="Số tiền đã rút" value={displayValue(data?.totalWithdrawn || data?.paidRevenue)} tone="slate" />
       </section>
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.4fr]">
@@ -209,7 +229,7 @@ const InstructorRevenue = () => {
           </div>
 
           <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4 text-sm text-slate-600">
-            <p>Số dư khả dụng: <span className="font-semibold text-slate-900">{formatCurrency(availableBalance)}</span></p>
+            <p>Số dư khả dụng: <span className="font-semibold text-slate-900">{displayValue(availableBalance)}</span></p>
           </div>
 
           <button
@@ -272,7 +292,7 @@ const InstructorRevenue = () => {
                         ) : null}
                       </td>
                       <td className={`whitespace-nowrap px-5 py-4 text-right font-semibold ${Number(item.amount) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {formatCurrency(item.amount)}
+                        {showBalance ? formatCurrency(item.amount) : '••••••'}
                       </td>
                       <td className="px-5 py-4 text-right">
                         <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClasses[item.status] || statusClasses.PENDING}`}>

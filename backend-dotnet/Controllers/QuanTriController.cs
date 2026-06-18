@@ -45,12 +45,32 @@ public class QuanTriController(LmsDbContext db) : ControllerBase
             .Take(pageSize)
             .ToListAsync();
 
+        var ids = ds.Select(u => u.Id).ToList();
+
+        var coursesCounts = await db.Courses
+            .Where(c => ids.Contains(c.InstructorId))
+            .GroupBy(c => c.InstructorId)
+            .Select(g => new { InstructorId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.InstructorId, g => g.Count);
+
+        var enrollmentsCounts = await db.Enrollments
+            .Where(e => ids.Contains(e.UserId))
+            .GroupBy(e => e.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.UserId, g => g.Count);
+
+        var purchasesCounts = await db.Purchases
+            .Where(p => ids.Contains(p.UserId))
+            .GroupBy(p => p.UserId)
+            .Select(g => new { UserId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(g => g.UserId, g => g.Count);
+
         var items = new List<object>();
         foreach (var u in ds)
         {
-            var soKhoaHoc = await db.Courses.CountAsync(c => c.InstructorId == u.Id);
-            var soGhiDanh = await db.Enrollments.CountAsync(e => e.UserId == u.Id);
-            var soMuaHang = await db.Purchases.CountAsync(p => p.UserId == u.Id);
+            coursesCounts.TryGetValue(u.Id, out var soKhoaHoc);
+            enrollmentsCounts.TryGetValue(u.Id, out var soGhiDanh);
+            purchasesCounts.TryGetValue(u.Id, out var soMuaHang);
             items.Add(NguoiDungAdminDto.TuUser(u, soKhoaHoc, soGhiDanh, soMuaHang));
         }
 
@@ -417,6 +437,76 @@ public class QuanTriController(LmsDbContext db) : ControllerBase
             pendingPayments = await db.ExternalPayments.CountAsync(p => p.Status == "PENDING"),
             recentUsers
         });
+    }
+
+    [HttpGet("/api/admin/withdrawals")]
+    public async Task<IResult> DanhSachYeuCauRutTien()
+    {
+        var loi = TroGiup.YeuCauAdmin(User);
+        if (loi is not null) return loi;
+
+        var yeuCaus = await db.InstructorWithdrawals
+            .Include(w => w.Instructor)
+            .OrderByDescending(w => w.CreatedAt)
+            .ToListAsync();
+
+        return Results.Ok(yeuCaus.Select(w => new
+        {
+            w.Id,
+            w.InstructorId,
+            InstructorName = w.Instructor != null ? w.Instructor.Name : "Giảng viên",
+            InstructorEmail = w.Instructor != null ? w.Instructor.Email : "",
+            w.Amount,
+            w.Status,
+            w.BankName,
+            w.AccountNumber,
+            w.AccountHolder,
+            w.Note,
+            w.CreatedAt
+        }));
+    }
+
+    [HttpPost("/api/admin/withdrawals/{id}/approve")]
+    public async Task<IResult> PheDuyetRutTien(string id)
+    {
+        var loi = TroGiup.YeuCauAdmin(User);
+        if (loi is not null) return loi;
+
+        var yeuCau = await db.InstructorWithdrawals
+            .Include(w => w.Instructor)
+            .FirstOrDefaultAsync(w => w.Id == id);
+        if (yeuCau is null) return Results.NotFound(new { message = "Không tìm thấy yêu cầu rút tiền" });
+
+        if (yeuCau.Status != "PENDING") return Results.BadRequest(new { message = "Yêu cầu này đã được xử lý rồi." });
+
+        yeuCau.Status = "COMPLETED";
+
+        await GhiNhatKy("APPROVE_WITHDRAWAL", "InstructorWithdrawal", id, new { yeuCau.InstructorId, yeuCau.Amount });
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { message = "Đã phê duyệt yêu cầu rút tiền thành công." });
+    }
+
+    [HttpPost("/api/admin/withdrawals/{id}/reject")]
+    public async Task<IResult> TuChoiRutTien(string id, [FromBody] DTOs.YeuCau.TuChoiRutTienRequest? body)
+    {
+        var loi = TroGiup.YeuCauAdmin(User);
+        if (loi is not null) return loi;
+
+        var yeuCau = await db.InstructorWithdrawals
+            .Include(w => w.Instructor)
+            .FirstOrDefaultAsync(w => w.Id == id);
+        if (yeuCau is null) return Results.NotFound(new { message = "Không tìm thấy yêu cầu rút tiền" });
+
+        if (yeuCau.Status != "PENDING") return Results.BadRequest(new { message = "Yêu cầu này đã được xử lý rồi." });
+
+        yeuCau.Status = "REJECTED";
+        yeuCau.Note = string.IsNullOrEmpty(body?.GhiChu) ? "Bị từ chối bởi Admin" : body.GhiChu;
+
+        await GhiNhatKy("REJECT_WITHDRAWAL", "InstructorWithdrawal", id, new { yeuCau.InstructorId, yeuCau.Amount, lyDo = yeuCau.Note });
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { message = "Đã từ chối yêu cầu rút tiền." });
     }
 
     private async Task XoaDuLieuKhoaHoc(string courseId)

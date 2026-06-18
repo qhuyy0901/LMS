@@ -58,6 +58,10 @@ const getImageUrl = (thumbnail) => {
   return `${apiRoot}${thumbnail.startsWith('/') ? thumbnail : `/${thumbnail}`}`;
 };
 
+const getPurchaseCount = (course) => Number(course.purchaseCount ?? course.purchases ?? course.totalPurchases ?? 0);
+const getStudentCount = (course) => Number(course.studentCount ?? course.enrollments ?? 0);
+const canDeleteCourse = (course) => course.canDelete ?? (getPurchaseCount(course) === 0 && getStudentCount(course) === 0);
+
 export default function InstructorCourses() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
@@ -178,7 +182,12 @@ export default function InstructorCourses() {
   const deleteCourse = async (course) => {
     if (!window.confirm('Bạn có chắc muốn xóa khóa học này không?')) return;
 
-    if (Number(course.studentCount ?? course.enrollments ?? 0) > 0) {
+    if (getPurchaseCount(course) > 0) {
+      setNotice('Khóa học đã có sinh viên mua nên không thể xóa. Bạn chỉ có thể ẩn khóa học.');
+      return;
+    }
+
+    if (getStudentCount(course) > 0) {
       setNotice('Khóa học đã có học viên nên không thể xóa. Bạn chỉ có thể ẩn khóa học.');
       return;
     }
@@ -306,7 +315,14 @@ function CourseRow({ course, onEdit, onPublish, onHide, onDelete, onCurriculum }
   const currentStatus = normalizeStatus(course);
   const sectionCount = course.sectionCount ?? course.sections?.length ?? 0;
   const lessonCount = course.lessonCount ?? course.totalLessons ?? 0;
-  const studentCount = course.studentCount ?? course.enrollments ?? 0;
+  const studentCount = getStudentCount(course);
+  const purchaseCount = getPurchaseCount(course);
+  const canDelete = canDeleteCourse(course);
+  const deleteTitle = canDelete
+    ? 'Xóa khóa học'
+    : purchaseCount > 0
+      ? 'Khóa học đã có sinh viên mua nên không thể xóa'
+      : 'Khóa học đã có học viên nên không thể xóa';
   const description = course.moTaNgan || course.shortDescription || course.description || 'Chưa có mô tả ngắn.';
   const thumbnail = getImageUrl(course.thumbnail || course.anhBia);
 
@@ -345,7 +361,7 @@ function CourseRow({ course, onEdit, onPublish, onHide, onDelete, onCurriculum }
         <ActionButton icon={Layers} label="Quản lý giáo trình" onClick={onCurriculum} />
         <ActionButton icon={UploadCloud} label="Xuất bản" onClick={onPublish} disabled={currentStatus === 'PUBLIC'} />
         <ActionButton icon={EyeOff} label="Ẩn khóa học" onClick={onHide} disabled={currentStatus === 'HIDDEN'} />
-        <ActionButton icon={Trash2} label="Xóa khóa học" onClick={onDelete} danger />
+        <ActionButton icon={Trash2} label="Xóa khóa học" onClick={onDelete} danger disabled={!canDelete} title={deleteTitle} />
       </div>
     </article>
   );
@@ -360,7 +376,7 @@ function Metric({ label, value }) {
   );
 }
 
-function ActionButton({ icon: Icon, label, onClick, disabled = false, danger = false }) {
+function ActionButton({ icon: Icon, label, onClick, disabled = false, danger = false, title }) {
   return (
     <button
       type="button"

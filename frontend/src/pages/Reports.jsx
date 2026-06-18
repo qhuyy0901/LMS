@@ -203,16 +203,17 @@ const Reports = () => {
             </div>
 
             {weeklyActivity.length > 0 ? (
-              <div className="flex h-52 items-end justify-between gap-3">
+              <div className="flex h-52 items-stretch justify-between gap-3">
                 {weeklyActivity.map((item) => {
                   const minutes = item.minutes || 0;
-                  const height = Math.max(8, Math.round((minutes / maxActivityMinutes) * 100));
+                  const height = minutes > 0 ? Math.max(12, Math.round((minutes / maxActivityMinutes) * 100)) : 0;
 
                   return (
                     <div key={item.key || item.date} className="flex flex-1 flex-col items-center gap-2">
-                      <div
-                        className="relative min-h-2 w-full rounded-t-lg bg-purple-600"
-                        style={{ height: `${height}%` }}
+                      <div className="flex h-40 w-full items-end">
+                        <div
+                          className="relative w-full rounded-t-lg bg-gradient-to-t from-purple-600 to-fuchsia-500 transition-all duration-500"
+                          style={{ height: `${height}%` }}
                         title={`${minutes} phút, ${item.completedLessons} bài`}
                       >
                         {minutes > 0 && (
@@ -220,6 +221,7 @@ const Reports = () => {
                             {item.hours}h
                           </span>
                         )}
+                        </div>
                       </div>
                       <span className="text-xs text-slate-400">{item.label}</span>
                     </div>

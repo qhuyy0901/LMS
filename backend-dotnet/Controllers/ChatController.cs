@@ -53,6 +53,11 @@ public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatH
             var lastMessage = conversation.Messages.OrderByDescending(message => message.SentAt).FirstOrDefault();
             var lastMessageHasImages = lastMessage?.Attachments.Count > 0;
 
+            var lastReadAt = participant.LastReadAt;
+            var unreadCount = lastReadAt.HasValue
+                ? await db.Messages.CountAsync(m => m.ConversationId == participant.ConversationId && m.SentAt > lastReadAt.Value && m.SenderId != userId)
+                : await db.Messages.CountAsync(m => m.ConversationId == participant.ConversationId && m.SenderId != userId);
+
             dtos.Add(new CuocTroChuyenDto
             {
                 Id = participant.ConversationId,
@@ -74,11 +79,19 @@ public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatH
                     : lastMessageHasImages == true ? "Đã gửi ảnh" : null,
                 LastMessageHasImages = lastMessageHasImages == true,
                 LastMessageAt = lastMessage?.SentAt,
-                UnreadCount = 0
+                UnreadCount = unreadCount
             });
         }
 
-        return Ok(dtos);
+        var visibleConversations = dtos
+            .GroupBy(item => item.IsGroup ? $"group:{item.Id}" : $"direct:{item.OtherUserId}")
+            .Select(group => group
+                .OrderByDescending(item => item.LastMessageAt ?? item.UpdatedAt)
+                .First())
+            .OrderByDescending(item => item.LastMessageAt ?? item.UpdatedAt)
+            .ToList();
+
+        return Ok(visibleConversations);
     }
 
     [HttpGet("conversations/{conversationId:guid}/messages")]
@@ -87,6 +100,14 @@ public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatH
         var userId = GetUserId();
         if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, conversationId))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Bạn không có quyền xem cuộc trò chuyện này." });
+
+        var userParticipant = await db.ConversationParticipants
+            .FirstOrDefaultAsync(p => p.ConversationId == conversationId && p.UserId == userId);
+        if (userParticipant is not null)
+        {
+            userParticipant.LastReadAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
 
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
@@ -102,6 +123,24 @@ public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatH
 
         messages.Reverse();
         return Ok(messages.Select(message => chat.TaoTinNhanDto(message)));
+    }
+
+    [HttpPost("conversations/{conversationId:guid}/read")]
+    public async Task<IActionResult> MarkAsRead(Guid conversationId)
+    {
+        var userId = GetUserId();
+        if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, conversationId))
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Bạn không có quyền truy cập cuộc trò chuyện này." });
+
+        var userParticipant = await db.ConversationParticipants
+            .FirstOrDefaultAsync(p => p.ConversationId == conversationId && p.UserId == userId);
+        if (userParticipant is not null)
+        {
+            userParticipant.LastReadAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+        }
+
+        return Ok(new { message = "Đã đánh dấu đã đọc" });
     }
 
     [HttpPost("conversations/direct/{otherUserId}")]
@@ -181,6 +220,31 @@ public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatH
         if (!result.ThanhCong || result.GiaTri is null) return ChatError(result);
 
         return PhysicalFile(result.GiaTri.FullPath, result.GiaTri.ContentType, enableRangeProcessing: false);
+    }
+
+    [HttpGet("debug-data")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetDebugData()
+    {
+        var conversations = await db.Conversations
+            .Include(c => c.Participants)
+                .ThenInclude(p => p.User)
+            .Include(c => c.Messages)
+            .ToListAsync();
+
+        return Ok(conversations.Select(c => new
+        {
+            c.Id,
+            c.Title,
+            c.IsGroup,
+            c.CourseId,
+            c.ClassId,
+            c.SubjectId,
+            c.CreatedAt,
+            c.UpdatedAt,
+            Participants = c.Participants.Select(p => new { p.UserId, Name = p.User != null ? p.User.Name : null }),
+            Messages = c.Messages.OrderBy(m => m.SentAt).Select(m => new { m.Id, m.SenderId, m.Content, m.SentAt })
+        }));
     }
 
     private ObjectResult ChatError<T>(KetQuaChat<T> result)

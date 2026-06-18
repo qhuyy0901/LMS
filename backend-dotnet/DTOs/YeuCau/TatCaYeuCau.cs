@@ -25,6 +25,7 @@ public record ThanhToanRequest(string Type, string? CourseId, int? Amount, strin
 public record MuaKhoaHocRequest(string? CouponCode);
 public record RutTienDemoRequest(int SoTien, string? GhiChu);
 public record RutTienGiangVienRequest(int SoTien, string? BankName, string? AccountHolder, string? AccountNumber, string? Branch, string? GhiChu);
+public record TuChoiRutTienRequest(string? GhiChu);
 
 /// <summary>Yêu cầu kiểm tra mã giảm giá</summary>
 public record KiemTraMaGiamGiaRequest(string? Code, string? CourseId);

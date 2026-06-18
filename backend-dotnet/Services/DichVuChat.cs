@@ -180,11 +180,11 @@ public class DichVuChat(LmsDbContext db, IWebHostEnvironment env) : IDichVuChat
             .Where(conversation =>
                 conversation.CourseId == scope.CourseId &&
                 conversation.ClassId == scope.ClassId &&
-                conversation.SubjectId == scope.SubjectId)
-            .Where(conversation =>
+                conversation.SubjectId == scope.SubjectId &&
                 conversation.Participants.Count == 2 &&
                 conversation.Participants.Any(participant => participant.UserId == userId) &&
                 conversation.Participants.Any(participant => participant.UserId == otherUserId))
+            .OrderByDescending(conversation => conversation.UpdatedAt)
             .FirstOrDefaultAsync();
 
         if (existing is not null) return KetQuaChat<Guid>.Ok(existing.Id);

@@ -289,8 +289,47 @@ public class GiangVienController(LmsDbContext db, IWebHostEnvironment env) : Con
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
-        if (await db.Enrollments.AnyAsync(e => e.CourseId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có học viên đăng ký." });
+        if (await db.Purchases.AnyAsync(p => p.CourseId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có sinh viên mua. Bạn chỉ có thể ẩn khóa học." });
+        if (await db.Enrollments.AnyAsync(e => e.CourseId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có học viên đăng ký. Bạn chỉ có thể ẩn khóa học." });
 
+        // Remove quiz submissions, questions, and quizzes (child-first order)
+        var lessonIds = await db.Lessons.Where(l => l.CourseId == id).Select(l => l.Id).ToListAsync();
+        var quizIds = await db.Quizzes.Where(q => lessonIds.Contains(q.LessonId)).Select(q => q.Id).ToListAsync();
+        if (quizIds.Count > 0)
+        {
+            db.QuizSubmissions.RemoveRange(db.QuizSubmissions.Where(s => quizIds.Contains(s.QuizId)));
+            db.QuizQuestions.RemoveRange(db.QuizQuestions.Where(q => quizIds.Contains(q.QuizId)));
+            db.Quizzes.RemoveRange(db.Quizzes.Where(q => quizIds.Contains(q.Id)));
+        }
+
+        // Remove lesson-level children: comments, lesson progresses
+        if (lessonIds.Count > 0)
+        {
+            db.Comments.RemoveRange(db.Comments.Where(c => lessonIds.Contains(c.LessonId)));
+            db.LessonProgresses.RemoveRange(db.LessonProgresses.Where(p => lessonIds.Contains(p.LessonId)));
+        }
+
+        // Remove coupon children (usages, recipients), then coupons
+        var couponIds = await db.Coupons.Where(c => c.CourseId == id).Select(c => c.Id).ToListAsync();
+        if (couponIds.Count > 0)
+        {
+            db.CouponUsages.RemoveRange(db.CouponUsages.Where(u => couponIds.Contains(u.CouponId)));
+            db.CouponRecipients.RemoveRange(db.CouponRecipients.Where(r => couponIds.Contains(r.CouponId)));
+            db.Coupons.RemoveRange(db.Coupons.Where(c => couponIds.Contains(c.Id)));
+        }
+
+        // Remove other course-level children
+        db.CourseReviews.RemoveRange(db.CourseReviews.Where(r => r.CourseId == id));
+        db.Certificates.RemoveRange(db.Certificates.Where(c => c.CourseId == id));
+        db.SavedCourses.RemoveRange(db.SavedCourses.Where(s => s.CourseId == id));
+        db.CouponUsages.RemoveRange(db.CouponUsages.Where(u => u.CourseId == id));
+
+        // Nullify nullable CourseId references
+        await db.WalletTransactions.Where(w => w.CourseId == id).ExecuteUpdateAsync(s => s.SetProperty(w => w.CourseId, (string?)null));
+        await db.Conversations.Where(c => c.CourseId == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.CourseId, (string?)null));
+        await db.CouponRecipients.Where(r => r.SourceCourseId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.SourceCourseId, (string?)null));
+
+        // Remove assignments, lessons, sections, then the course itself
         db.Assignments.RemoveRange(db.Assignments.Where(assignment => assignment.CourseId == id));
         db.Lessons.RemoveRange(db.Lessons.Where(lesson => lesson.CourseId == id));
         db.Sections.RemoveRange(db.Sections.Where(section => section.CourseId == id));

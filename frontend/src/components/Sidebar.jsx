@@ -27,6 +27,7 @@ const Sidebar = () => {
   const { activeView, realRole, isImpersonating } = useDashboardView();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('skillio_sidebar_collapsed') === 'true');
   const { onlineUsers } = useChat();
+  const uniqueOnlineUsers = onlineUsers || [];
 
   const menuItems = getMenuByRole(activeView);
   const exactActivePath = menuItems.find((item) => !item.section && item.path === location.pathname)?.path;
@@ -146,13 +147,13 @@ const Sidebar = () => {
       {/* Footer Section */}
       <div className="pt-4 space-y-4 border-t border-slate-100">
         {/* Online Users */}
-        {!collapsed && onlineUsers && onlineUsers.length > 0 && (
+        {!collapsed && uniqueOnlineUsers.length > 0 && (
           <div className="space-y-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 px-1">
-              Đang hoạt động ({onlineUsers.length})
+              Đang hoạt động ({uniqueOnlineUsers.length})
             </p>
             <div className="max-h-36 overflow-y-auto overflow-x-hidden space-y-1.5 pr-1 custom-scrollbar">
-              {onlineUsers.map((u) => (
+              {uniqueOnlineUsers.map((u) => (
                 <Link
                   key={u.id}
                   to={`/messages?userId=${u.id}`}
@@ -176,18 +177,18 @@ const Sidebar = () => {
           </div>
         )}
 
-        {collapsed && onlineUsers && onlineUsers.length > 0 && (
+        {collapsed && uniqueOnlineUsers.length > 0 && (
           <div className="flex flex-col items-center gap-2">
             <Link
               to="/messages"
-              title={`Có ${onlineUsers.length} tài khoản đang hoạt động`}
+              title={`Có ${uniqueOnlineUsers.length} tài khoản đang hoạt động`}
               className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-green-50 text-green-600 hover:bg-green-100 transition duration-200"
             >
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500"></span>
               </span>
-              <span className="text-xs font-bold">{onlineUsers.length}</span>
+              <span className="text-xs font-bold">{uniqueOnlineUsers.length}</span>
             </Link>
           </div>
         )}

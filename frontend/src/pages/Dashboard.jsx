@@ -368,8 +368,7 @@ const InstructorDashboard = ({ data, loading }) => {
         </div>
       </section>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={DollarSign} label="Tổng doanh thu" value={stats?.totalRevenueFormatted || formatCurrency(0)} subtitle="Từ khóa học đã bán" color="bg-emerald-50 text-emerald-600" loading={loading} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard icon={Users} label="Tổng học viên" value={stats?.totalStudents ?? 0} subtitle="Đã ghi danh" color="bg-blue-50 text-blue-600" loading={loading} />
         <StatCard icon={BookOpen} label="Khóa học công khai" value={stats?.publishedCourses ?? 0} subtitle={`${stats?.draftCourses ?? 0} bản nháp`} color="bg-purple-50 text-purple-600" loading={loading} />
         <StatCard icon={TrendingUp} label="Đánh giá TB" value={stats?.averageRating ? `${Number(stats.averageRating).toFixed(1)}/5` : 'Chưa có'} subtitle="Từ học viên" color="bg-amber-50 text-amber-600" loading={loading} />

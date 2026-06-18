@@ -3,15 +3,13 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   BookOpen,
-  DollarSign,
-  GraduationCap,
   Plus,
   RefreshCw,
+  Star,
   Trophy,
   Users,
 } from 'lucide-react';
 import { getInstructorDashboard } from '../api/instructorDashboardApi';
-import { getInstructorWallet } from '../api/instructorWalletApi';
 
 const numberFormatter = new Intl.NumberFormat('vi-VN');
 
@@ -37,11 +35,8 @@ const InstructorDashboard = () => {
     setError('');
 
     try {
-      const [response, walletResponse] = await Promise.all([
-        getInstructorDashboard(),
-        getInstructorWallet(),
-      ]);
-      setData({ ...response, wallet: walletResponse });
+      const response = await getInstructorDashboard();
+      setData(response);
     } catch (err) {
       if (err.status === 401) {
         navigate('/login', { replace: true });
@@ -62,57 +57,51 @@ const InstructorDashboard = () => {
     loadDashboard();
   }, [loadDashboard]);
 
+  const bestSellerTitle = data?.khoaHocNhieuHocVienNhat?.tenKhoaHoc || data?.khoaHocNhieuHocVienNhat?.title || null;
+
   const stats = useMemo(() => {
-    const wallet = data?.wallet || {};
     return [
       {
-        label: 'Tổng doanh thu',
-        value: formatCurrency(wallet.totalRevenue ?? data?.tongDoanhThu),
-        icon: DollarSign,
-        color: 'text-emerald-600',
-        bg: 'bg-emerald-50',
-      },
-      {
-        label: 'Doanh thu tháng này',
-        value: formatCurrency(wallet.monthRevenue),
-        icon: Trophy,
-        color: 'text-sky-600',
-        bg: 'bg-sky-50',
-      },
-      {
-        label: 'Doanh thu chờ thanh toán',
-        value: formatCurrency(wallet.pendingRevenue),
-        icon: RefreshCw,
-        color: 'text-amber-600',
-        bg: 'bg-amber-50',
-      },
-      {
-        label: 'Số dư khả dụng để rút',
-        value: formatCurrency(wallet.availableBalance),
+        label: 'Tổng học viên',
+        value: formatNumber(data?.tongHocVien),
         icon: Users,
         color: 'text-blue-600',
         bg: 'bg-blue-50',
       },
       {
-        label: 'Số tiền đã rút',
-        value: formatCurrency(wallet.totalWithdrawn ?? wallet.paidRevenue),
+        label: 'Tổng khóa học',
+        value: formatNumber(data?.tongKhoaHoc),
         icon: BookOpen,
         color: 'text-purple-600',
         bg: 'bg-purple-50',
       },
       {
-        label: 'Số tiền đang xử lý',
-        value: formatCurrency(wallet.processingWithdrawals),
-        icon: GraduationCap,
-        color: 'text-slate-600',
-        bg: 'bg-slate-100',
+        label: 'Khóa học công khai',
+        value: formatNumber(data?.khoaHocCongKhai),
+        icon: RefreshCw,
+        color: 'text-sky-600',
+        bg: 'bg-sky-50',
+      },
+      {
+        label: 'Đánh giá trung bình',
+        value: data?.danhGiaTrungBinh != null ? `${data.danhGiaTrungBinh} ⭐` : 'Chưa có',
+        icon: Star,
+        color: 'text-amber-600',
+        bg: 'bg-amber-50',
+      },
+      {
+        label: 'Khóa học bán chạy nhất',
+        value: bestSellerTitle || 'Chưa có',
+        icon: Trophy,
+        color: 'text-rose-600',
+        bg: 'bg-rose-50',
+        isText: true,
       },
     ];
-  }, [data]);
+  }, [data, bestSellerTitle]);
 
   const courses = data?.khoaHocCuaToi || [];
   const newStudents = data?.hocVienMoi || [];
-  const recentRevenue = data?.doanhThuGanDay || [];
   const hasCourses = Number(data?.tongKhoaHoc || 0) > 0;
 
   if (loading) {
@@ -175,49 +164,25 @@ const InstructorDashboard = () => {
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-slate-100 p-5">
-            <div>
-              <h2 className="font-semibold text-slate-900">Khóa học của bạn</h2>
-            </div>
-            <button
-              onClick={() => navigate('/instructor/courses')}
-              className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-purple-200 hover:text-purple-700"
-            >
-              Quản lý
-              <ArrowRight className="h-4 w-4" />
-            </button>
+      <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-100 p-5">
+          <div>
+            <h2 className="font-semibold text-slate-900">Khóa học của bạn</h2>
           </div>
-          <div className="divide-y divide-slate-100">
-            {courses.map((course) => (
-              <CourseRow key={course.id} course={course} onClick={() => navigate(`/instructor/courses/${course.id}/edit`)} />
-            ))}
-          </div>
-        </section>
-
-        <div className="space-y-6">
-          <InfoPanel title="Doanh thu gần đây">
-            {recentRevenue.length > 0 ? (
-              <div className="space-y-3">
-                {recentRevenue.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-slate-100 p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="line-clamp-1 text-sm font-semibold text-slate-900">{item.tenKhoaHoc}</p>
-                      <span className="shrink-0 text-sm font-bold text-emerald-600">{formatCurrency(item.soTien || item.amount)}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-500">
-                      {item.tenHocVien} · {formatDate(item.ngayThanhToan || item.createdAt)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyText>Chưa có dữ liệu doanh thu gần đây.</EmptyText>
-            )}
-          </InfoPanel>
+          <button
+            onClick={() => navigate('/instructor/courses')}
+            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-purple-200 hover:text-purple-700"
+          >
+            Quản lý
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
-      </div>
+        <div className="divide-y divide-slate-100">
+          {courses.map((course) => (
+            <CourseRow key={course.id} course={course} onClick={() => navigate(`/instructor/courses/${course.id}/edit`)} />
+          ))}
+        </div>
+      </section>
 
       <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
         <div className="border-b border-slate-100 p-5">
@@ -284,13 +249,13 @@ const HeaderActions = () => (
   </div>
 );
 
-const StatCard = ({ label, value, icon: Icon, color, bg }) => (
+const StatCard = ({ label, value, icon: Icon, color, bg, isText }) => (
   <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
     <div className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${bg}`}>
       <Icon className={`h-5 w-5 ${color}`} />
     </div>
     <p className="text-sm font-medium text-slate-500">{label}</p>
-    <p className="mt-1 text-xl font-bold text-slate-900">{value}</p>
+    <p className={`mt-1 font-bold text-slate-900 ${isText ? 'line-clamp-1 text-base' : 'text-xl'}`}>{value}</p>
   </div>
 );
 

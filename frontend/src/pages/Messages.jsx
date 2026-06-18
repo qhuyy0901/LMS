@@ -21,9 +21,54 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const ALLOWED_IMAGE_EXTENSIONS = /\.(jpe?g|png|webp)$/i;
 
+const formatRelativeTime = (date) => {
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return 'Vừa xong';
+  if (diffMin < 60) return `${diffMin} phút`;
+  if (diffHour < 24) return `${diffHour} giờ`;
+  if (diffDay < 7) return `${diffDay} ngày`;
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+};
+
+const getConversationTime = (conversation) => {
+  const value = conversation?.lastMessageAt || conversation?.updatedAt || conversation?.createdAt;
+  return value ? new Date(value).getTime() : 0;
+};
+
+const uniqueConversationsByAccount = (items = []) => {
+  const byAccount = new Map();
+
+  for (const conversation of items) {
+    const key = conversation?.isGroup
+      ? `group:${conversation.id}`
+      : `direct:${conversation?.otherUserId || conversation?.id}`;
+    const current = byAccount.get(key);
+
+    if (!current || getConversationTime(conversation) > getConversationTime(current)) {
+      byAccount.set(key, conversation);
+    }
+  }
+
+  return Array.from(byAccount.values()).sort((a, b) => getConversationTime(b) - getConversationTime(a));
+};
+
+const uniqueContactsByAccount = (items = []) => {
+  const seen = new Set();
+  return items.filter((contact) => {
+    if (!contact?.id || seen.has(contact.id)) return false;
+    seen.add(contact.id);
+    return true;
+  });
+};
+
 const Messages = () => {
   const { user } = useAuth();
-  const { messages, setMessages, sendMessage, conversations, setConversations } = useChat();
+  const { messages, setMessages, sendMessage, conversations, setConversations, onlineUsers, setActiveConversationId } = useChat();
   const [searchParams, setSearchParams] = useSearchParams();
   const targetUserId = searchParams.get('userId');
   const targetCourseId = searchParams.get('courseId');
@@ -48,10 +93,15 @@ const Messages = () => {
   const selectedImagesRef = useRef([]);
   const pendingTargetRef = useRef(null);
 
+  const visibleConversations = useMemo(
+    () => uniqueConversationsByAccount(conversations),
+    [conversations]
+  );
+
   const filteredConversations = useMemo(() => {
-    if (scopeFilter === 'all') return conversations;
-    return conversations.filter((conversation) => conversation.courseId === scopeFilter || conversation.classId === scopeFilter);
-  }, [conversations, scopeFilter]);
+    if (scopeFilter === 'all') return visibleConversations;
+    return visibleConversations.filter((conversation) => conversation.courseId === scopeFilter || conversation.classId === scopeFilter);
+  }, [visibleConversations, scopeFilter]);
 
   const activeScope = useMemo(
     () => scopes.find((scope) => scope.courseId === scopeFilter || scope.classId === scopeFilter),
@@ -66,7 +116,7 @@ const Messages = () => {
           axios.get('/api/chat/conversations'),
           axios.get('/api/chat/users/scopes'),
         ]);
-        setConversations(conversationResponse.data);
+        setConversations(uniqueConversationsByAccount(conversationResponse.data));
         setScopes(scopeResponse.data);
       } catch (err) {
         setErrorMessage(err.response?.data?.message || 'Không thể tải dữ liệu tin nhắn.');
@@ -89,9 +139,8 @@ const Messages = () => {
     const targetKey = `${targetUserId}|${targetCourseId || ''}|${targetClassId || ''}|${targetSubjectId || ''}`;
     if (pendingTargetRef.current === targetKey) return;
 
-    const existing = conversations.find((conversation) => {
+    const existing = visibleConversations.find((conversation) => {
       if (conversation.isGroup || conversation.otherUserId !== targetUserId) return false;
-      if (targetCourseId && conversation.courseId !== targetCourseId) return false;
       return true;
     });
 
@@ -112,9 +161,11 @@ const Messages = () => {
         });
         const conversationId = response.data.conversationId || response.data.ConversationId;
         const conversationResponse = await axios.get('/api/chat/conversations');
-        setConversations(conversationResponse.data);
+        const nextConversations = uniqueConversationsByAccount(conversationResponse.data);
+        setConversations(nextConversations);
 
-        const selectedConversation = conversationResponse.data.find((conversation) => conversation.id === conversationId);
+        const selectedConversation = nextConversations.find((conversation) => conversation.id === conversationId)
+          || nextConversations.find((conversation) => !conversation.isGroup && conversation.otherUserId === targetUserId);
         if (selectedConversation) setActiveConversation(selectedConversation);
         setSearchParams({}, { replace: true });
       } catch (err) {
@@ -126,7 +177,7 @@ const Messages = () => {
     };
 
     startNew();
-  }, [targetUserId, targetCourseId, targetClassId, targetSubjectId, conversations, setConversations, setSearchParams]);
+  }, [targetUserId, targetCourseId, targetClassId, targetSubjectId, visibleConversations, setConversations, setSearchParams]);
 
   useEffect(() => {
     if (!showSearchModal) return;
@@ -138,7 +189,7 @@ const Messages = () => {
         const params = { query: searchQuery };
         if (scopeFilter !== 'all') params.courseId = scopeFilter;
         const response = await axios.get('/api/chat/users/search', { params });
-        setSearchResults(response.data);
+        setSearchResults(uniqueContactsByAccount(response.data));
       } catch (err) {
         setSearchResults([]);
         setErrorMessage(err.response?.data?.message || 'Không thể tải danh sách người có thể nhắn.');
@@ -152,6 +203,7 @@ const Messages = () => {
   }, [searchQuery, showSearchModal, scopeFilter]);
 
   useEffect(() => {
+    setActiveConversationId(activeConversation?.id || null);
     if (!activeConversation) return;
 
     const fetchMessages = async () => {
@@ -159,6 +211,17 @@ const Messages = () => {
         setErrorMessage('');
         const response = await axios.get(`/api/chat/conversations/${activeConversation.id}/messages`);
         setMessages(response.data);
+
+        // Mark as read in backend
+        await axios.post(`/api/chat/conversations/${activeConversation.id}/read`).catch(err => console.error(err));
+
+        // Clear unread count locally
+        setConversations(prev => prev.map(c => {
+          if (c.id === activeConversation.id) {
+            return { ...c, unreadCount: 0, UnreadCount: 0 };
+          }
+          return c;
+        }));
       } catch (err) {
         setMessages([]);
         setErrorMessage(err.response?.data?.message || 'Không thể tải tin nhắn.');
@@ -166,7 +229,7 @@ const Messages = () => {
     };
 
     fetchMessages();
-  }, [activeConversation, setMessages]);
+  }, [activeConversation, setMessages, setActiveConversationId, setConversations]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -215,9 +278,11 @@ const Messages = () => {
       const conversationId = response.data.conversationId || response.data.ConversationId;
 
       const conversationResponse = await axios.get('/api/chat/conversations');
-      setConversations(conversationResponse.data);
+      const nextConversations = uniqueConversationsByAccount(conversationResponse.data);
+      setConversations(nextConversations);
 
-      const selectedConversation = conversationResponse.data.find((conversation) => conversation.id === conversationId);
+      const selectedConversation = nextConversations.find((conversation) => conversation.id === conversationId)
+        || nextConversations.find((conversation) => !conversation.isGroup && conversation.otherUserId === contact.id);
       if (selectedConversation) {
         setScopeFilter(contact.courseId || 'all');
         setActiveConversation(selectedConversation);
@@ -322,29 +387,50 @@ const Messages = () => {
               Chưa có cuộc trò chuyện trong lựa chọn này
             </div>
           ) : (
-            filteredConversations.map((conversation) => (
-              <button
-                type="button"
-                key={conversation.id}
-                onClick={() => setActiveConversation(conversation)}
-                className={`flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition-colors ${
-                  activeConversation?.id === conversation.id ? 'bg-purple-50' : 'hover:bg-slate-100'
-                }`}
-              >
-                <Avatar src={conversation.otherUserAvatar} name={conversation.otherUserName} size="h-12 w-12" />
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-medium text-slate-900">
-                    {conversation.isGroup ? conversation.title : conversation.otherUserName}
-                  </h3>
-                  <p className="truncate text-xs text-slate-400">
-                    {conversation.courseTitle || 'Lớp học'}
-                  </p>
-                  <p className="truncate text-sm text-slate-500">
-                    {conversation.lastMessageHasImages && !conversation.lastMessage ? 'Đã gửi ảnh' : conversation.lastMessage || 'Bắt đầu cuộc trò chuyện'}
-                  </p>
-                </div>
-              </button>
-            ))
+            filteredConversations.map((conversation) => {
+              const isOnline = !conversation.isGroup && onlineUsers.some((u) => u.id === conversation.otherUserId);
+              const timeValue = conversation.lastMessageAt || conversation.updatedAt || conversation.createdAt;
+              const timeLabel = timeValue ? formatRelativeTime(new Date(timeValue)) : '';
+              const unread = conversation.unreadCount || conversation.UnreadCount || 0;
+
+              return (
+                <button
+                  type="button"
+                  key={conversation.id}
+                  onClick={() => setActiveConversation(conversation)}
+                  className={`flex w-full items-center gap-3 border-b border-slate-100 p-4 text-left transition-colors ${
+                    activeConversation?.id === conversation.id ? 'bg-purple-50' : 'hover:bg-slate-100'
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <Avatar src={conversation.otherUserAvatar} name={conversation.otherUserName} size="h-12 w-12" />
+                    {isOnline && (
+                      <span className="absolute bottom-0 right-0 block h-3 w-3 rounded-full border-2 border-white bg-emerald-500" title="Online" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="truncate font-medium text-slate-900">
+                        {conversation.isGroup ? conversation.title : conversation.otherUserName}
+                      </h3>
+                      {timeLabel && (
+                        <span className="shrink-0 text-[11px] text-slate-400">{timeLabel}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm text-slate-500">
+                        {conversation.lastMessageHasImages && !conversation.lastMessage ? 'Đã gửi ảnh' : conversation.lastMessage || 'Bắt đầu cuộc trò chuyện'}
+                      </p>
+                      {unread > 0 && (
+                        <span className="flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-purple-600 px-1.5 text-[11px] font-semibold text-white">
+                          {unread > 99 ? '99+' : unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })
           )}
         </div>
       </div>
@@ -353,13 +439,20 @@ const Messages = () => {
         {activeConversation ? (
           <>
             <div className="flex items-center gap-3 border-b border-slate-200 p-4">
-              <Avatar src={activeConversation.otherUserAvatar} name={activeConversation.otherUserName} size="h-10 w-10" />
+              <div className="relative shrink-0">
+                <Avatar src={activeConversation.otherUserAvatar} name={activeConversation.otherUserName} size="h-10 w-10" />
+                {!activeConversation.isGroup && onlineUsers.some((u) => u.id === activeConversation.otherUserId) && (
+                  <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" />
+                )}
+              </div>
               <div className="min-w-0">
                 <h2 className="truncate font-semibold text-slate-800">
                   {activeConversation.isGroup ? activeConversation.title : activeConversation.otherUserName}
                 </h2>
-                <p className="truncate text-xs text-slate-400">
-                  {activeConversation.courseTitle || activeScope?.courseTitle || 'Lớp học'}
+                <p className="text-xs text-slate-400">
+                  {!activeConversation.isGroup && onlineUsers.some((u) => u.id === activeConversation.otherUserId)
+                    ? 'Đang hoạt động'
+                    : 'Ngoại tuyến'}
                 </p>
               </div>
             </div>
@@ -545,7 +638,6 @@ const Messages = () => {
                     <div className="min-w-0 flex-1">
                       <h4 className="truncate text-sm font-medium text-slate-900">{contact.name}</h4>
                       <p className="truncate text-xs text-slate-500">{contact.email}</p>
-                      <p className="truncate text-xs text-purple-600">{contact.courseTitle}</p>
                     </div>
                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">
                       {contact.role?.toLowerCase()}

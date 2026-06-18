@@ -143,10 +143,18 @@ const Settings = () => {
 
   const displayName = formData.name || user?.name || 'Học viên';
   const isInstructor = user?.role === 'INSTRUCTOR';
+  const visibleTabs = isInstructor ? tabs.filter((item) => item.id !== 'billing') : tabs;
 
   useEffect(() => {
     setActiveTab(normalizeTab(searchParams.get('tab')));
   }, [searchParams]);
+
+  useEffect(() => {
+    if (isInstructor && activeTab === 'billing') {
+      setActiveTab('profile');
+      setSearchParams({}, { replace: true });
+    }
+  }, [activeTab, isInstructor, setSearchParams]);
 
   const selectTab = (tabId) => {
     setActiveTab(tabId);
@@ -472,11 +480,9 @@ const Settings = () => {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
         <aside className="xl:col-span-1">
           <div className="sticky top-4 flex flex-col gap-1 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            {tabs.map((item) => {
+            {visibleTabs.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              const label = item.id === 'billing' && isInstructor ? 'Doanh thu & tài khoản nhận tiền' : item.label;
-              return (
+              const isActive = activeTab === item.id;              return (
                 <button
                   key={item.id}
                   type="button"
@@ -492,7 +498,7 @@ const Settings = () => {
                   }`}
                 >
                   <Icon className="h-4 w-4" />
-                  {label}
+                  {item.label}
                 </button>
               );
             })}
@@ -733,7 +739,7 @@ const Settings = () => {
             </section>
           )}
 
-          {activeTab === 'billing' && (
+          {activeTab === 'billing' && !isInstructor && (
             <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
               {isInstructor ? (
                 <>

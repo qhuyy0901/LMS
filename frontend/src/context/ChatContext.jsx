@@ -23,6 +23,7 @@ export const ChatProvider = ({ children }) => {
   const [messages, setMessages] = useState([]);
   const [conversations, setConversations] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState([]);
+  const [lastSeenMap, setLastSeenMap] = useState({});
   const [activeConversationId, setActiveConversationId] = useState(null);
   const activeConversationIdRef = useRef(null);
 
@@ -32,7 +33,7 @@ export const ChatProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) {
-      const token = localStorage.getItem('token') || document.cookie.replace(/(?:(?:^|.*;\s*)LmsAuthToken\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+      const token = localStorage.getItem('token') || document.cookie.replace(/(?:(?:^|.*;\s*)LmsAuthToken\s*=\s*([^;]*).*$)|^.*$/, "$1");
       const hubUrl = `${API_URL}/chatHub`;
       
       const newConnection = new signalR.HubConnectionBuilder()
@@ -111,10 +112,24 @@ export const ChatProvider = ({ children }) => {
         if (prev.some(u => u.id === onlineUser.id)) return prev;
         return uniqueUsersById([...prev, onlineUser]);
       });
+      // Clear lastSeen when user comes back online
+      setLastSeenMap(prev => {
+        if (!prev[onlineUser.id]) return prev;
+        const next = { ...prev };
+        delete next[onlineUser.id];
+        return next;
+      });
     };
 
-    const handleUserOffline = (offlineUserId) => {
+    const handleUserOffline = (payload) => {
+      // payload is now { id, lastSeenAt } from the server
+      const offlineUserId = typeof payload === 'string' ? payload : payload?.id;
+      const lastSeenAt = typeof payload === 'string' ? new Date().toISOString() : payload?.lastSeenAt;
+      if (!offlineUserId) return;
       setOnlineUsers(prev => prev.filter(u => u.id !== offlineUserId));
+      if (lastSeenAt) {
+        setLastSeenMap(prev => ({ ...prev, [offlineUserId]: lastSeenAt }));
+      }
     };
 
     connection.on('ReceiveMessage', handleReceiveMessage);
@@ -165,7 +180,7 @@ export const ChatProvider = ({ children }) => {
   };
 
   return (
-    <ChatContext.Provider value={{ connection, messages, setMessages, sendMessage, conversations, setConversations, onlineUsers, activeConversationId, setActiveConversationId }}>
+    <ChatContext.Provider value={{ connection, messages, setMessages, sendMessage, conversations, setConversations, onlineUsers, lastSeenMap, activeConversationId, setActiveConversationId }}>
       {children}
     </ChatContext.Provider>
   );

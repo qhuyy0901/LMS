@@ -16,6 +16,7 @@ public class CuocTroChuyenDto
     public string OtherUserId { get; set; } = string.Empty;
     public string OtherUserName { get; set; } = string.Empty;
     public string? OtherUserAvatar { get; set; }
+    public DateTime? OtherUserLastSeenAt { get; set; }
     
     // Unread count
     public int UnreadCount { get; set; }

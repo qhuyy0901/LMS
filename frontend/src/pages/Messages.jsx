@@ -68,7 +68,14 @@ const uniqueContactsByAccount = (items = []) => {
 
 const Messages = () => {
   const { user } = useAuth();
-  const { messages, setMessages, sendMessage, conversations, setConversations, onlineUsers, setActiveConversationId } = useChat();
+  const { messages, setMessages, sendMessage, conversations, setConversations, onlineUsers, lastSeenMap, setActiveConversationId } = useChat();
+
+  const getLastSeenLabel = (userId, conversation) => {
+    if (!userId) return null;
+    const timestamp = lastSeenMap[userId] || conversation?.otherUserLastSeenAt;
+    if (!timestamp) return null;
+    return `Hoạt động ${formatRelativeTime(new Date(timestamp))} trước`;
+  };
   const [searchParams, setSearchParams] = useSearchParams();
   const targetUserId = searchParams.get('userId');
   const targetCourseId = searchParams.get('courseId');
@@ -102,11 +109,6 @@ const Messages = () => {
     if (scopeFilter === 'all') return visibleConversations;
     return visibleConversations.filter((conversation) => conversation.courseId === scopeFilter || conversation.classId === scopeFilter);
   }, [visibleConversations, scopeFilter]);
-
-  const activeScope = useMemo(
-    () => scopes.find((scope) => scope.courseId === scopeFilter || scope.classId === scopeFilter),
-    [scopeFilter, scopes]
-  );
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -449,11 +451,18 @@ const Messages = () => {
                 <h2 className="truncate font-semibold text-slate-800">
                   {activeConversation.isGroup ? activeConversation.title : activeConversation.otherUserName}
                 </h2>
-                <p className="text-xs text-slate-400">
-                  {!activeConversation.isGroup && onlineUsers.some((u) => u.id === activeConversation.otherUserId)
-                    ? 'Đang hoạt động'
-                    : 'Ngoại tuyến'}
-                </p>
+                {(() => {
+                  if (activeConversation.isGroup) return null;
+                  const isOtherOnline = onlineUsers.some((u) => u.id === activeConversation.otherUserId);
+                  if (isOtherOnline) {
+                    return <p className="text-xs text-emerald-500">Đang hoạt động</p>;
+                  }
+                  const lastSeenLabel = getLastSeenLabel(activeConversation.otherUserId, activeConversation);
+                  if (lastSeenLabel) {
+                    return <p className="text-xs text-slate-400">{lastSeenLabel}</p>;
+                  }
+                  return null;
+                })()}
               </div>
             </div>
 

@@ -1,9 +1,9 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using LMS.Api.Data;
+using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.YeuCau;
-using LMS.Api.Models;
-using LMS.Api.Services;
+using LMS.Api.Domain.Entities;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +12,7 @@ namespace LMS.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public class AccountController(LmsDbContext db, IWebHostEnvironment env) : ControllerBase
+public class AccountController(ApplicationDbContext db, IWebHostEnvironment env) : ControllerBase
 {
     private static readonly HashSet<string> AvatarTypes = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -287,7 +287,7 @@ public class AccountController(LmsDbContext db, IWebHostEnvironment env) : Contr
         if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
     }
 
-    private static object ToUserDto(LMS.Api.Models.NguoiDung user) => new
+    private static object ToUserDto(LMS.Api.Domain.Entities.NguoiDung user) => new
     {
         user.Id,
         user.Email,

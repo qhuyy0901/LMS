@@ -1,6 +1,6 @@
 using System.Text;
-using LMS.Api.Data;
-using LMS.Api.Services;
+using LMS.Api.Infrastructure.Persistence;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
@@ -23,7 +23,7 @@ var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
 static string? FirstConfigured(params string?[] values) =>
     values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
-builder.Services.AddDbContext<LmsDbContext>(options =>
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
     {
         sqlOptions.EnableRetryOnFailure();
@@ -139,7 +139,7 @@ var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<LmsDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
 
     if (app.Environment.IsDevelopment())
@@ -160,8 +160,11 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapControllerRoute(
+    name: "areas",
+    pattern: "{area:exists}/{controller=Dashboard}/{action=Index}/{id?}");
+app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=SinhVien}/{action=Vi}/{id?}");
+    pattern: "{controller=Home}/{action=Index}/{id?}");
 app.MapHub<LMS.Api.Hubs.ChatHub>("/chatHub");
 
 app.Run();

@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using System.Collections.Concurrent;
-using LMS.Api.Data;
+using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.YeuCau;
-using LMS.Api.Services;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LMS.Api.Hubs;
 
 [Authorize]
-public class ChatHub(LmsDbContext db, IDichVuChat chat) : Hub
+public class ChatHub(ApplicationDbContext db, IDichVuChat chat) : Hub
 {
     private static readonly ConcurrentDictionary<string, int> ActiveUsers = new();
 
@@ -68,7 +68,17 @@ public class ChatHub(LmsDbContext db, IDichVuChat chat) : Hub
                 if (count <= 1)
                 {
                     ActiveUsers.TryRemove(userId, out _);
-                    await Clients.All.SendAsync("UserOffline", userId);
+
+                    // Persist LastSeenAt to the database
+                    var now = DateTime.UtcNow;
+                    var userEntity = await db.Users.FindAsync(userId);
+                    if (userEntity != null)
+                    {
+                        userEntity.LastSeenAt = now;
+                        await db.SaveChangesAsync();
+                    }
+
+                    await Clients.All.SendAsync("UserOffline", new { id = userId, lastSeenAt = now });
                 }
                 else
                 {

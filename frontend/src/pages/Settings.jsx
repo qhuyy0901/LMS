@@ -12,13 +12,9 @@ import {
   Landmark,
   LogOut,
   BanknoteArrowDown,
-  Moon,
-  Palette,
   ReceiptText,
   RotateCcw,
   Shield,
-  Sun,
-  Trash2,
   Upload,
   User,
   Wallet,
@@ -143,14 +139,14 @@ const Settings = () => {
 
   const displayName = formData.name || user?.name || 'Học viên';
   const isInstructor = user?.role === 'INSTRUCTOR';
-  const visibleTabs = isInstructor ? tabs.filter((item) => item.id !== 'billing') : tabs;
+  const visibleTabs = isInstructor ? tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications') : tabs;
 
   useEffect(() => {
     setActiveTab(normalizeTab(searchParams.get('tab')));
   }, [searchParams]);
 
   useEffect(() => {
-    if (isInstructor && activeTab === 'billing') {
+    if (isInstructor && (activeTab === 'billing' || activeTab === 'notifications')) {
       setActiveTab('profile');
       setSearchParams({}, { replace: true });
     }
@@ -420,21 +416,6 @@ const Settings = () => {
     }
   };
 
-  const handleDeleteAccount = async () => {
-    const confirmed = window.confirm(
-      'Bạn có chắc chắn muốn xóa vĩnh viễn tài khoản này? Toàn bộ tiến trình học, ví và dữ liệu liên quan sẽ không thể khôi phục.'
-    );
-    if (!confirmed) return;
-
-    try {
-      await axios.delete('/api/user/me');
-      logout();
-      navigate('/login');
-    } catch (error) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể xóa tài khoản.' });
-    }
-  };
-
   if (loading) {
     return (
       <div className="animate-fade-in-up space-y-6">
@@ -482,7 +463,8 @@ const Settings = () => {
           <div className="sticky top-4 flex flex-col gap-1 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
             {visibleTabs.map((item) => {
               const Icon = item.icon;
-              const isActive = activeTab === item.id;              return (
+              const isActive = activeTab === item.id;
+              return (
                 <button
                   key={item.id}
                   type="button"

@@ -1,6 +1,6 @@
-using LMS.Api.Data;
+using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.YeuCau;
-using LMS.Api.Services;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,7 +10,7 @@ namespace LMS.Api.Controllers;
 /// <summary>Controller thanh toán: nạp ví, mua khóa học, mã giảm giá.</summary>
 [ApiController]
 [Authorize]
-public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh, LmsDbContext db) : ControllerBase
+public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh, ApplicationDbContext db) : ControllerBase
 {
     private string FrontendUrl => cauHinh["FRONTEND_URL"] ?? "http://localhost:5173";
 

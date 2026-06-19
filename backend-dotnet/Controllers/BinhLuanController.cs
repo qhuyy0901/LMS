@@ -1,7 +1,8 @@
 using LMS.Api.DTOs.YeuCau;
 using LMS.Api.DTOs.PhanHoi;
-using LMS.Api.Data;
-using LMS.Api.Services;
+using LMS.Api.Domain.Entities;
+using LMS.Api.Infrastructure.Persistence;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,7 @@ namespace LMS.Api.Controllers;
 /// <summary>Controller bình luận — danh sách và gửi bình luận trong bài giảng</summary>
 [ApiController]
 [Authorize]
-public class BinhLuanController(LmsDbContext db) : ControllerBase
+public class BinhLuanController(ApplicationDbContext db) : ControllerBase
 {
     /// <summary>Danh sách bình luận của bài giảng</summary>
     [HttpGet("/api/courses/{courseId}/lessons/{lessonId}/comments")]
@@ -43,7 +44,7 @@ public class BinhLuanController(LmsDbContext db) : ControllerBase
             return Results.BadRequest(new { message = "Nội dung bình luận không được để trống" });
 
         var now = DateTime.UtcNow;
-        var bl = new Models.BinhLuan
+        var bl = new BinhLuan
         {
             Id = TaoId.Moi(), Content = yeuCau.Content.Trim(), LessonId = lessonId, UserId = userId,
             ParentId = string.IsNullOrWhiteSpace(yeuCau.ParentId) ? null : yeuCau.ParentId,
@@ -58,7 +59,7 @@ public class BinhLuanController(LmsDbContext db) : ControllerBase
                 .Where(user => user.Id == userId)
                 .Select(user => user.Name)
                 .FirstOrDefaultAsync() ?? "Một học viên";
-            db.Notifications.Add(new Models.ThongBao
+            db.Notifications.Add(new ThongBao
             {
                 Id = TaoId.Moi(),
                 UserId = course.InstructorId,

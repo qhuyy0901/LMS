@@ -1,0 +1,15 @@
+namespace LMS.Api.Domain.Entities;
+
+public class DangKySuKien
+{
+    public string Id { get; set; } = string.Empty;
+    public string EventId { get; set; } = string.Empty;
+    public SuKien? Event { get; set; }
+    public string UserId { get; set; } = string.Empty;
+    public NguoiDung? User { get; set; }
+    public string Status { get; set; } = "REGISTERED";
+    public int PointsUsed { get; set; }
+    public DateTime RegisteredAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}

@@ -1,6 +1,6 @@
 using System.Text.Json;
-using LMS.Api.Models;
-using LMS.Api.Services;
+using LMS.Api.Domain.Entities;
+using LMS.Api.Application.Services;
 
 namespace LMS.Api.DTOs.PhanHoi;
 

@@ -1,8 +1,8 @@
 using System.Security.Claims;
 using System.Text.Json;
-using LMS.Api.Data;
-using LMS.Api.Models;
-using LMS.Api.Services;
+using LMS.Api.Infrastructure.Persistence;
+using LMS.Api.Domain.Entities;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +11,7 @@ namespace LMS.Api.Controllers;
 
 [ApiController]
 [Authorize]
-public class SuKienController(LmsDbContext db, IWebHostEnvironment env) : ControllerBase
+public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) : ControllerBase
 {
     private static readonly HashSet<string> EventTypes = ["WORKSHOP", "SEMINAR", "SPECIAL_TOPIC", "WEBINAR", "OTHER"];
     private static readonly HashSet<string> EventFormats = ["ONLINE", "OFFLINE", "HYBRID"];

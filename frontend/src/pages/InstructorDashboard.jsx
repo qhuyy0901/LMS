@@ -301,13 +301,6 @@ const Metric = ({ label, value }) => (
   </div>
 );
 
-const InfoPanel = ({ title, children }) => (
-  <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-    <h2 className="mb-4 font-semibold text-slate-900">{title}</h2>
-    {children}
-  </section>
-);
-
 const EmptyText = ({ children }) => <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">{children}</p>;
 
 const statusLabel = (status) => {

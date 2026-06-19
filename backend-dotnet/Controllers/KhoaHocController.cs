@@ -1,6 +1,6 @@
-using LMS.Api.Data;
+using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.YeuCau;
-using LMS.Api.Services;
+using LMS.Api.Application.Services;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +10,7 @@ namespace LMS.Api.Controllers;
 
 /// <summary>Controller khóa học — danh sách, chi tiết, đánh giá</summary>
 [ApiController]
-public class KhoaHocController(IDichVuKhoaHoc dichVu, LmsDbContext db) : ControllerBase
+public class KhoaHocController(IDichVuKhoaHoc dichVu, ApplicationDbContext db) : ControllerBase
 {
     /// <summary>Danh sách khóa học công khai</summary>
     [HttpGet("/api/courses")]

@@ -1,28 +1,15 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
-  Award,
-  BarChart3,
-  Bell,
   BookOpen,
-  Calendar,
   CheckCircle2,
-  ChevronRight,
   Clock,
   Compass,
-  GraduationCap,
-  Heart,
   Play,
   Plus,
-  Search,
-  Star,
   Trophy,
   Users,
-  Video,
-  Archive,
-  Zap,
-  TrendingUp,
   Info,
 } from 'lucide-react';
 import { getFileUrl } from '../utils/fileUtils';
@@ -31,7 +18,6 @@ import { getFileUrl } from '../utils/fileUtils';
 
 const numberFmt = new Intl.NumberFormat('vi-VN');
 const dateFmt = new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const timeFmt = new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
 const clamp = (v) => Math.min(100, Math.max(0, Number(v || 0)));
 
@@ -79,7 +65,7 @@ const MyLearning = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('active');
-  const [query, setQuery] = useState('');
+  const [query] = useState('');
 
   // Load enrollments
   useEffect(() => {

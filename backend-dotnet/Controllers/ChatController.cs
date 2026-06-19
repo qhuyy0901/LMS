@@ -1,8 +1,8 @@
 using System.Security.Claims;
-using LMS.Api.Data;
+using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.PhanHoi;
 using LMS.Api.Hubs;
-using LMS.Api.Services;
+using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
@@ -13,7 +13,7 @@ namespace LMS.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatHub> hubContext) : ControllerBase
+public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubContext<ChatHub> hubContext) : ControllerBase
 {
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
@@ -74,6 +74,7 @@ public class ChatController(LmsDbContext db, IDichVuChat chat, IHubContext<ChatH
                 OtherUserId = otherParticipant?.Id ?? string.Empty,
                 OtherUserName = otherParticipant?.Name ?? string.Empty,
                 OtherUserAvatar = otherParticipant?.Avatar,
+                OtherUserLastSeenAt = otherParticipant?.LastSeenAt,
                 LastMessage = !string.IsNullOrWhiteSpace(lastMessage?.Content)
                     ? lastMessage.Content
                     : lastMessageHasImages == true ? "Đã gửi ảnh" : null,

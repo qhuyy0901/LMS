@@ -382,6 +382,7 @@ function ActionButton({ icon: Icon, label, onClick, disabled = false, danger = f
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
         danger
           ? 'border-red-100 text-red-600 hover:bg-red-50'

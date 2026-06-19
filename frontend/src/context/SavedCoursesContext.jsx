@@ -38,8 +38,7 @@ export function SavedCoursesProvider({ children }) {
       if (!user) return false;
       if (savedIds.has(courseId)) return true;
       try {
-        const res = await axios.post('/api/user/saved-courses', { courseId });
-        const newItem = res.data;
+        await axios.post('/api/user/saved-courses', { courseId });
         // Optimistically update: fetch full data
         await fetchSaved();
         return true;

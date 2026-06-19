@@ -1,12 +1,12 @@
-using LMS.Api.Data;
-using LMS.Api.Models;
+using LMS.Api.Infrastructure.Persistence;
+using LMS.Api.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace LMS.Api.Controllers;
 
 [ApiController]
-public class GiangVienCongKhaiController(LmsDbContext db) : ControllerBase
+public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBase
 {
     [HttpGet("/api/teachers/{id}")]
     [HttpGet("/api/instructors/{id}")]

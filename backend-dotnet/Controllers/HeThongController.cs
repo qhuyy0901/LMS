@@ -1,3 +1,4 @@
+using LMS.Api.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,7 +15,7 @@ public class HeThongController : ControllerBase
     public IActionResult KiemTraSucKhoe() => Ok(new { status = "ok", time = DateTime.UtcNow });
 
     [HttpGet("/debug-users")]
-    public async Task<IActionResult> DebugUsers([FromServices] Data.LmsDbContext db, [FromQuery] bool reset = false)
+    public async Task<IActionResult> DebugUsers([FromServices] ApplicationDbContext db, [FromQuery] bool reset = false)
     {
         var users = await db.Users.ToListAsync();
         if (users.Count == 0 || reset)
@@ -25,7 +26,7 @@ public class HeThongController : ControllerBase
                 db.Users.RemoveRange(users);
                 await db.SaveChangesAsync();
             }
-            await Data.SeedData.SeedAsync(db);
+            await SeedData.SeedAsync(db);
             users = await db.Users.ToListAsync();
             return Ok(new { message = "Database seeded/reset successfully!", users = users.Select(u => new { u.Email, u.Role, u.Name }) });
         }

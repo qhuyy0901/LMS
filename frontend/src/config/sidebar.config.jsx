@@ -1,7 +1,6 @@
 import {
   Award,
   BarChart2,
-  BookOpen,
   Briefcase,
   Calendar,
   Compass,

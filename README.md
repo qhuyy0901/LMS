@@ -1,29 +1,33 @@
-# Skillio LMS
+﻿# Skillio LMS
 
-Dự án LMS Skillio hiện là API backend ASP.NET Core C# dùng Entity Framework Core và SQL Server.
+Du an LMS Skillio gom backend ASP.NET Core va frontend React. Backend da duoc sap xep theo huong MVC-style Areas + Domain/Application/Infrastructure, nhung van giu cac endpoint hien co de frontend hien tai chay nhu cu.
 
-## Cấu trúc
+## Cau truc
 
-- `backend-dotnet`: mã nguồn API ASP.NET Core.
-- `docker-compose.yml`: SQL Server local.
-- `dotnet-tools.json`: cấu hình công cụ .NET, gồm `dotnet-ef`.
+- `backend-dotnet`: ma nguon ASP.NET Core.
+- `backend-dotnet/Areas`: controller/view theo vai tro Admin, Instructor, Student.
+- `backend-dotnet/Domain/Entities`: entity database.
+- `backend-dotnet/Application/Services`: service nghiep vu hien co.
+- `backend-dotnet/Infrastructure/Persistence`: DbContext, migrations, seed data.
+- `backend-dotnet/ViewModels`: ViewModel dung chung.
+- `frontend`: giao dien React hien tai.
+- `Archive/pending-review`: noi luu cau hinh chua dung trong pham vi hoc phan hien tai.
+- `dotnet-tools.json`: cau hinh cong cu .NET, gom `dotnet-ef`.
 
-## Cài đặt
+## Cai dat
 
 ```bash
 dotnet tool restore
 dotnet restore backend-dotnet/LMS.Api.csproj
+cd frontend
+npm install
 ```
 
 ## Database
 
-Chạy SQL Server local bằng Docker Compose:
+Chuan bi SQL Server local hoac cap nhat connection string trong `backend-dotnet/appsettings.json`.
 
-```bash
-docker compose up -d
-```
-
-Thông tin database mặc định:
+Thong tin database mac dinh:
 
 ```txt
 Server=127.0.0.1,11433
@@ -32,13 +36,13 @@ User Id=sa
 Password=LmsPassw0rd#2026
 ```
 
-Cập nhật schema bằng EF Core migrations:
+Cap nhat schema bang EF Core migrations:
 
 ```bash
 dotnet tool run dotnet-ef database update --project backend-dotnet/LMS.Api.csproj --startup-project backend-dotnet/LMS.Api.csproj
 ```
 
-Khi chạy ở môi trường Development, dữ liệu seed sẽ được thêm nếu database còn trống. Tài khoản mẫu:
+Khi chay o moi truong Development, du lieu seed se duoc them neu database con trong. Tai khoan mau:
 
 ```txt
 admin@gmail.com / 123456
@@ -46,49 +50,52 @@ instructor@gmail.com / 123456
 student@gmail.com / 123456
 ```
 
-## Chạy local
+## Chay local
+
+Backend:
 
 ```bash
 dotnet run --project backend-dotnet/LMS.Api.csproj --urls http://localhost:5000
 ```
 
-API chạy tại:
+Frontend:
 
-```txt
-http://localhost:5000
+```bash
+cd frontend
+npm run dev
 ```
 
 ## Build
 
 ```bash
 dotnet build backend-dotnet/LMS.Api.csproj
+cd frontend
+npm run build
 ```
 
-## Biến môi trường
+## Bien moi truong
 
-Backend đọc cấu hình từ `backend-dotnet/appsettings.json` hoặc environment variables:
+Backend doc cau hinh tu `backend-dotnet/appsettings.json` hoac environment variables:
 
 ```env
 ConnectionStrings__DefaultConnection=Server=127.0.0.1,11433;Database=lms;User Id=sa;Password=LmsPassw0rd#2026;TrustServerCertificate=True;Encrypt=False
 JWT_SECRET=change-me-to-a-long-random-secret
 FRONTEND_URL=http://localhost:5173
 ```
-cd D:\WEB\LMS
+
+
+
+
+
+
+
+
+
+
+
+
 dotnet run --project backend-dotnet/LMS.Api.csproj --urls http://localhost:5000
 
 
-
-cd D:\WEB\LMS\frontend
+cd frontend
 npm run dev
-
-
-
-
-
-
-
-
-chỉ cần chạy một lệnh:
-start-lms.cmd
-Dừng toàn bộ dự án bằng:
-stop-lms.cmd

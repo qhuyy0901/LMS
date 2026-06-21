@@ -3,13 +3,13 @@ namespace LMS.Api.Domain.Entities;
 public class ChungChi
 {
     public string Id { get; set; } = string.Empty;
-    public string CertificateNo { get; set; } = string.Empty;
-    public string VerifyCode { get; set; } = string.Empty;
+    public string SoChungChi { get; set; } = string.Empty;
+    public string MaXacThuc { get; set; } = string.Empty;
     public string? PdfUrl { get; set; }
-    public string? CompletionSnapshot { get; set; }
-    public DateTime IssuedAt { get; set; }
-    public string UserId { get; set; } = string.Empty;
-    public NguoiDung? User { get; set; }
-    public string CourseId { get; set; } = string.Empty;
-    public KhoaHoc? Course { get; set; }
+    public string? AnhChupHoanThanh { get; set; }
+    public DateTime NgayCap { get; set; }
+    public string NguoiDungId { get; set; } = string.Empty;
+    public NguoiDung? NguoiDung { get; set; }
+    public string KhoaHocId { get; set; } = string.Empty;
+    public KhoaHoc? KhoaHoc { get; set; }
 }

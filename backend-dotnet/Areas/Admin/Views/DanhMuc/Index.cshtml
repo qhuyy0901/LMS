@@ -1,0 +1,346 @@
+@model IEnumerable<LMS.Api.Domain.Entities.DanhMuc>
+
+@{
+    ViewData["Title"] = "Quản lý danh mục";
+    var courseCounts = ViewData["CourseCounts"] as Dictionary<string, int> ?? new Dictionary<string, int>();
+    var searchQuery = ViewData["SearchQuery"] as string;
+}
+
+<div class="page-container animate-fade-in">
+    <div class="page-header">
+        <div>
+            <h1 class="page-title">Quản lý danh mục</h1>
+            <p class="page-subtitle">Xem, thêm mới, cập nhật và thiết lập trạng thái hoạt động của danh mục khóa học.</p>
+        </div>
+        <a asp-action="Create" class="btn btn-primary">
+            <span class="btn-icon">+</span> Thêm danh mục
+        </a>
+    </div>
+
+    <div class="search-box-wrapper">
+        <form asp-action="Index" method="get" class="search-form">
+            <div class="search-input-group">
+                <input type="text" name="q" value="@searchQuery" placeholder="Tìm kiếm danh mục theo tên hoặc mô tả..." class="search-input" />
+                <button type="submit" class="btn btn-search">Tìm kiếm</button>
+                @if (!string.IsNullOrWhiteSpace(searchQuery))
+                {
+                    <a asp-action="Index" class="btn btn-clear-search">Bỏ lọc</a>
+                }
+            </div>
+        </form>
+    </div>
+
+    <div class="table-card">
+        @if (!Model.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📁</div>
+                <h3 class="empty-title">Không tìm thấy danh mục nào</h3>
+                <p class="empty-desc">Thử điều chỉnh từ khóa tìm kiếm hoặc bấm Thêm danh mục để tạo mới.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tên danh mục</th>
+                            <th>Slug</th>
+                            <th>Mô tả</th>
+                            <th>Số khóa học</th>
+                            <th>Trạng thái</th>
+                            <th class="text-right">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            courseCounts.TryGetValue(item.Id, out var count);
+                            <tr>
+                                <td class="font-semibold text-slate-900">
+                                    <div class="name-cell">
+                                        <span class="folder-icon">📁</span>
+                                        @item.Ten
+                                    </div>
+                                </td>
+                                <td class="text-slate-500">@item.Slug</td>
+                                <td class="text-slate-600 max-w-xs truncate-text" title="@item.MoTa">
+                                    @(string.IsNullOrWhiteSpace(item.MoTa) ? "Chưa có mô tả" : item.MoTa)
+                                </td>
+                                <td>
+                                    <span class="badge badge-info">@count khóa học</span>
+                                </td>
+                                <td>
+                                    <form asp-action="ToggleActive" asp-route-id="@item.Id" method="post" class="toggle-form">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="status-pill @(item.HoatDong ? "status-active" : "status-inactive")" title="Click để thay đổi trạng thái">
+                                            @(item.HoatDong ? "Đang hoạt động" : "Ngừng hoạt động")
+                                        </button>
+                                    </form>
+                                </td>
+                                <td class="text-right">
+                                    <div class="action-buttons-group">
+                                        <a asp-action="Edit" asp-route-id="@item.Id" class="action-btn btn-edit" title="Chỉnh sửa">Sửa</a>
+                                        @if (count > 0)
+                                        {
+                                            <a asp-action="Delete" asp-route-id="@item.Id" class="action-btn btn-delete disabled-link" title="Không thể xóa khi có khóa học">Xóa</a>
+                                        }
+                                        else
+                                        {
+                                            <a asp-action="Delete" asp-route-id="@item.Id" class="action-btn btn-delete" title="Xóa danh mục trống">Xóa</a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .page-container {
+            max-width: 1180px;
+            margin: 0 auto;
+        }
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .page-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.02em;
+        }
+        .page-subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+        }
+        .search-box-wrapper {
+            margin-bottom: 20px;
+        }
+        .search-form {
+            display: block;
+        }
+        .search-input-group {
+            display: flex;
+            gap: 12px;
+        }
+        .search-input {
+            flex: 1;
+            padding: 12px 18px;
+            font-size: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 999px;
+            background-color: #ffffff;
+            color: #0f172a;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .search-input:focus {
+            border-color: #7c3aed;
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        }
+        .table-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        }
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 14px;
+        }
+        .data-table th {
+            background-color: #f8fafc;
+            padding: 16px 20px;
+            font-weight: 700;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.05em;
+        }
+        .data-table td {
+            padding: 18px 20px;
+            border-bottom: 1px solid #f1f5f9;
+            color: #334155;
+            vertical-align: middle;
+        }
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+        .name-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .folder-icon {
+            font-size: 16px;
+        }
+        .truncate-text {
+            max-width: 250px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-info {
+            background-color: #f3e8ff;
+            color: #6d28d9;
+        }
+        .status-pill {
+            display: inline-flex;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 650;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .status-active {
+            background-color: #ecfdf5;
+            color: #047857;
+        }
+        .status-active:hover {
+            background-color: #d1fae5;
+        }
+        .status-inactive {
+            background-color: #fef2f2;
+            color: #b91c1c;
+        }
+        .status-inactive:hover {
+            background-color: #fee2e2;
+        }
+        .action-buttons-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .btn-edit {
+            background-color: #f8fafc;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+        .btn-edit:hover {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+        .btn-delete {
+            background-color: #fff5f5;
+            border-color: #fee2e2;
+            color: #e11d48;
+        }
+        .btn-delete:hover:not(.disabled-link) {
+            background-color: #ffe4e6;
+        }
+        .disabled-link {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 750;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(124, 58, 237, 0.35);
+        }
+        .btn-search {
+            background-color: #0f172a;
+            color: #ffffff;
+            padding: 12px 24px;
+            border-radius: 999px;
+        }
+        .btn-search:hover {
+            background-color: #1e293b;
+        }
+        .btn-clear-search {
+            background-color: #f1f5f9;
+            color: #475569;
+            padding: 12px 24px;
+            border-radius: 999px;
+            border: 1px solid #cbd5e1;
+        }
+        .btn-clear-search:hover {
+            background-color: #e2e8f0;
+            color: #0f172a;
+        }
+        .empty-state {
+            padding: 64px 32px;
+            text-align: center;
+        }
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 8px 0;
+        }
+        .empty-desc {
+            font-size: 14px;
+            color: #64748b;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .font-semibold {
+            font-weight: 600;
+        }
+    </style>
+}

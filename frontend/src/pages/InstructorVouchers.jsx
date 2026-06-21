@@ -15,6 +15,8 @@ import {
   Users,
   X,
 } from 'lucide-react';
+import DataTable from '../components/DataTable';
+import DataTableToolbar from '../components/DataTableToolbar';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -77,6 +79,7 @@ export default function InstructorVouchers() {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const [pageSize, setPageSize] = useState(5);
   const [form, setForm] = useState(initialForm);
   const [editingId, setEditingId] = useState(null);
   const [sendVoucher, setSendVoucher] = useState(null);
@@ -282,6 +285,104 @@ export default function InstructorVouchers() {
     }
   };
 
+  const columns = [
+    { title: 'Mã', data: 'code', className: 'px-4 py-3' },
+    { title: 'Giảm giá', data: 'discountValue', className: 'px-4 py-3' },
+    { title: 'Khóa học', data: 'course.title', className: 'px-4 py-3' },
+    { title: 'Lượt dùng', data: 'usageCount', className: 'px-4 py-3' },
+    { title: 'Thời hạn', data: 'endDate', className: 'px-4 py-3' },
+    { title: 'Trạng thái', data: 'status', className: 'px-4 py-3' },
+    { title: 'Thao tác', data: 'id', className: 'px-4 py-3 text-right', orderable: false }
+  ];
+
+  const slots = {
+    0: (data, row) => (
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
+          <Tag className="h-3.5 w-3.5" />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate font-mono text-sm font-bold tracking-wider text-slate-900">{row.code}</p>
+          {row.isPrivate ? <p className="text-xs text-purple-600">Riêng cho học viên</p> : null}
+        </div>
+      </div>
+    ),
+    1: (data, row) => (
+      row.discountType === 'PERCENTAGE' ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+          <Percent className="h-3 w-3" />
+          {row.discountValue}%
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+          <DollarSign className="h-3 w-3" />
+          {formatCurrency(row.discountValue)}
+        </span>
+      )
+    ),
+    2: (data, row) => (
+      <span className="block max-w-[160px] truncate text-slate-700" title={row.course?.title || 'Tất cả khóa học'}>
+        {row.course?.title || 'Tất cả khóa học'}
+      </span>
+    ),
+    3: (data, row) => (
+      <div>
+        <span className="font-semibold text-slate-900">{row.usedCount ?? row.usageCount ?? 0}</span>
+        {row.maxUses || row.usageLimit ? (
+          <span className="text-xs text-slate-400"> / {row.maxUses ?? row.usageLimit}</span>
+        ) : null}
+        <p className="mt-0.5 text-xs text-slate-400">{row.recipientCount || 0} người nhận</p>
+      </div>
+    ),
+    4: (data, row) => (
+      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+        <Calendar className="h-3.5 w-3.5 shrink-0" />
+        <span>{formatDate(row.startDate)} - {formatDate(row.endDate)}</span>
+      </div>
+    ),
+    5: (data, row) => (
+      <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClass[row.status] || statusClass.ACTIVE}`}>
+        {statusLabel[row.status] || row.status || 'Đang hoạt động'}
+      </span>
+    ),
+    6: (data, row) => (
+      <div className="flex justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => openEditForm(row)}
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
+          title="Chỉnh sửa"
+        >
+          <Edit3 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => openSendModal(row)}
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
+          title="Gửi voucher"
+        >
+          <Send className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => toggleVoucher(row)}
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+          title={row.status === 'ACTIVE' ? 'Tắt voucher' : 'Bật voucher'}
+        >
+          {row.status === 'ACTIVE' ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
+        </button>
+        <button
+          type="button"
+          onClick={() => setDeleteTarget(row)}
+          className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+          title="Xóa voucher"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+    )
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
@@ -446,152 +547,42 @@ export default function InstructorVouchers() {
       )}
 
       {/* Voucher List */}
-      <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
-        <div className="flex flex-col gap-3 border-b border-slate-100 p-4 sm:flex-row sm:items-center">
-          <label className="flex flex-1 items-center gap-2 rounded-xl border border-slate-200 px-3">
-            <Search className="h-4 w-4 shrink-0 text-slate-400" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && fetchVouchers()}
-              placeholder="Tìm mã hoặc tên khóa học..."
-              className="flex-1 bg-transparent py-2.5 text-sm outline-none"
-            />
-          </label>
-          <div className="flex gap-3">
-            <select value={status} onChange={(event) => setStatus(event.target.value)} className={`${inputClass} w-auto min-w-[160px]`}>
+      <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <DataTableToolbar
+          searchValue={query}
+          onSearchChange={setQuery}
+          onSearchKeyDown={(event) => event.key === 'Enter' && fetchVouchers()}
+          placeholder="Tìm mã hoặc tên khóa học..."
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          filters={
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100 w-auto min-w-[160px]">
               <option value="">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hoạt động</option>
               <option value="INACTIVE">Đã tắt</option>
               <option value="EXPIRED">Hết hạn</option>
             </select>
+          }
+          actions={
             <button
               type="button"
               onClick={fetchVouchers}
-              className="whitespace-nowrap rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+              className="whitespace-nowrap rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
             >
               Tìm kiếm
             </button>
-          </div>
-        </div>
+          }
+        />
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="whitespace-nowrap px-4 py-3">Mã</th>
-                <th className="whitespace-nowrap px-4 py-3">Giảm giá</th>
-                <th className="whitespace-nowrap px-4 py-3">Khóa học</th>
-                <th className="whitespace-nowrap px-4 py-3">Lượt dùng</th>
-                <th className="whitespace-nowrap px-4 py-3">Thời hạn</th>
-                <th className="whitespace-nowrap px-4 py-3">Trạng thái</th>
-                <th className="whitespace-nowrap px-4 py-3 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
-                  </td>
-                </tr>
-              ) : vouchers.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                    Chưa có voucher nào.
-                  </td>
-                </tr>
-              ) : (
-                vouchers.map((voucher) => (
-                  <tr key={voucher.id} className="transition hover:bg-slate-50/80">
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-purple-50 text-purple-600">
-                          <Tag className="h-3.5 w-3.5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-mono text-sm font-bold tracking-wider text-slate-900">{voucher.code}</p>
-                          {voucher.isPrivate ? <p className="text-xs text-purple-600">Riêng cho học viên</p> : null}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      {voucher.discountType === 'PERCENTAGE' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                          <Percent className="h-3 w-3" />
-                          {voucher.discountValue}%
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                          <DollarSign className="h-3 w-3" />
-                          {formatCurrency(voucher.discountValue)}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="block max-w-[160px] truncate text-slate-700" title={voucher.course?.title || 'Tất cả khóa học'}>
-                        {voucher.course?.title || 'Tất cả khóa học'}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className="font-semibold text-slate-900">{voucher.usedCount ?? voucher.usageCount ?? 0}</span>
-                      {voucher.maxUses || voucher.usageLimit ? (
-                        <span className="text-xs text-slate-400"> / {voucher.maxUses ?? voucher.usageLimit}</span>
-                      ) : null}
-                      <p className="mt-0.5 text-xs text-slate-400">{voucher.recipientCount || 0} người nhận</p>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                        <Calendar className="h-3.5 w-3.5 shrink-0" />
-                        <span>{formatDate(voucher.startDate)} - {formatDate(voucher.endDate)}</span>
-                      </div>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass[voucher.status] || statusClass.ACTIVE}`}>
-                        {statusLabel[voucher.status] || voucher.status || 'Đang hoạt động'}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <div className="flex justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={() => openEditForm(voucher)}
-                          className="rounded-lg p-2 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-                          title="Chỉnh sửa"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openSendModal(voucher)}
-                          className="rounded-lg p-2 text-slate-400 transition hover:bg-purple-50 hover:text-purple-600"
-                          title="Gửi voucher"
-                        >
-                          <Send className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => toggleVoucher(voucher)}
-                          className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-                          title={voucher.status === 'ACTIVE' ? 'Tắt voucher' : 'Bật voucher'}
-                        >
-                          {voucher.status === 'ACTIVE' ? <ToggleRight className="h-4 w-4 text-emerald-500" /> : <ToggleLeft className="h-4 w-4" />}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(voucher)}
-                          className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                          title="Xóa voucher"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <div className="mt-4">
+          <DataTable
+            data={vouchers}
+            columns={columns}
+            slots={slots}
+            loading={loading}
+            error={error}
+            pageSize={pageSize}
+          />
         </div>
       </section>
 

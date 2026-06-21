@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Student.Controllers;
+namespace LMS.Api.Areas.HocVien.Controllers;
 
 /// <summary>Controller ghi danh — đăng ký khóa học, tiến độ, hoàn thành</summary>
 [ApiController]
@@ -22,20 +22,20 @@ public class GhiDanhController(IDichVuGhiDanh dichVu, ApplicationDbContext db) :
         if (userId is null) return Results.Unauthorized();
         if (LaXemThuSinhVien())
         {
-            var courses = await db.Courses.AsNoTracking()
-                .Where(course => course.InstructorId == userId && course.IsPublished)
-                .Include(course => course.Instructor)
-                .Include(course => course.Sections)
-                .Include(course => course.Lessons)
-                .Include(course => course.Enrollments)
-                .OrderByDescending(course => course.UpdatedAt)
+            var courses = await db.KhoaHoc.AsNoTracking()
+                .Where(course => course.GiangVienId == userId && course.DaXuatBan)
+                .Include(course => course.GiangVien)
+                .Include(course => course.CacChuongHoc)
+                .Include(course => course.CacBaiHoc)
+                .Include(course => course.CacGhiDanh)
+                .OrderByDescending(course => course.NgayCapNhat)
                 .ToListAsync();
             return Results.Ok(courses.Select(course => new
             {
                 id = $"student-preview-{course.Id}",
                 progress = 0,
                 completedAt = (DateTime?)null,
-                createdAt = course.PublishedAt ?? course.CreatedAt,
+                createdAt = course.NgayXuatBan ?? course.NgayTao,
                 course = KhoaHocDto.TuKhoaHoc(course)
             }));
         }

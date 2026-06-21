@@ -4,10 +4,10 @@ namespace LMS.Api.Domain.Entities;
 public class KhoaHocDaLuu
 {
     public string Id { get; set; } = string.Empty;
-    public string UserId { get; set; } = string.Empty;
-    public string CourseId { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
+    public string NguoiDungId { get; set; } = string.Empty;
+    public string KhoaHocId { get; set; } = string.Empty;
+    public DateTime NgayTao { get; set; }
 
-    public NguoiDung? User { get; set; }
-    public KhoaHoc? Course { get; set; }
+    public NguoiDung? NguoiDung { get; set; }
+    public KhoaHoc? KhoaHoc { get; set; }
 }

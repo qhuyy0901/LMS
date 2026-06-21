@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Instructor.Controllers;
+namespace LMS.Api.Areas.GiangVien.Controllers;
 
 [ApiController]
 [Authorize]
@@ -36,12 +36,12 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         if (loi is not null) return loi;
 
         var userId = TroGiup.LayUserId(User)!;
-        var ds = await db.Courses.AsNoTracking()
-            .Where(c => c.InstructorId == userId)
-            .Include(c => c.Sections.OrderBy(s => s.Position))
-                .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
-            .Include(c => c.Enrollments)
-            .OrderByDescending(c => c.CreatedAt)
+        var ds = await db.KhoaHoc.AsNoTracking()
+            .Where(c => c.GiangVienId == userId)
+            .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
+                .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
+            .Include(c => c.CacGhiDanh)
+            .OrderByDescending(c => c.NgayTao)
             .ToListAsync();
 
         return Results.Ok(ds.Select(MapCourse));
@@ -54,69 +54,69 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         if (loi is not null) return loi;
 
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocs = await db.Courses.AsNoTracking()
-            .Where(c => c.InstructorId == userId)
-            .Include(c => c.Sections)
-                .ThenInclude(s => s.Lessons)
-            .Include(c => c.Enrollments)
-            .Include(c => c.Purchases)
-            .Include(c => c.Reviews)
-            .OrderByDescending(c => c.CreatedAt)
+        var khoaHocs = await db.KhoaHoc.AsNoTracking()
+            .Where(c => c.GiangVienId == userId)
+            .Include(c => c.CacChuongHoc)
+                .ThenInclude(s => s.CacBaiHoc)
+            .Include(c => c.CacGhiDanh)
+            .Include(c => c.CacDonMua)
+            .Include(c => c.CacDanhGia)
+            .OrderByDescending(c => c.NgayTao)
             .ToListAsync();
 
         var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
-        var giaoDich = await db.Purchases.AsNoTracking()
-            .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
-            .Include(p => p.User)
-            .Include(p => p.Course)
-            .OrderByDescending(p => p.CreatedAt)
+        var giaoDich = await db.DonMua.AsNoTracking()
+            .Where(p => khoaHocIds.Contains(p.KhoaHocId) && p.TrangThai == "COMPLETED")
+            .Include(p => p.NguoiDung)
+            .Include(p => p.KhoaHoc)
+            .OrderByDescending(p => p.NgayTao)
             .ToListAsync();
 
-        var hocVienMoi = await db.Enrollments.AsNoTracking()
-            .Where(e => khoaHocIds.Contains(e.CourseId))
-            .Include(e => e.User)
-            .Include(e => e.Course)
-            .OrderByDescending(e => e.CreatedAt)
+        var hocVienMoi = await db.GhiDanh.AsNoTracking()
+            .Where(e => khoaHocIds.Contains(e.KhoaHocId))
+            .Include(e => e.NguoiDung)
+            .Include(e => e.KhoaHoc)
+            .OrderByDescending(e => e.NgayTao)
             .Take(8)
             .ToListAsync();
 
-        var danhGia = khoaHocs.SelectMany(c => c.Reviews).ToList();
+        var danhGia = khoaHocs.SelectMany(c => c.CacDanhGia).ToList();
         var khoaHocNhieuHocVienNhat = khoaHocs
-            .OrderByDescending(c => c.Enrollments.Count)
-            .FirstOrDefault(c => c.Enrollments.Count > 0);
+            .OrderByDescending(c => c.CacGhiDanh.Count)
+            .FirstOrDefault(c => c.CacGhiDanh.Count > 0);
 
         return Results.Ok(new
         {
-            tongDoanhThu = giaoDich.Sum(p => p.FinalAmount),
-            tongHocVien = khoaHocs.Sum(c => c.Enrollments.Count),
+            tongDoanhThu = giaoDich.Sum(p => p.SoTienCuoi),
+            tongHocVien = khoaHocs.Sum(c => c.CacGhiDanh.Count),
             tongKhoaHoc = khoaHocs.Count,
             khoaHocCongKhai = khoaHocs.Count(IsCoursePublished),
-            khoaHocBanNhap = khoaHocs.Count(c => !IsCoursePublished(c) || string.Equals(c.Status, "DRAFT", StringComparison.OrdinalIgnoreCase)),
-            danhGiaTrungBinh = danhGia.Count == 0 ? (double?)null : Math.Round(danhGia.Average(r => r.Rating), 1),
+            khoaHocBanNhap = khoaHocs.Count(c => !IsCoursePublished(c) || string.Equals(c.TrangThai, "DRAFT", StringComparison.OrdinalIgnoreCase)),
+            danhGiaTrungBinh = danhGia.Count == 0 ? (double?)null : Math.Round(danhGia.Average(r => r.DiemDanhGia), 1),
             hocVienMoi = hocVienMoi.Select(e => new
             {
                 id = e.Id,
-                hocVienId = e.UserId,
-                tenHocVien = e.User?.Name ?? "Học viên",
-                emailHocVien = e.User?.Email,
-                khoaHocId = e.CourseId,
-                tenKhoaHoc = e.Course?.Title ?? "Khóa học",
-                tienDo = e.Progress,
-                ngayDangKy = e.CreatedAt
+                hocVienId = e.NguoiDungId,
+                tenHocVien = e.NguoiDung?.Ten ?? "Học viên",
+                emailHocVien = e.NguoiDung?.Email,
+                khoaHocId = e.KhoaHocId,
+                tenKhoaHoc = e.KhoaHoc?.TieuDe ?? "Khóa học",
+                tienDo = e.TienDo,
+                ngayDangKy = e.NgayTao
             }),
             khoaHocCuaToi = khoaHocs.Take(5).Select(MapDashboardCourse),
             khoaHocNhieuHocVienNhat = khoaHocNhieuHocVienNhat is null ? null : MapDashboardCourse(khoaHocNhieuHocVienNhat),
             doanhThuGanDay = giaoDich.Take(5).Select(p => new
             {
                 id = p.Id,
-                soTien = p.FinalAmount,
-                amount = p.FinalAmount,
-                khoaHocId = p.CourseId,
-                tenKhoaHoc = p.Course?.Title ?? "Khóa học",
-                hocVienId = p.UserId,
-                tenHocVien = p.User?.Name ?? "Học viên",
-                ngayThanhToan = p.CreatedAt,
-                createdAt = p.CreatedAt
+                soTien = p.SoTienCuoi,
+                amount = p.SoTienCuoi,
+                khoaHocId = p.KhoaHocId,
+                tenKhoaHoc = p.KhoaHoc?.TieuDe ?? "Khóa học",
+                hocVienId = p.NguoiDungId,
+                tenHocVien = p.NguoiDung?.Ten ?? "Học viên",
+                ngayThanhToan = p.NgayTao,
+                createdAt = p.NgayTao
             })
         });
     }
@@ -154,24 +154,24 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var khoaHoc = new KhoaHoc
         {
             Id = TaoId.Moi(),
-            Title = tieuDe,
-            Slug = await TaoSlugDuyNhat(tieuDe),
-            ShortDescription = yeuCau.MoTaNgan,
-            Description = moTa,
-            DetailedDescription = yeuCau.MoTaChiTiet,
-            Thumbnail = anhBia ?? yeuCau.Thumbnail,
-            Category = string.IsNullOrWhiteSpace(yeuCau.DanhMuc) ? "Lập trình" : yeuCau.DanhMuc.Trim(),
-            Level = string.IsNullOrWhiteSpace(yeuCau.TrinhDo) ? "BEGINNER" : yeuCau.TrinhDo.Trim(),
-            Price = yeuCau.Gia,
-            MinimumMemberTier = "BRONZE",
-            InstructorId = TroGiup.LayUserId(User)!,
-            IsPublished = false,
-            Status = "DRAFT",
-            CreatedAt = now,
-            UpdatedAt = now
+            TieuDe = tieuDe,
+            DuongDanThanThien = await TaoSlugDuyNhat(tieuDe),
+            MoTaNgan = yeuCau.MoTaNgan,
+            MoTa = moTa,
+            MoTaChiTiet = yeuCau.MoTaChiTiet,
+            AnhDaiDien = anhBia ?? yeuCau.Thumbnail,
+            ChuyenMuc = string.IsNullOrWhiteSpace(yeuCau.DanhMuc) ? "Lập trình" : yeuCau.DanhMuc.Trim(),
+            TrinhDo = string.IsNullOrWhiteSpace(yeuCau.TrinhDo) ? "BEGINNER" : yeuCau.TrinhDo.Trim(),
+            Gia = yeuCau.Gia,
+            HangThanhVienToiThieu = "BRONZE",
+            GiangVienId = TroGiup.LayUserId(User)!,
+            DaXuatBan = false,
+            TrangThai = "DRAFT",
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
-        db.Courses.Add(khoaHoc);
+        db.KhoaHoc.Add(khoaHoc);
         await db.SaveChangesAsync();
 
         return Results.Created($"/api/instructor/courses/{khoaHoc.Id}", MapCourse(khoaHoc));
@@ -185,40 +185,40 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
 
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title)?.Trim();
-        if (!string.IsNullOrWhiteSpace(tieuDe) && tieuDe != kh.Title)
+        if (!string.IsNullOrWhiteSpace(tieuDe) && tieuDe != kh.TieuDe)
         {
             if (tieuDe.Length < 5) return Results.BadRequest(new { message = "Tiêu đề khóa học tối thiểu 5 ký tự." });
-            kh.Title = tieuDe;
-            kh.Slug = await TaoSlugDuyNhat(kh.Title, kh.Id);
+            kh.TieuDe = tieuDe;
+            kh.DuongDanThanThien = await TaoSlugDuyNhat(kh.TieuDe, kh.Id);
         }
 
         var moTa = yeuCau.MoTa ?? yeuCau.Description;
         if (moTa is not null)
         {
             if (moTa.Trim().Length < 20) return Results.BadRequest(new { message = "Mô tả khóa học tối thiểu 20 ký tự." });
-            kh.Description = moTa.Trim();
+            kh.MoTa = moTa.Trim();
         }
-        if (yeuCau.MoTaNgan is not null) kh.ShortDescription = yeuCau.MoTaNgan.Trim();
-        if (yeuCau.MoTaChiTiet is not null) kh.DetailedDescription = yeuCau.MoTaChiTiet.Trim();
-        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc)) kh.Category = yeuCau.DanhMuc.Trim();
-        if (!string.IsNullOrWhiteSpace(yeuCau.TrinhDo)) kh.Level = yeuCau.TrinhDo.Trim();
+        if (yeuCau.MoTaNgan is not null) kh.MoTaNgan = yeuCau.MoTaNgan.Trim();
+        if (yeuCau.MoTaChiTiet is not null) kh.MoTaChiTiet = yeuCau.MoTaChiTiet.Trim();
+        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc)) kh.ChuyenMuc = yeuCau.DanhMuc.Trim();
+        if (!string.IsNullOrWhiteSpace(yeuCau.TrinhDo)) kh.TrinhDo = yeuCau.TrinhDo.Trim();
         if (!string.IsNullOrWhiteSpace(yeuCau.TrangThai))
         {
-            kh.Status = NormalizeCourseStatus(yeuCau.TrangThai);
-            kh.IsPublished = kh.Status == "PUBLIC";
+            kh.TrangThai = NormalizeCourseStatus(yeuCau.TrangThai);
+            kh.DaXuatBan = kh.TrangThai == "PUBLIC";
         }
 
         if (yeuCau.Gia < 0) return Results.BadRequest(new { message = "Giá khóa học không được âm." });
-        kh.Price = yeuCau.Gia;
+        kh.Gia = yeuCau.Gia;
 
         if (yeuCau.CoverImageFile is not null)
         {
             var validate = ValidateFile(yeuCau.CoverImageFile, ImageTypes, 5 * 1024 * 1024, "Ảnh bìa");
             if (validate is not null) return validate;
-            kh.Thumbnail = await SaveUpload(yeuCau.CoverImageFile, "uploads/courses");
+            kh.AnhDaiDien = await SaveUpload(yeuCau.CoverImageFile, "uploads/courses");
         }
 
-        kh.UpdatedAt = DateTime.UtcNow;
+        kh.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Results.Ok(MapCourse(kh));
     }
@@ -260,10 +260,10 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             });
         }
 
-        kh.IsPublished = yeuCau.IsPublished;
-        kh.Status = yeuCau.IsPublished ? "PUBLIC" : "DRAFT";
-        kh.PublishedAt = yeuCau.IsPublished ? DateTime.UtcNow : kh.PublishedAt;
-        kh.UpdatedAt = DateTime.UtcNow;
+        kh.DaXuatBan = yeuCau.IsPublished;
+        kh.TrangThai = yeuCau.IsPublished ? "PUBLIC" : "DRAFT";
+        kh.NgayXuatBan = yeuCau.IsPublished ? DateTime.UtcNow : kh.NgayXuatBan;
+        kh.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         var reloaded = await LoadOwnedCourse(id, asNoTracking: true);
@@ -276,9 +276,9 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
 
-        kh.IsPublished = false;
-        kh.Status = "HIDDEN";
-        kh.UpdatedAt = DateTime.UtcNow;
+        kh.DaXuatBan = false;
+        kh.TrangThai = "HIDDEN";
+        kh.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         var reloaded = await LoadOwnedCourse(id, asNoTracking: true);
@@ -290,51 +290,51 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
-        if (await db.Purchases.AnyAsync(p => p.CourseId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có sinh viên mua. Bạn chỉ có thể ẩn khóa học." });
-        if (await db.Enrollments.AnyAsync(e => e.CourseId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có học viên đăng ký. Bạn chỉ có thể ẩn khóa học." });
+        if (await db.DonMua.AnyAsync(p => p.KhoaHocId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có sinh viên mua. Bạn chỉ có thể ẩn khóa học." });
+        if (await db.GhiDanh.AnyAsync(e => e.KhoaHocId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có học viên đăng ký. Bạn chỉ có thể ẩn khóa học." });
 
         // Remove quiz submissions, questions, and quizzes (child-first order)
-        var lessonIds = await db.Lessons.Where(l => l.CourseId == id).Select(l => l.Id).ToListAsync();
-        var quizIds = await db.Quizzes.Where(q => lessonIds.Contains(q.LessonId)).Select(q => q.Id).ToListAsync();
+        var lessonIds = await db.BaiHoc.Where(l => l.KhoaHocId == id).Select(l => l.Id).ToListAsync();
+        var quizIds = await db.BaiKiemTra.Where(q => lessonIds.Contains(q.BaiHocId)).Select(q => q.Id).ToListAsync();
         if (quizIds.Count > 0)
         {
-            db.QuizSubmissions.RemoveRange(db.QuizSubmissions.Where(s => quizIds.Contains(s.QuizId)));
-            db.QuizQuestions.RemoveRange(db.QuizQuestions.Where(q => quizIds.Contains(q.QuizId)));
-            db.Quizzes.RemoveRange(db.Quizzes.Where(q => quizIds.Contains(q.Id)));
+            db.BaiNopKiemTra.RemoveRange(db.BaiNopKiemTra.Where(s => quizIds.Contains(s.BaiKiemTraId)));
+            db.CauHoiKiemTra.RemoveRange(db.CauHoiKiemTra.Where(q => quizIds.Contains(q.BaiKiemTraId)));
+            db.BaiKiemTra.RemoveRange(db.BaiKiemTra.Where(q => quizIds.Contains(q.Id)));
         }
 
         // Remove lesson-level children: comments, lesson progresses
         if (lessonIds.Count > 0)
         {
-            db.Comments.RemoveRange(db.Comments.Where(c => lessonIds.Contains(c.LessonId)));
-            db.LessonProgresses.RemoveRange(db.LessonProgresses.Where(p => lessonIds.Contains(p.LessonId)));
+            db.BinhLuan.RemoveRange(db.BinhLuan.Where(c => lessonIds.Contains(c.BaiHocId)));
+            db.TienDoBaiHoc.RemoveRange(db.TienDoBaiHoc.Where(p => lessonIds.Contains(p.BaiHocId)));
         }
 
         // Remove coupon children (usages, recipients), then coupons
-        var couponIds = await db.Coupons.Where(c => c.CourseId == id).Select(c => c.Id).ToListAsync();
+        var couponIds = await db.MaGiamGia.Where(c => c.KhoaHocId == id).Select(c => c.Id).ToListAsync();
         if (couponIds.Count > 0)
         {
-            db.CouponUsages.RemoveRange(db.CouponUsages.Where(u => couponIds.Contains(u.CouponId)));
-            db.CouponRecipients.RemoveRange(db.CouponRecipients.Where(r => couponIds.Contains(r.CouponId)));
-            db.Coupons.RemoveRange(db.Coupons.Where(c => couponIds.Contains(c.Id)));
+            db.LichSuDungMaGiamGia.RemoveRange(db.LichSuDungMaGiamGia.Where(u => couponIds.Contains(u.MaGiamGiaId)));
+            db.NguoiNhanMaGiamGia.RemoveRange(db.NguoiNhanMaGiamGia.Where(r => couponIds.Contains(r.MaGiamGiaId)));
+            db.MaGiamGia.RemoveRange(db.MaGiamGia.Where(c => couponIds.Contains(c.Id)));
         }
 
         // Remove other course-level children
-        db.CourseReviews.RemoveRange(db.CourseReviews.Where(r => r.CourseId == id));
-        db.Certificates.RemoveRange(db.Certificates.Where(c => c.CourseId == id));
-        db.SavedCourses.RemoveRange(db.SavedCourses.Where(s => s.CourseId == id));
-        db.CouponUsages.RemoveRange(db.CouponUsages.Where(u => u.CourseId == id));
+        db.DanhGiaKhoaHoc.RemoveRange(db.DanhGiaKhoaHoc.Where(r => r.KhoaHocId == id));
+        db.ChungChi.RemoveRange(db.ChungChi.Where(c => c.KhoaHocId == id));
+        db.KhoaHocDaLuu.RemoveRange(db.KhoaHocDaLuu.Where(s => s.KhoaHocId == id));
+        db.LichSuDungMaGiamGia.RemoveRange(db.LichSuDungMaGiamGia.Where(u => u.KhoaHocId == id));
 
         // Nullify nullable CourseId references
-        await db.WalletTransactions.Where(w => w.CourseId == id).ExecuteUpdateAsync(s => s.SetProperty(w => w.CourseId, (string?)null));
-        await db.Conversations.Where(c => c.CourseId == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.CourseId, (string?)null));
-        await db.CouponRecipients.Where(r => r.SourceCourseId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.SourceCourseId, (string?)null));
+        await db.GiaoDichVi.Where(w => w.KhoaHocId == id).ExecuteUpdateAsync(s => s.SetProperty(w => w.KhoaHocId, (string?)null));
+        await db.CuocTroChuyen.Where(c => c.KhoaHocId == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.KhoaHocId, (string?)null));
+        await db.NguoiNhanMaGiamGia.Where(r => r.SourceCourseId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.SourceCourseId, (string?)null));
 
         // Remove assignments, lessons, sections, then the course itself
-        db.Assignments.RemoveRange(db.Assignments.Where(assignment => assignment.CourseId == id));
-        db.Lessons.RemoveRange(db.Lessons.Where(lesson => lesson.CourseId == id));
-        db.Sections.RemoveRange(db.Sections.Where(section => section.CourseId == id));
-        db.Courses.Remove(kh);
+        db.BaiTap.RemoveRange(db.BaiTap.Where(assignment => assignment.KhoaHocId == id));
+        db.BaiHoc.RemoveRange(db.BaiHoc.Where(lesson => lesson.KhoaHocId == id));
+        db.ChuongHoc.RemoveRange(db.ChuongHoc.Where(section => section.KhoaHocId == id));
+        db.KhoaHoc.Remove(kh);
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã xóa khóa học." });
     }
@@ -347,21 +347,21 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title ?? string.Empty).Trim();
         if (tieuDe.Length < 3) return Results.BadRequest(new { message = "Tên chương tối thiểu 3 ký tự." });
-        var thuTu = Math.Max(1, yeuCau.ThuTu ?? kh.Sections.Count + 1);
+        var thuTu = Math.Max(1, yeuCau.ThuTu ?? kh.CacChuongHoc.Count + 1);
         var now = DateTime.UtcNow;
 
         var chuong = new ChuongHoc
         {
             Id = TaoId.Moi(),
-            Title = tieuDe,
-            Description = yeuCau.MoTa ?? yeuCau.Description,
-            Position = thuTu,
-            CourseId = courseId,
-            CreatedAt = now,
-            UpdatedAt = now
+            TieuDe = tieuDe,
+            MoTa = yeuCau.MoTa ?? yeuCau.Description,
+            ThuTu = thuTu,
+            KhoaHocId = courseId,
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
-        db.Sections.Add(chuong);
+        db.ChuongHoc.Add(chuong);
         await db.SaveChangesAsync();
         await ChuanHoaViTriChuong(courseId);
         return Results.Created($"/api/instructor/sections/{chuong.Id}", MapSection(chuong));
@@ -413,17 +413,17 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var baiHoc = new BaiHoc
         {
             Id = TaoId.Moi(),
-            Title = yeuCau.TieuDe!.Trim(),
-            Content = string.IsNullOrWhiteSpace(yeuCau.NoiDung) ? null : yeuCau.NoiDung.Trim(),
-            DurationSeconds = Math.Max(0, yeuCau.ThoiLuongGiay),
-            IsPreview = yeuCau.ChoPhepHocThu,
-            Status = NormalizeLessonStatus(yeuCau.TrangThai),
-            IsPublished = NormalizeLessonStatus(yeuCau.TrangThai) == "PUBLIC",
-            Position = Math.Max(1, yeuCau.ThuTu),
-            CourseId = chuong.CourseId,
-            SectionId = sectionId,
-            CreatedAt = now,
-            UpdatedAt = now
+            TieuDe = yeuCau.TieuDe!.Trim(),
+            NoiDung = string.IsNullOrWhiteSpace(yeuCau.NoiDung) ? null : yeuCau.NoiDung.Trim(),
+            ThoiLuongGiay = Math.Max(0, yeuCau.ThoiLuongGiay),
+            ChoXemTruoc = yeuCau.ChoPhepHocThu,
+            TrangThai = NormalizeLessonStatus(yeuCau.TrangThai),
+            DaXuatBan = NormalizeLessonStatus(yeuCau.TrangThai) == "PUBLIC",
+            ThuTu = Math.Max(1, yeuCau.ThuTu),
+            KhoaHocId = chuong.KhoaHocId,
+            ChuongHocId = sectionId,
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
         if (yeuCau.VideoFile is not null) baiHoc.VideoUrl = await SaveUpload(yeuCau.VideoFile, "uploads/lessons/videos");
@@ -450,10 +450,10 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             baiHoc.FileUrl = string.IsNullOrWhiteSpace(yeuCau.FileUrl) ? null : yeuCau.FileUrl.Trim();
         }
 
-        db.Lessons.Add(baiHoc);
+        db.BaiHoc.Add(baiHoc);
         await db.SaveChangesAsync();
         await ChuanHoaViTriBaiGiang(sectionId);
-        await TinhLaiThoiLuong(chuong.CourseId);
+        await TinhLaiThoiLuong(chuong.KhoaHocId);
         return Results.Created($"/api/instructor/lessons/{baiHoc.Id}", MapLesson(baiHoc));
     }
 
@@ -467,19 +467,19 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var validation = ValidateLessonForm(yeuCau, isUpdate: true);
         if (validation is not null) return validation;
 
-        baiHoc.Title = yeuCau.TieuDe!.Trim();
-        baiHoc.Content = string.IsNullOrWhiteSpace(yeuCau.NoiDung) ? null : yeuCau.NoiDung.Trim();
-        baiHoc.DurationSeconds = Math.Max(0, yeuCau.ThoiLuongGiay);
-        baiHoc.IsPreview = yeuCau.ChoPhepHocThu;
-        baiHoc.Status = NormalizeLessonStatus(yeuCau.TrangThai);
-        baiHoc.IsPublished = baiHoc.Status == "PUBLIC";
-        baiHoc.Position = Math.Max(1, yeuCau.ThuTu);
-        baiHoc.UpdatedAt = DateTime.UtcNow;
+        baiHoc.TieuDe = yeuCau.TieuDe!.Trim();
+        baiHoc.NoiDung = string.IsNullOrWhiteSpace(yeuCau.NoiDung) ? null : yeuCau.NoiDung.Trim();
+        baiHoc.ThoiLuongGiay = Math.Max(0, yeuCau.ThoiLuongGiay);
+        baiHoc.ChoXemTruoc = yeuCau.ChoPhepHocThu;
+        baiHoc.TrangThai = NormalizeLessonStatus(yeuCau.TrangThai);
+        baiHoc.DaXuatBan = baiHoc.TrangThai == "PUBLIC";
+        baiHoc.ThuTu = Math.Max(1, yeuCau.ThuTu);
+        baiHoc.NgayCapNhat = DateTime.UtcNow;
 
         if (yeuCau.RemoveVideo)
         {
             baiHoc.VideoUrl = null;
-            baiHoc.DurationSeconds = 0;
+            baiHoc.ThoiLuongGiay = 0;
         }
         else if (yeuCau.VideoFile is not null)
         {
@@ -512,8 +512,8 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         if (yeuCau.DocumentFile is not null) baiHoc.FileUrl = await SaveUpload(yeuCau.DocumentFile, "uploads/lessons/files");
 
         await db.SaveChangesAsync();
-        await ChuanHoaViTriBaiGiang(baiHoc.SectionId);
-        await TinhLaiThoiLuong(baiHoc.CourseId);
+        await ChuanHoaViTriBaiGiang(baiHoc.ChuongHocId);
+        await TinhLaiThoiLuong(baiHoc.KhoaHocId);
         return Results.Ok(MapLesson(baiHoc));
     }
 
@@ -523,9 +523,9 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var baiHoc = await LoadOwnedLesson(lessonId);
         if (baiHoc is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
 
-        var sectionId = baiHoc.SectionId;
-        var courseId = baiHoc.CourseId;
-        db.Lessons.Remove(baiHoc);
+        var sectionId = baiHoc.ChuongHocId;
+        var courseId = baiHoc.KhoaHocId;
+        db.BaiHoc.Remove(baiHoc);
         await db.SaveChangesAsync();
         await ChuanHoaViTriBaiGiang(sectionId);
         await TinhLaiThoiLuong(courseId);
@@ -537,52 +537,52 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocs = await db.Courses.AsNoTracking()
-            .Where(c => c.InstructorId == userId)
-            .Include(c => c.Enrollments)
-            .Include(c => c.Purchases)
-                .ThenInclude(p => p.User)
-            .OrderByDescending(c => c.CreatedAt)
+        var khoaHocs = await db.KhoaHoc.AsNoTracking()
+            .Where(c => c.GiangVienId == userId)
+            .Include(c => c.CacGhiDanh)
+            .Include(c => c.CacDonMua)
+                .ThenInclude(p => p.NguoiDung)
+            .OrderByDescending(c => c.NgayTao)
             .ToListAsync();
 
         var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
-        var giaoDichHoanTat = await db.Purchases.AsNoTracking()
-            .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
-            .Include(p => p.User)
-            .Include(p => p.Course)
-            .OrderByDescending(p => p.CreatedAt)
+        var giaoDichHoanTat = await db.DonMua.AsNoTracking()
+            .Where(p => khoaHocIds.Contains(p.KhoaHocId) && p.TrangThai == "COMPLETED")
+            .Include(p => p.NguoiDung)
+            .Include(p => p.KhoaHoc)
+            .OrderByDescending(p => p.NgayTao)
             .ToListAsync();
 
-        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.FinalAmount);
+        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.SoTienCuoi);
         var lichSuRutTien = await db.InstructorWithdrawals.AsNoTracking()
-            .Where(item => item.InstructorId == userId && item.Status == "COMPLETED")
-            .OrderByDescending(item => item.CreatedAt)
+            .Where(item => item.GiangVienId == userId && item.TrangThai == "COMPLETED")
+            .OrderByDescending(item => item.NgayTao)
             .ToListAsync();
-        var doanhThuDaThanhToan = lichSuRutTien.Sum(item => item.Amount);
+        var doanhThuDaThanhToan = lichSuRutTien.Sum(item => item.SoTien);
         var doanhThuChoThanhToan = Math.Max(0, tongDoanhThu - doanhThuDaThanhToan);
         var giaoDichDaThanhToan = new HashSet<string>();
         var soTienDaThanhToanConLai = doanhThuDaThanhToan;
-        foreach (var giaoDich in giaoDichHoanTat.OrderBy(item => item.CreatedAt))
+        foreach (var giaoDich in giaoDichHoanTat.OrderBy(item => item.NgayTao))
         {
-            if (soTienDaThanhToanConLai < giaoDich.FinalAmount) break;
+            if (soTienDaThanhToanConLai < giaoDich.SoTienCuoi) break;
             giaoDichDaThanhToan.Add(giaoDich.Id);
-            soTienDaThanhToanConLai -= giaoDich.FinalAmount;
+            soTienDaThanhToanConLai -= giaoDich.SoTienCuoi;
         }
         var soMua = giaoDichHoanTat.Count;
-        var soHocVienMua = giaoDichHoanTat.Select(p => p.UserId).Distinct().Count();
+        var soHocVienMua = giaoDichHoanTat.Select(p => p.NguoiDungId).Distinct().Count();
         var giaTriTrungBinh = soMua == 0 ? 0 : (int)Math.Round(tongDoanhThu / (double)soMua);
 
         var lichSuDoanhThu = giaoDichHoanTat.Select(p => new GiaoDichDoanhThu(
-                p.Id, "COURSE_REVENUE", p.FinalAmount,
+                p.Id, "COURSE_REVENUE", p.SoTienCuoi,
                 giaoDichDaThanhToan.Contains(p.Id) ? "PAID" : "PENDING",
                 giaoDichDaThanhToan.Contains(p.Id) ? "Đã thanh toán" : "Chờ thanh toán",
-                null, null, null, null, p.CreatedAt,
-                p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
-                p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }))
+                null, null, null, null, p.NgayTao,
+                p.NguoiDung == null ? null : new { p.NguoiDung.Id, p.NguoiDung.Ten, p.NguoiDung.Email, p.NguoiDung.AnhDaiDien },
+                p.KhoaHoc == null ? null : new { p.KhoaHoc.Id, p.KhoaHoc.TieuDe, p.KhoaHoc.AnhDaiDien }))
             .Concat(lichSuRutTien.Select(item => new GiaoDichDoanhThu(
-                item.Id, "DEMO_WITHDRAWAL", -item.Amount, item.Status, "Rút tiền demo thành công", item.Note,
-                item.BankName, item.AccountNumber, item.AccountHolder, item.CreatedAt, null, null)))
-            .OrderByDescending(item => item.CreatedAt)
+                item.Id, "DEMO_WITHDRAWAL", -item.SoTien, item.TrangThai, "Rút tiền demo thành công", item.NoiDung,
+                item.TenNganHang, item.SoTaiKhoan, item.ChuTaiKhoan, item.NgayTao, null, null)))
+            .OrderByDescending(item => item.NgayTao)
             .Take(20)
             .ToList();
 
@@ -597,36 +597,50 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             courseCount = khoaHocs.Count,
             courses = khoaHocs.Select(c =>
             {
-                var purchases = c.Purchases.Where(p => p.Status == "COMPLETED").ToList();
+                var purchases = c.CacDonMua.Where(p => p.TrangThai == "COMPLETED").ToList();
                 return new
                 {
                     c.Id,
-                    title = c.Title,
-                    price = c.Price,
+                    title = c.TieuDe,
+                    price = c.Gia,
                     isPublished = IsCoursePublished(c),
-                    status = c.Status,
-                    enrollments = c.Enrollments.Count,
+                    status = c.TrangThai,
+                    enrollments = c.CacGhiDanh.Count,
                     purchases = purchases.Count,
-                    revenue = purchases.Sum(p => p.FinalAmount),
-                    averageRating = c.AverageRating,
-                    reviewCount = c.ReviewCount,
-                    createdAt = c.CreatedAt,
-                    updatedAt = c.UpdatedAt
+                    revenue = purchases.Sum(p => p.SoTienCuoi),
+                    averageRating = c.DiemDanhGiaTrungBinh,
+                    reviewCount = c.SoLuongDanhGia,
+                    createdAt = c.NgayTao,
+                    updatedAt = c.NgayCapNhat
                 };
             }),
             recentPurchases = giaoDichHoanTat.Take(10).Select(p => new
             {
                 p.Id,
-                amount = p.FinalAmount,
+                amount = p.SoTienCuoi,
                 payoutStatus = giaoDichDaThanhToan.Contains(p.Id) ? "PAID" : "PENDING",
-                originalAmount = p.OriginalAmount,
-                discountAmount = p.DiscountAmount,
-                status = p.Status,
-                createdAt = p.CreatedAt,
-                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
-                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }
+                originalAmount = p.SoTienGoc,
+                discountAmount = p.SoTienGiam,
+                status = p.TrangThai,
+                createdAt = p.NgayTao,
+                user = p.NguoiDung == null ? null : new { p.NguoiDung.Id, p.NguoiDung.Ten, p.NguoiDung.Email, p.NguoiDung.AnhDaiDien },
+                course = p.KhoaHoc == null ? null : new { p.KhoaHoc.Id, p.KhoaHoc.TieuDe, p.KhoaHoc.AnhDaiDien }
             }),
-            recentTransactions = lichSuDoanhThu
+            recentTransactions = lichSuDoanhThu.Select(t => new
+            {
+                t.Id,
+                t.Type,
+                t.Amount,
+                t.PayoutStatus,
+                t.StatusLabel,
+                t.Note,
+                t.BankName,
+                t.AccountNumber,
+                t.AccountHolder,
+                createdAt = t.NgayTao,
+                t.User,
+                t.Course
+            })
         });
     }
 
@@ -641,8 +655,8 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             return Results.BadRequest(new { message = "Số tiền rút không hợp lệ" });
         }
 
-        var giangVien = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
-        var taiKhoanNhanTien = DocTaiKhoanNhanTien(giangVien?.Settings);
+        var giangVien = await db.NguoiDung.FirstOrDefaultAsync(item => item.Id == userId);
+        var taiKhoanNhanTien = DocTaiKhoanNhanTien(giangVien?.CaiDat);
         if (taiKhoanNhanTien is null)
         {
             return Results.BadRequest(new { message = "Vui lòng lưu tài khoản nhận tiền trước khi rút" });
@@ -652,12 +666,12 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var ketQua = await strategy.ExecuteAsync(async () =>
         {
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
-            var tongDoanhThu = await db.Purchases
-                .Where(item => item.Status == "COMPLETED" && item.Course!.InstructorId == userId)
-                .SumAsync(item => item.FinalAmount);
+            var tongDoanhThu = await db.DonMua
+                .Where(item => item.TrangThai == "COMPLETED" && item.KhoaHoc!.GiangVienId == userId)
+                .SumAsync(item => item.SoTienCuoi);
             var doanhThuDaThanhToan = await db.InstructorWithdrawals
-                .Where(item => item.InstructorId == userId && item.Status == "COMPLETED")
-                .SumAsync(item => item.Amount);
+                .Where(item => item.GiangVienId == userId && item.TrangThai == "COMPLETED")
+                .SumAsync(item => item.SoTien);
             var doanhThuChoThanhToan = Math.Max(0, tongDoanhThu - doanhThuDaThanhToan);
 
             if (yeuCau.SoTien > doanhThuChoThanhToan)
@@ -669,14 +683,14 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             db.InstructorWithdrawals.Add(new RutTienGiangVien
             {
                 Id = TaoId.Moi(),
-                InstructorId = userId,
-                Amount = yeuCau.SoTien,
-                Status = "COMPLETED",
-                BankName = taiKhoanNhanTien.BankName,
-                AccountNumber = taiKhoanNhanTien.AccountNumber,
-                AccountHolder = taiKhoanNhanTien.AccountHolder,
-                Note = string.IsNullOrWhiteSpace(yeuCau.GhiChu) ? null : yeuCau.GhiChu.Trim(),
-                CreatedAt = DateTime.UtcNow
+                GiangVienId = userId,
+                SoTien = yeuCau.SoTien,
+                TrangThai = "COMPLETED",
+                TenNganHang = taiKhoanNhanTien.TenNganHang,
+                SoTaiKhoan = taiKhoanNhanTien.SoTaiKhoan,
+                ChuTaiKhoan = taiKhoanNhanTien.ChuTaiKhoan,
+                NoiDung = string.IsNullOrWhiteSpace(yeuCau.GhiChu) ? null : yeuCau.GhiChu.Trim(),
+                NgayTao = DateTime.UtcNow
             });
             await db.SaveChangesAsync();
             await transaction.CommitAsync();
@@ -719,7 +733,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         }
     }
 
-    private sealed record TaiKhoanNhanTien(string BankName, string AccountNumber, string AccountHolder);
+    private sealed record TaiKhoanNhanTien(string TenNganHang, string SoTaiKhoan, string ChuTaiKhoan);
     private sealed record KetQuaRutTien(bool ThanhCong, int TongDoanhThu, int DoanhThuChoThanhToan, int DoanhThuDaThanhToan);
     private sealed record GiaoDichDoanhThu(
         string Id,
@@ -731,7 +745,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         string? BankName,
         string? AccountNumber,
         string? AccountHolder,
-        DateTime CreatedAt,
+        DateTime NgayTao,
         object? User,
         object? Course);
 
@@ -788,14 +802,14 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             db.InstructorWithdrawals.Add(new RutTienGiangVien
             {
                 Id = TaoId.Moi(),
-                InstructorId = userId,
-                Amount = yeuCau.SoTien,
-                Status = "PENDING",
-                BankName = yeuCau.BankName.Trim(),
-                AccountHolder = yeuCau.AccountHolder.Trim(),
-                AccountNumber = yeuCau.AccountNumber.Trim(),
-                Note = TaoGhiChuRutTien(yeuCau.Branch, yeuCau.GhiChu),
-                CreatedAt = DateTime.UtcNow
+                GiangVienId = userId,
+                SoTien = yeuCau.SoTien,
+                TrangThai = "PENDING",
+                TenNganHang = yeuCau.BankName.Trim(),
+                ChuTaiKhoan = yeuCau.AccountHolder.Trim(),
+                SoTaiKhoan = yeuCau.AccountNumber.Trim(),
+                NoiDung = TaoGhiChuRutTien(yeuCau.Branch, yeuCau.GhiChu),
+                NgayTao = DateTime.UtcNow
             });
 
             await db.SaveChangesAsync();
@@ -826,56 +840,56 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var cutoff = now.AddDays(-SoNgayXacNhanDoanhThu);
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        var giangVien = await db.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
-        var taiKhoanNhanTien = DocTaiKhoanNhanTien(giangVien?.Settings);
-        var khoaHocs = await db.Courses.AsNoTracking()
-            .Where(c => c.InstructorId == userId)
-            .Include(c => c.Enrollments)
-            .Include(c => c.Purchases)
-                .ThenInclude(p => p.User)
-            .OrderByDescending(c => c.CreatedAt)
+        var giangVien = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+        var taiKhoanNhanTien = DocTaiKhoanNhanTien(giangVien?.CaiDat);
+        var khoaHocs = await db.KhoaHoc.AsNoTracking()
+            .Where(c => c.GiangVienId == userId)
+            .Include(c => c.CacGhiDanh)
+            .Include(c => c.CacDonMua)
+                .ThenInclude(p => p.NguoiDung)
+            .OrderByDescending(c => c.NgayTao)
             .ToListAsync();
 
         var khoaHocIds = khoaHocs.Select(c => c.Id).ToList();
-        var giaoDichHoanTat = await db.Purchases.AsNoTracking()
-            .Where(p => khoaHocIds.Contains(p.CourseId) && p.Status == "COMPLETED")
-            .Include(p => p.User)
-            .Include(p => p.Course)
-            .OrderByDescending(p => p.CreatedAt)
+        var giaoDichHoanTat = await db.DonMua.AsNoTracking()
+            .Where(p => khoaHocIds.Contains(p.KhoaHocId) && p.TrangThai == "COMPLETED")
+            .Include(p => p.NguoiDung)
+            .Include(p => p.KhoaHoc)
+            .OrderByDescending(p => p.NgayTao)
             .ToListAsync();
 
         var lichSuRutTien = await db.InstructorWithdrawals.AsNoTracking()
-            .Where(item => item.InstructorId == userId)
-            .OrderByDescending(item => item.CreatedAt)
+            .Where(item => item.GiangVienId == userId)
+            .OrderByDescending(item => item.NgayTao)
             .ToListAsync();
 
-        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.FinalAmount);
-        var doanhThuThangNay = giaoDichHoanTat.Where(p => p.CreatedAt >= monthStart).Sum(p => p.FinalAmount);
-        var doanhThuChoXacNhan = giaoDichHoanTat.Where(p => p.CreatedAt > cutoff).Sum(p => p.FinalAmount);
-        var doanhThuDaSanSang = giaoDichHoanTat.Where(p => p.CreatedAt <= cutoff).Sum(p => p.FinalAmount);
-        var daRut = lichSuRutTien.Where(item => LaTrangThaiDaTraMoi(item.Status)).Sum(item => item.Amount);
-        var dangXuLy = lichSuRutTien.Where(item => LaTrangThaiDangXuLyMoi(item.Status)).Sum(item => item.Amount);
+        var tongDoanhThu = giaoDichHoanTat.Sum(p => p.SoTienCuoi);
+        var doanhThuThangNay = giaoDichHoanTat.Where(p => p.NgayTao >= monthStart).Sum(p => p.SoTienCuoi);
+        var doanhThuChoXacNhan = giaoDichHoanTat.Where(p => p.NgayTao > cutoff).Sum(p => p.SoTienCuoi);
+        var doanhThuDaSanSang = giaoDichHoanTat.Where(p => p.NgayTao <= cutoff).Sum(p => p.SoTienCuoi);
+        var daRut = lichSuRutTien.Where(item => LaTrangThaiDaTraMoi(item.TrangThai)).Sum(item => item.SoTien);
+        var dangXuLy = lichSuRutTien.Where(item => LaTrangThaiDangXuLyMoi(item.TrangThai)).Sum(item => item.SoTien);
         var soDuKhaDung = Math.Max(0, doanhThuDaSanSang - daRut - dangXuLy);
         var soMua = giaoDichHoanTat.Count;
-        var soHocVienMua = giaoDichHoanTat.Select(p => p.UserId).Distinct().Count();
+        var soHocVienMua = giaoDichHoanTat.Select(p => p.NguoiDungId).Distinct().Count();
         var giaTriTrungBinh = soMua == 0 ? 0 : (int)Math.Round(tongDoanhThu / (double)soMua);
 
         var history = giaoDichHoanTat.Select(p =>
         {
-            var sanSang = p.CreatedAt <= cutoff;
+            var sanSang = p.NgayTao <= cutoff;
             return (object)new
             {
                 p.Id,
                 type = "COURSE_SALE",
                 typeLabel = "Bán khóa học",
-                amount = p.FinalAmount,
+                amount = p.SoTienCuoi,
                 status = sanSang ? "APPROVED" : "PENDING",
                 statusLabel = sanSang ? "Approved" : "Pending",
-                note = p.Course == null ? "Doanh thu khóa học" : $"Doanh thu: {p.Course.Title}",
-                createdAt = p.CreatedAt,
-                date = p.CreatedAt,
-                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
-                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail },
+                note = p.KhoaHoc == null ? "Doanh thu khóa học" : $"Doanh thu: {p.KhoaHoc.TieuDe}",
+                createdAt = p.NgayTao,
+                date = p.NgayTao,
+                user = p.NguoiDung == null ? null : new { p.NguoiDung.Id, p.NguoiDung.Ten, p.NguoiDung.Email, p.NguoiDung.AnhDaiDien },
+                course = p.KhoaHoc == null ? null : new { p.KhoaHoc.Id, p.KhoaHoc.TieuDe, p.KhoaHoc.AnhDaiDien },
                 bankName = (string?)null,
                 accountNumber = (string?)null,
                 accountHolder = (string?)null
@@ -883,23 +897,23 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         })
         .Concat(lichSuRutTien.Select(item =>
         {
-            var status = ChuanHoaTrangThaiRutTienMoi(item.Status);
+            var status = ChuanHoaTrangThaiRutTienMoi(item.TrangThai);
             return (object)new
             {
                 item.Id,
                 type = "WITHDRAWAL",
                 typeLabel = "Rút tiền",
-                amount = -item.Amount,
+                amount = -item.SoTien,
                 status,
                 statusLabel = VietHoaTrangThaiGiaoDichMoi(status),
-                note = item.Note,
-                createdAt = item.CreatedAt,
-                date = item.CreatedAt,
+                note = item.NoiDung,
+                createdAt = item.NgayTao,
+                date = item.NgayTao,
                 user = (object?)null,
                 course = (object?)null,
-                item.BankName,
-                item.AccountNumber,
-                item.AccountHolder
+                item.TenNganHang,
+                item.SoTaiKhoan,
+                item.ChuTaiKhoan
             };
         }))
         .OrderByDescending(item => LayNgayGiaoDichMoi(item))
@@ -918,39 +932,39 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             soHocVienMua,
             giaTriTrungBinh,
             khoaHocs.Count,
-            taiKhoanNhanTien is null ? null : new { taiKhoanNhanTien.BankName, taiKhoanNhanTien.AccountNumber, taiKhoanNhanTien.AccountHolder },
+            taiKhoanNhanTien is null ? null : new { taiKhoanNhanTien.TenNganHang, taiKhoanNhanTien.SoTaiKhoan, taiKhoanNhanTien.ChuTaiKhoan },
             khoaHocs.Select(c =>
             {
-                var purchases = c.Purchases.Where(p => p.Status == "COMPLETED").ToList();
+                var purchases = c.CacDonMua.Where(p => p.TrangThai == "COMPLETED").ToList();
                 return (object)new
                 {
                     c.Id,
-                    title = c.Title,
-                    price = c.Price,
+                    title = c.TieuDe,
+                    price = c.Gia,
                     isPublished = IsCoursePublished(c),
-                    status = c.Status,
-                    enrollments = c.Enrollments.Count,
+                    status = c.TrangThai,
+                    enrollments = c.CacGhiDanh.Count,
                     purchases = purchases.Count,
-                    revenue = purchases.Sum(p => p.FinalAmount),
-                    availableRevenue = purchases.Where(p => p.CreatedAt <= cutoff).Sum(p => p.FinalAmount),
-                    pendingRevenue = purchases.Where(p => p.CreatedAt > cutoff).Sum(p => p.FinalAmount),
-                    averageRating = c.AverageRating,
-                    reviewCount = c.ReviewCount,
-                    createdAt = c.CreatedAt,
-                    updatedAt = c.UpdatedAt
+                    revenue = purchases.Sum(p => p.SoTienCuoi),
+                    availableRevenue = purchases.Where(p => p.NgayTao <= cutoff).Sum(p => p.SoTienCuoi),
+                    pendingRevenue = purchases.Where(p => p.NgayTao > cutoff).Sum(p => p.SoTienCuoi),
+                    averageRating = c.DiemDanhGiaTrungBinh,
+                    reviewCount = c.SoLuongDanhGia,
+                    createdAt = c.NgayTao,
+                    updatedAt = c.NgayCapNhat
                 };
             }).ToList(),
             giaoDichHoanTat.Take(10).Select(p => (object)new
             {
                 p.Id,
-                amount = p.FinalAmount,
-                payoutStatus = p.CreatedAt <= cutoff ? "APPROVED" : "PENDING",
-                originalAmount = p.OriginalAmount,
-                discountAmount = p.DiscountAmount,
-                status = p.Status,
-                createdAt = p.CreatedAt,
-                user = p.User == null ? null : new { p.User.Id, p.User.Name, p.User.Email, p.User.Avatar },
-                course = p.Course == null ? null : new { p.Course.Id, p.Course.Title, p.Course.Thumbnail }
+                amount = p.SoTienCuoi,
+                payoutStatus = p.NgayTao <= cutoff ? "APPROVED" : "PENDING",
+                originalAmount = p.SoTienGoc,
+                discountAmount = p.SoTienGiam,
+                status = p.TrangThai,
+                createdAt = p.NgayTao,
+                user = p.NguoiDung == null ? null : new { p.NguoiDung.Id, p.NguoiDung.Ten, p.NguoiDung.Email, p.NguoiDung.AnhDaiDien },
+                course = p.KhoaHoc == null ? null : new { p.KhoaHoc.Id, p.KhoaHoc.TieuDe, p.KhoaHoc.AnhDaiDien }
             }).ToList(),
             history);
     }
@@ -971,7 +985,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         averageOrderValue = data.AverageOrderValue,
         courseCount = data.CourseCount,
         payoutAccount = data.PayoutAccount,
-        courses = data.Courses,
+        courses = data.CacKhoaHoc,
         recentPurchases = data.RecentPurchases,
         recentTransactions = data.History,
         history = data.History
@@ -1036,7 +1050,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         int AverageOrderValue,
         int CourseCount,
         object? PayoutAccount,
-        List<object> Courses,
+        List<object> CacKhoaHoc,
         List<object> RecentPurchases,
         List<object> History);
 
@@ -1045,40 +1059,40 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocIds = await db.Courses.AsNoTracking().Where(c => c.InstructorId == userId).Select(c => c.Id).ToListAsync();
-        var ghiDanh = await db.Enrollments.AsNoTracking()
-            .Where(e => khoaHocIds.Contains(e.CourseId)).Include(e => e.User).Include(e => e.Course)
-            .OrderByDescending(e => e.CreatedAt).Take(100)
+        var khoaHocIds = await db.KhoaHoc.AsNoTracking().Where(c => c.GiangVienId == userId).Select(c => c.Id).ToListAsync();
+        var ghiDanh = await db.GhiDanh.AsNoTracking()
+            .Where(e => khoaHocIds.Contains(e.KhoaHocId)).Include(e => e.NguoiDung).Include(e => e.KhoaHoc)
+            .OrderByDescending(e => e.NgayTao).Take(100)
             .ToListAsync();
 
         var hocViens = ghiDanh
-            .Where(e => e.User is not null)
-            .GroupBy(e => e.UserId)
+            .Where(e => e.NguoiDung is not null)
+            .GroupBy(e => e.NguoiDungId)
             .Select(group =>
             {
-                var moiNhat = group.OrderByDescending(e => e.CreatedAt).First();
+                var moiNhat = group.OrderByDescending(e => e.NgayTao).First();
                 var courses = group
-                    .OrderByDescending(e => e.CreatedAt)
+                    .OrderByDescending(e => e.NgayTao)
                     .Select(e => new
                     {
-                        id = e.CourseId,
-                        title = e.Course?.Title ?? "Khóa học",
-                        progress = e.Progress,
-                        completedAt = e.CompletedAt,
-                        enrolledAt = e.CreatedAt
+                        id = e.KhoaHocId,
+                        title = e.KhoaHoc?.TieuDe ?? "Khóa học",
+                        progress = e.TienDo,
+                        completedAt = e.NgayHoanThanh,
+                        enrolledAt = e.NgayTao
                     })
                     .ToList();
 
                 return new
                 {
-                    id = moiNhat.UserId,
-                    name = moiNhat.User?.Name ?? "Học viên",
-                    email = moiNhat.User?.Email,
-                    avatar = moiNhat.User?.Avatar,
+                    id = moiNhat.NguoiDungId,
+                    name = moiNhat.NguoiDung?.Ten ?? "Học viên",
+                    email = moiNhat.NguoiDung?.Email,
+                    avatar = moiNhat.NguoiDung?.AnhDaiDien,
                     courses,
                     courseCount = courses.Count,
-                    averageProgress = Math.Round(group.Average(e => e.Progress)),
-                    latestEnrollmentAt = moiNhat.CreatedAt
+                    averageProgress = Math.Round(group.Average(e => e.TienDo)),
+                    latestEnrollmentAt = moiNhat.NgayTao
                 };
             })
             .OrderByDescending(student => student.latestEnrollmentAt)
@@ -1098,10 +1112,10 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        return Results.Ok(await db.Courses.AsNoTracking()
-            .Where(course => course.InstructorId == userId)
-            .OrderByDescending(course => course.CreatedAt)
-            .Select(course => new { course.Id, tenKhoaHoc = course.Title })
+        return Results.Ok(await db.KhoaHoc.AsNoTracking()
+            .Where(course => course.GiangVienId == userId)
+            .OrderByDescending(course => course.NgayTao)
+            .Select(course => new { course.Id, tenKhoaHoc = course.TieuDe })
             .ToListAsync());
     }
 
@@ -1110,8 +1124,8 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var loi = TroGiup.YeuCauGiangVien(User); if (loi is not null) return loi;
         var userId = TroGiup.LayUserId(User)!;
-        var khoaHocIds = await db.Courses.AsNoTracking()
-            .Where(course => course.InstructorId == userId)
+        var khoaHocIds = await db.KhoaHoc.AsNoTracking()
+            .Where(course => course.GiangVienId == userId)
             .Select(course => course.Id)
             .ToListAsync();
         var locTatCa = string.IsNullOrWhiteSpace(courseId) || string.Equals(courseId, "all", StringComparison.OrdinalIgnoreCase);
@@ -1121,41 +1135,41 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             return Results.Json(new { message = "Bạn không có quyền xem học viên của khóa học này." }, statusCode: 403);
         }
 
-        var ghiDanhQuery = db.Enrollments.AsNoTracking()
-            .Where(enrollment => khoaHocIds.Contains(enrollment.CourseId));
+        var ghiDanhQuery = db.GhiDanh.AsNoTracking()
+            .Where(enrollment => khoaHocIds.Contains(enrollment.KhoaHocId));
         if (!locTatCa)
         {
-            ghiDanhQuery = ghiDanhQuery.Where(enrollment => enrollment.CourseId == courseId);
+            ghiDanhQuery = ghiDanhQuery.Where(enrollment => enrollment.KhoaHocId == courseId);
         }
 
         var ghiDanh = await ghiDanhQuery
-            .Include(enrollment => enrollment.User)
-            .Include(enrollment => enrollment.Course)
-            .OrderByDescending(enrollment => enrollment.CreatedAt)
+            .Include(enrollment => enrollment.NguoiDung)
+            .Include(enrollment => enrollment.KhoaHoc)
+            .OrderByDescending(enrollment => enrollment.NgayTao)
             .ToListAsync();
         var khoaHocDangLoc = locTatCa ? khoaHocIds : [courseId!];
-        var doanhThu = await db.Purchases.AsNoTracking()
-            .Where(purchase => khoaHocDangLoc.Contains(purchase.CourseId) && purchase.Status == "COMPLETED")
-            .SumAsync(purchase => purchase.FinalAmount);
-        var hocVienHoanThanh = ghiDanh.Count(enrollment => enrollment.CompletedAt is not null || enrollment.Progress >= 100);
+        var doanhThu = await db.DonMua.AsNoTracking()
+            .Where(purchase => khoaHocDangLoc.Contains(purchase.KhoaHocId) && purchase.TrangThai == "COMPLETED")
+            .SumAsync(purchase => purchase.SoTienCuoi);
+        var hocVienHoanThanh = ghiDanh.Count(enrollment => enrollment.NgayHoanThanh is not null || enrollment.TienDo >= 100);
         var hocVienDangHoc = ghiDanh.Count - hocVienHoanThanh;
-        var tongHocVien = ghiDanh.Select(enrollment => enrollment.UserId).Distinct().Count();
-        var tienDoTrungBinh = ghiDanh.Count == 0 ? 0 : Math.Round(ghiDanh.Average(enrollment => enrollment.Progress));
+        var tongHocVien = ghiDanh.Select(enrollment => enrollment.NguoiDungId).Distinct().Count();
+        var tienDoTrungBinh = ghiDanh.Count == 0 ? 0 : Math.Round(ghiDanh.Average(enrollment => enrollment.TienDo));
 
         var hocViens = ghiDanh.Select(enrollment =>
         {
-            var hoanThanh = enrollment.CompletedAt is not null || enrollment.Progress >= 100;
+            var hoanThanh = enrollment.NgayHoanThanh is not null || enrollment.TienDo >= 100;
             return new
             {
                 id = enrollment.Id,
-                hocVienId = enrollment.UserId,
-                hoTen = enrollment.User?.Name ?? "Học viên",
-                email = enrollment.User?.Email ?? string.Empty,
-                avatar = enrollment.User?.Avatar,
-                courseId = enrollment.CourseId,
-                tenKhoaHoc = enrollment.Course?.Title ?? "Khóa học",
-                ngayGhiDanh = enrollment.CreatedAt,
-                tienDo = Math.Round(enrollment.Progress),
+                hocVienId = enrollment.NguoiDungId,
+                hoTen = enrollment.NguoiDung?.Ten ?? "Học viên",
+                email = enrollment.NguoiDung?.Email ?? string.Empty,
+                avatar = enrollment.NguoiDung?.AnhDaiDien,
+                courseId = enrollment.KhoaHocId,
+                tenKhoaHoc = enrollment.KhoaHoc?.TieuDe ?? "Khóa học",
+                ngayGhiDanh = enrollment.NgayTao,
+                tienDo = Math.Round(enrollment.TienDo),
                 trangThai = hoanThanh ? "HOAN_THANH" : "DANG_HOC",
                 trangThaiText = hoanThanh ? "Hoàn thành" : "Đang học"
             };
@@ -1184,51 +1198,51 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title ?? string.Empty).Trim();
         if (tieuDe.Length < 3) return Results.BadRequest(new { message = "Tên chương tối thiểu 3 ký tự." });
 
-        chuong.Title = tieuDe;
-        chuong.Description = yeuCau.MoTa ?? yeuCau.Description;
-        if (yeuCau.ThuTu is not null) chuong.Position = Math.Max(1, yeuCau.ThuTu.Value);
-        chuong.UpdatedAt = DateTime.UtcNow;
+        chuong.TieuDe = tieuDe;
+        chuong.MoTa = yeuCau.MoTa ?? yeuCau.Description;
+        if (yeuCau.ThuTu is not null) chuong.ThuTu = Math.Max(1, yeuCau.ThuTu.Value);
+        chuong.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        await ChuanHoaViTriChuong(chuong.CourseId);
+        await ChuanHoaViTriChuong(chuong.KhoaHocId);
         return Results.Ok(MapSection(chuong));
     }
 
     private async Task<IResult> DeleteSection(ChuongHoc chuong)
     {
-        var courseId = chuong.CourseId;
-        var lessonIds = await db.Lessons
-            .Where(lesson => lesson.SectionId == chuong.Id)
+        var courseId = chuong.KhoaHocId;
+        var lessonIds = await db.BaiHoc
+            .Where(lesson => lesson.ChuongHocId == chuong.Id)
             .Select(lesson => lesson.Id)
             .ToListAsync();
 
         if (lessonIds.Count > 0)
         {
-            var quizIds = await db.Quizzes
-                .Where(quiz => lessonIds.Contains(quiz.LessonId))
+            var quizIds = await db.BaiKiemTra
+                .Where(quiz => lessonIds.Contains(quiz.BaiHocId))
                 .Select(quiz => quiz.Id)
                 .ToListAsync();
 
             if (quizIds.Count > 0)
             {
-                db.QuizSubmissions.RemoveRange(db.QuizSubmissions.Where(submission => quizIds.Contains(submission.QuizId)));
-                db.QuizQuestions.RemoveRange(db.QuizQuestions.Where(question => quizIds.Contains(question.QuizId)));
-                db.Quizzes.RemoveRange(db.Quizzes.Where(quiz => quizIds.Contains(quiz.Id)));
+                db.BaiNopKiemTra.RemoveRange(db.BaiNopKiemTra.Where(submission => quizIds.Contains(submission.BaiKiemTraId)));
+                db.CauHoiKiemTra.RemoveRange(db.CauHoiKiemTra.Where(question => quizIds.Contains(question.BaiKiemTraId)));
+                db.BaiKiemTra.RemoveRange(db.BaiKiemTra.Where(quiz => quizIds.Contains(quiz.Id)));
             }
 
-            db.Assignments.RemoveRange(db.Assignments.Where(assignment => assignment.LessonId != null && lessonIds.Contains(assignment.LessonId)));
-            db.LessonProgresses.RemoveRange(db.LessonProgresses.Where(progress => lessonIds.Contains(progress.LessonId)));
+            db.BaiTap.RemoveRange(db.BaiTap.Where(assignment => assignment.BaiHocId != null && lessonIds.Contains(assignment.BaiHocId)));
+            db.TienDoBaiHoc.RemoveRange(db.TienDoBaiHoc.Where(progress => lessonIds.Contains(progress.BaiHocId)));
 
-            var comments = await db.Comments
-                .Where(comment => lessonIds.Contains(comment.LessonId))
+            var comments = await db.BinhLuan
+                .Where(comment => lessonIds.Contains(comment.BaiHocId))
                 .ToListAsync();
             var commentIds = comments.Select(comment => comment.Id).ToList();
-            db.Comments.RemoveRange(comments.Where(comment => comment.ParentId != null && commentIds.Contains(comment.ParentId)));
-            db.Comments.RemoveRange(comments.Where(comment => comment.ParentId == null || !commentIds.Contains(comment.ParentId)));
+            db.BinhLuan.RemoveRange(comments.Where(comment => comment.BinhLuanChaId != null && commentIds.Contains(comment.BinhLuanChaId)));
+            db.BinhLuan.RemoveRange(comments.Where(comment => comment.BinhLuanChaId == null || !commentIds.Contains(comment.BinhLuanChaId)));
 
-            db.Lessons.RemoveRange(db.Lessons.Where(lesson => lessonIds.Contains(lesson.Id)));
+            db.BaiHoc.RemoveRange(db.BaiHoc.Where(lesson => lessonIds.Contains(lesson.Id)));
         }
 
-        db.Sections.Remove(chuong);
+        db.ChuongHoc.Remove(chuong);
         await db.SaveChangesAsync();
         await ChuanHoaViTriChuong(courseId);
         await TinhLaiThoiLuong(courseId);
@@ -1241,11 +1255,11 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         if (loi is not null) return null;
 
         var userId = TroGiup.LayUserId(User)!;
-        var query = db.Courses
-            .Include(c => c.Sections.OrderBy(s => s.Position))
-                .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
-            .Include(c => c.Enrollments)
-            .Where(c => c.Id == courseId && c.InstructorId == userId);
+        var query = db.KhoaHoc
+            .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
+                .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
+            .Include(c => c.CacGhiDanh)
+            .Where(c => c.Id == courseId && c.GiangVienId == userId);
         if (asNoTracking) query = query.AsNoTracking();
         return await query.FirstOrDefaultAsync();
     }
@@ -1255,10 +1269,10 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return null;
 
-        return await db.Sections
-            .Include(s => s.Course)
-            .Include(s => s.Lessons)
-            .FirstOrDefaultAsync(s => s.Id == sectionId && (courseId == null || s.CourseId == courseId) && s.Course != null && s.Course.InstructorId == userId);
+        return await db.ChuongHoc
+            .Include(s => s.KhoaHoc)
+            .Include(s => s.CacBaiHoc)
+            .FirstOrDefaultAsync(s => s.Id == sectionId && (courseId == null || s.KhoaHocId == courseId) && s.KhoaHoc != null && s.KhoaHoc.GiangVienId == userId);
     }
 
     private async Task<BaiHoc?> LoadOwnedLesson(string lessonId)
@@ -1266,9 +1280,9 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return null;
 
-        return await db.Lessons
-            .Include(l => l.Course)
-            .FirstOrDefaultAsync(l => l.Id == lessonId && l.Course != null && l.Course.InstructorId == userId);
+        return await db.BaiHoc
+            .Include(l => l.KhoaHoc)
+            .FirstOrDefaultAsync(l => l.Id == lessonId && l.KhoaHoc != null && l.KhoaHoc.GiangVienId == userId);
     }
 
     private IResult? ValidateLessonForm(LuuBaiHocForm yeuCau, bool isUpdate = false)
@@ -1316,9 +1330,9 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
     private static bool IsCoursePublished(KhoaHoc kh)
     {
-        return kh.IsPublished
-            || string.Equals(kh.Status, "PUBLIC", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(kh.Status, "PUBLISHED", StringComparison.OrdinalIgnoreCase);
+        return kh.DaXuatBan
+            || string.Equals(kh.TrangThai, "PUBLIC", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(kh.TrangThai, "PUBLISHED", StringComparison.OrdinalIgnoreCase);
     }
 
     private static IResult? ValidateFile(IFormFile file, HashSet<string> allowedTypes, long maxSize, string label)
@@ -1350,38 +1364,38 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
     private static object MapCourse(KhoaHoc kh)
     {
-        var sections = kh.Sections.OrderBy(s => s.Position).Select(MapSection).ToList();
+        var sections = kh.CacChuongHoc.OrderBy(s => s.ThuTu).Select(MapSection).ToList();
         var errors = PublishErrors(kh);
         return new
         {
             id = kh.Id,
-            title = kh.Title,
-            tieuDe = kh.Title,
-            moTaNgan = kh.ShortDescription,
-            moTa = kh.Description,
-            moTaChiTiet = kh.DetailedDescription,
-            description = kh.Description,
-            thumbnail = kh.Thumbnail,
-            anhBia = kh.Thumbnail,
-            danhMuc = kh.Category,
-            trinhDo = kh.Level,
-            price = kh.Price,
-            gia = kh.Price,
-            trangThai = kh.Status,
-            status = kh.Status,
-            isPublished = kh.IsPublished,
-            daXuatBan = kh.IsPublished,
-            totalDurationSeconds = kh.TotalDurationSeconds,
-            sectionCount = kh.Sections.Count,
-            lessonCount = kh.Sections.Sum(s => s.Lessons.Count),
-            studentCount = kh.Enrollments.Count,
-            totalLessons = kh.Sections.Sum(s => s.Lessons.Count),
-            enrollments = kh.Enrollments.Count,
-            createdAt = kh.CreatedAt,
-            updatedAt = kh.UpdatedAt,
+            title = kh.TieuDe,
+            tieuDe = kh.TieuDe,
+            moTaNgan = kh.MoTaNgan,
+            moTa = kh.MoTa,
+            moTaChiTiet = kh.MoTaChiTiet,
+            description = kh.MoTa,
+            thumbnail = kh.AnhDaiDien,
+            anhBia = kh.AnhDaiDien,
+            danhMuc = kh.ChuyenMuc,
+            trinhDo = kh.TrinhDo,
+            price = kh.Gia,
+            gia = kh.Gia,
+            trangThai = kh.TrangThai,
+            status = kh.TrangThai,
+            isPublished = kh.DaXuatBan,
+            daXuatBan = kh.DaXuatBan,
+            totalDurationSeconds = kh.TongThoiLuongGiay,
+            sectionCount = kh.CacChuongHoc.Count,
+            lessonCount = kh.CacChuongHoc.Sum(s => s.CacBaiHoc.Count),
+            studentCount = kh.CacGhiDanh.Count,
+            totalLessons = kh.CacChuongHoc.Sum(s => s.CacBaiHoc.Count),
+            enrollments = kh.CacGhiDanh.Count,
+            createdAt = kh.NgayTao,
+            updatedAt = kh.NgayCapNhat,
             startDate = kh.StartDate,
             endDate = kh.EndDate,
-            instructorId = kh.InstructorId,
+            instructorId = kh.GiangVienId,
             sections,
             publishValidationErrors = errors,
             canPublish = errors.Count == 0
@@ -1390,26 +1404,26 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
     private static object MapDashboardCourse(KhoaHoc kh)
     {
-        var soChuong = kh.Sections.Count;
-        var soBaiHoc = kh.Sections.Sum(s => s.Lessons.Count);
-        var soHocVien = kh.Enrollments.Count;
-        var doanhThu = kh.Purchases.Where(p => p.Status == "COMPLETED").Sum(p => p.FinalAmount);
-        var danhGia = kh.Reviews.Count == 0 ? null : (double?)Math.Round(kh.Reviews.Average(r => r.Rating), 1);
+        var soChuong = kh.CacChuongHoc.Count;
+        var soBaiHoc = kh.CacChuongHoc.Sum(s => s.CacBaiHoc.Count);
+        var soHocVien = kh.CacGhiDanh.Count;
+        var doanhThu = kh.CacDonMua.Where(p => p.TrangThai == "COMPLETED").Sum(p => p.SoTienCuoi);
+        var danhGia = kh.CacDanhGia.Count == 0 ? null : (double?)Math.Round(kh.CacDanhGia.Average(r => r.DiemDanhGia), 1);
 
         return new
         {
             id = kh.Id,
-            title = kh.Title,
-            tenKhoaHoc = kh.Title,
-            moTaNgan = kh.ShortDescription ?? kh.Description,
-            description = kh.Description,
-            thumbnail = kh.Thumbnail,
-            anhBia = kh.Thumbnail,
-            price = kh.Price,
-            gia = kh.Price,
-            trangThai = kh.Status,
-            status = kh.Status,
-            isPublished = kh.IsPublished,
+            title = kh.TieuDe,
+            tenKhoaHoc = kh.TieuDe,
+            moTaNgan = kh.MoTaNgan ?? kh.MoTa,
+            description = kh.MoTa,
+            thumbnail = kh.AnhDaiDien,
+            anhBia = kh.AnhDaiDien,
+            price = kh.Gia,
+            gia = kh.Gia,
+            trangThai = kh.TrangThai,
+            status = kh.TrangThai,
+            isPublished = kh.DaXuatBan,
             daXuatBan = IsCoursePublished(kh),
             sectionCount = soChuong,
             chuong = soChuong,
@@ -1420,24 +1434,24 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             revenue = doanhThu,
             doanhThu,
             rating = danhGia,
-            reviewCount = kh.Reviews.Count,
-            createdAt = kh.CreatedAt,
-            updatedAt = kh.UpdatedAt
+            reviewCount = kh.CacDanhGia.Count,
+            createdAt = kh.NgayTao,
+            updatedAt = kh.NgayCapNhat
         };
     }
 
     private static object MapSection(ChuongHoc chuong)
     {
-        var lessons = chuong.Lessons.OrderBy(l => l.Position).Select(MapLesson).ToList();
+        var lessons = chuong.CacBaiHoc.OrderBy(l => l.ThuTu).Select(MapLesson).ToList();
         return new
         {
             id = chuong.Id,
-            title = chuong.Title,
-            tieuDe = chuong.Title,
-            description = chuong.Description,
-            moTa = chuong.Description,
-            position = chuong.Position,
-            thuTu = chuong.Position,
+            title = chuong.TieuDe,
+            tieuDe = chuong.TieuDe,
+            description = chuong.MoTa,
+            moTa = chuong.MoTa,
+            position = chuong.ThuTu,
+            thuTu = chuong.ThuTu,
             lessons,
             baiHocs = lessons
         };
@@ -1448,33 +1462,33 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         return new
         {
             id = bai.Id,
-            title = bai.Title,
-            tieuDe = bai.Title,
-            content = bai.Content,
-            noiDung = bai.Content,
+            title = bai.TieuDe,
+            tieuDe = bai.TieuDe,
+            content = bai.NoiDung,
+            noiDung = bai.NoiDung,
             videoUrl = bai.VideoUrl,
             anhMinhHoa = bai.IllustrationUrl,
             illustrationUrl = bai.IllustrationUrl,
             fileUrl = bai.FileUrl,
-            durationSeconds = bai.DurationSeconds ?? 0,
-            thoiLuongGiay = bai.DurationSeconds ?? 0,
-            isPreview = bai.IsPreview,
-            choPhepHocThu = bai.IsPreview,
-            isPublished = bai.IsPublished,
-            status = bai.Status,
-            position = bai.Position,
-            thuTu = bai.Position,
-            sectionId = bai.SectionId
+            durationSeconds = bai.ThoiLuongGiay ?? 0,
+            thoiLuongGiay = bai.ThoiLuongGiay ?? 0,
+            isPreview = bai.ChoXemTruoc,
+            choPhepHocThu = bai.ChoXemTruoc,
+            isPublished = bai.DaXuatBan,
+            status = bai.TrangThai,
+            position = bai.ThuTu,
+            thuTu = bai.ThuTu,
+            sectionId = bai.ChuongHocId
         };
     }
 
     private static List<string> PublishErrors(KhoaHoc kh)
     {
         var errors = new List<string>();
-        if (string.IsNullOrWhiteSpace(kh.Title)) errors.Add("Khóa học cần có tiêu đề.");
-        if (string.IsNullOrWhiteSpace(kh.Description)) errors.Add("Khóa học cần có mô tả.");
-        if (kh.Sections.Count == 0) errors.Add("Khóa học cần ít nhất 1 chương.");
-        if (kh.Sections.Sum(s => s.Lessons.Count) == 0) errors.Add("Khóa học cần ít nhất 1 bài học.");
+        if (string.IsNullOrWhiteSpace(kh.TieuDe)) errors.Add("Khóa học cần có tiêu đề.");
+        if (string.IsNullOrWhiteSpace(kh.MoTa)) errors.Add("Khóa học cần có mô tả.");
+        if (kh.CacChuongHoc.Count == 0) errors.Add("Khóa học cần ít nhất 1 chương.");
+        if (kh.CacChuongHoc.Sum(s => s.CacBaiHoc.Count) == 0) errors.Add("Khóa học cần ít nhất 1 bài học.");
         return errors;
     }
 
@@ -1483,7 +1497,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var slugGoc = TaoSlug(tieuDe);
         var slug = slugGoc;
         var dem = 2;
-        while (await db.Courses.AnyAsync(c => c.Slug == slug && c.Id != boQuaId))
+        while (await db.KhoaHoc.AnyAsync(c => c.DuongDanThanThien == slug && c.Id != boQuaId))
         {
             slug = $"{slugGoc}-{dem}";
             dem++;
@@ -1508,25 +1522,25 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
     private async Task ChuanHoaViTriChuong(string courseId)
     {
-        var ds = await db.Sections.Where(s => s.CourseId == courseId).OrderBy(s => s.Position).ToListAsync();
-        for (var i = 0; i < ds.Count; i++) ds[i].Position = i + 1;
+        var ds = await db.ChuongHoc.Where(s => s.KhoaHocId == courseId).OrderBy(s => s.ThuTu).ToListAsync();
+        for (var i = 0; i < ds.Count; i++) ds[i].ThuTu = i + 1;
         await db.SaveChangesAsync();
     }
 
     private async Task ChuanHoaViTriBaiGiang(string sectionId)
     {
-        var ds = await db.Lessons.Where(l => l.SectionId == sectionId).OrderBy(l => l.Position).ToListAsync();
-        for (var i = 0; i < ds.Count; i++) ds[i].Position = i + 1;
+        var ds = await db.BaiHoc.Where(l => l.ChuongHocId == sectionId).OrderBy(l => l.ThuTu).ToListAsync();
+        for (var i = 0; i < ds.Count; i++) ds[i].ThuTu = i + 1;
         await db.SaveChangesAsync();
     }
 
     private async Task TinhLaiThoiLuong(string courseId)
     {
-        var tong = await db.Lessons.Where(l => l.CourseId == courseId).SumAsync(l => l.DurationSeconds ?? 0);
-        var kh = await db.Courses.FirstOrDefaultAsync(c => c.Id == courseId);
+        var tong = await db.BaiHoc.Where(l => l.KhoaHocId == courseId).SumAsync(l => l.ThoiLuongGiay ?? 0);
+        var kh = await db.KhoaHoc.FirstOrDefaultAsync(c => c.Id == courseId);
         if (kh is null) return;
-        kh.TotalDurationSeconds = tong;
-        kh.UpdatedAt = DateTime.UtcNow;
+        kh.TongThoiLuongGiay = tong;
+        kh.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
 }

@@ -35,39 +35,39 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null) return Results.Unauthorized();
 
-        var transactions = await db.WalletTransactions.AsNoTracking()
-            .Where(item => item.UserId == userId)
-            .OrderByDescending(item => item.CreatedAt)
+        var transactions = await db.GiaoDichVi.AsNoTracking()
+            .Where(item => item.NguoiDungId == userId)
+            .OrderByDescending(item => item.NgayTao)
             .Take(10)
             .Select(item => new
             {
                 item.Id,
-                item.Type,
-                item.Amount,
-                amountText = TroGiup.DinhDangTienVND(item.Amount),
-                item.BalanceAfter,
-                balanceAfterText = TroGiup.DinhDangTienVND(item.BalanceAfter),
-                item.Note,
-                item.CreatedAt,
-                method = item.ExternalPayment == null ? "Ví Skillio" : item.ExternalPayment.Provider
+                type = item.LoaiGiaoDich,
+                item.SoTien,
+                amountText = TroGiup.DinhDangTienVND(item.SoTien),
+                item.SoDuSauGiaoDich,
+                balanceAfterText = TroGiup.DinhDangTienVND(item.SoDuSauGiaoDich),
+                item.NoiDung,
+                item.NgayTao,
+                method = item.ThanhToan == null ? "Ví Skillio" : item.ThanhToan.NhaCungCap
             })
             .ToListAsync();
 
         return Results.Ok(new
         {
             user = ToUserDto(user),
-            settings = ParseSettings(user.Settings),
+            settings = ParseSettings(user.CaiDat),
             wallet = new
             {
-                balance = user.WalletBalance,
-                balanceText = TroGiup.DinhDangTienVND(user.WalletBalance),
-                totalSpent = user.TotalSpent,
-                totalSpentText = TroGiup.DinhDangTienVND(user.TotalSpent),
-                user.MemberTier,
-                memberTierLabel = TroGiup.TinhHangThanhVien(user.WalletBalance).NhanHieu
+                balance = user.SoDuVi,
+                balanceText = TroGiup.DinhDangTienVND(user.SoDuVi),
+                totalSpent = user.TongChiTieu,
+                totalSpentText = TroGiup.DinhDangTienVND(user.TongChiTieu),
+                user.HangThanhVien,
+                memberTierLabel = TroGiup.TinhHangThanhVien(user.SoDuVi).NhanHieu
             },
             transactions,
             session = new
@@ -85,7 +85,7 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng." });
 
         var name = (request.Name ?? string.Empty).Trim();
@@ -99,17 +99,17 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         if (!string.IsNullOrWhiteSpace(phone) && (!Regex.IsMatch(phone, @"^\+?[0-9\s]+$") || phoneDigitCount is < 8 or > 15))
             return Results.BadRequest(new { message = "Số điện thoại không hợp lệ." });
         if (bio.Length > 500) return Results.BadRequest(new { message = "Giới thiệu tối đa 500 ký tự." });
-        if (await db.Users.AnyAsync(item => item.Id != userId && item.Email == email)) return Results.BadRequest(new { message = "Email đã được sử dụng." });
+        if (await db.NguoiDung.AnyAsync(item => item.Id != userId && item.Email == email)) return Results.BadRequest(new { message = "Email đã được sử dụng." });
 
-        user.Name = name;
+        user.Ten = name;
         user.Email = email;
-        user.Phone = phone;
-        user.Bio = bio;
-        if (request.Settings is not null) user.Settings = JsonSerializer.Serialize(request.Settings);
-        user.UpdatedAt = DateTime.UtcNow;
+        user.SoDienThoai = phone;
+        user.TieuSu = bio;
+        if (request.Settings is not null) user.CaiDat = JsonSerializer.Serialize(request.Settings);
+        user.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        return Results.Ok(new { message = "Cập nhật cài đặt thành công.", user = ToUserDto(user), settings = ParseSettings(user.Settings) });
+        return Results.Ok(new { message = "Cập nhật cài đặt thành công.", user = ToUserDto(user), settings = ParseSettings(user.CaiDat) });
     }
 
     [HttpPut("/api/account/password")]
@@ -118,14 +118,14 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng." });
-        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.Password)) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng." });
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.MatKhau)) return Results.BadRequest(new { message = "Mật khẩu hiện tại không đúng." });
         if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 6) return Results.BadRequest(new { message = "Mật khẩu mới tối thiểu 6 ký tự." });
         if (request.NewPassword != request.ConfirmPassword) return Results.BadRequest(new { message = "Nhập lại mật khẩu không khớp." });
 
-        user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        user.UpdatedAt = DateTime.UtcNow;
+        user.MatKhau = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         return Results.Ok(new { message = "Cập nhật cài đặt thành công." });
@@ -147,7 +147,7 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         if (!AvatarTypes.Contains(avatar.ContentType)) return Results.BadRequest(new { message = "Ảnh đại diện chỉ nhận PNG, JPG, JPEG, WEBP." });
         if (avatar.Length > 2 * 1024 * 1024) return Results.BadRequest(new { message = "Ảnh đại diện tối đa 2MB." });
 
-        var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng." });
 
         var root = env.WebRootPath;
@@ -163,7 +163,7 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         if (!AvatarExtensions.Contains(extension))
             return Results.BadRequest(new { message = "Ảnh đại diện chỉ nhận PNG, JPG, JPEG, WEBP." });
 
-        var oldAvatar = user.Avatar;
+        var oldAvatar = user.AnhDaiDien;
         var fileName = $"{userId}-{Guid.NewGuid():N}{extension}";
         var fullPath = Path.Combine(folder, fileName);
         await using (var stream = System.IO.File.Create(fullPath))
@@ -171,12 +171,12 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
             await avatar.CopyToAsync(stream);
         }
 
-        user.Avatar = $"/uploads/avatars/{fileName}";
-        user.UpdatedAt = DateTime.UtcNow;
+        user.AnhDaiDien = $"/uploads/avatars/{fileName}";
+        user.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         DeleteLocalAvatar(root, oldAvatar);
 
-        return Results.Ok(new { message = "Cập nhật cài đặt thành công.", avatarUrl = user.Avatar, user = ToUserDto(user) });
+        return Results.Ok(new { message = "Cập nhật cài đặt thành công.", avatarUrl = user.AnhDaiDien, user = ToUserDto(user) });
     }
 
     [HttpDelete("/api/account/avatar")]
@@ -186,12 +186,12 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng." });
 
-        var oldAvatar = user.Avatar;
-        user.Avatar = null;
-        user.UpdatedAt = DateTime.UtcNow;
+        var oldAvatar = user.AnhDaiDien;
+        user.AnhDaiDien = null;
+        user.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         var root = string.IsNullOrWhiteSpace(env.WebRootPath)
@@ -226,11 +226,11 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var requester = await db.Users.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
+        var requester = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(item => item.Id == userId);
         if (requester is null) return Results.Unauthorized();
 
-        var adminIds = await db.Users.AsNoTracking()
-            .Where(item => item.Role == "ADMIN")
+        var adminIds = await db.NguoiDung.AsNoTracking()
+            .Where(item => item.VaiTro == "ADMIN")
             .Select(item => item.Id)
             .ToListAsync();
         if (adminIds.Count == 0)
@@ -239,16 +239,16 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var now = DateTime.UtcNow;
         foreach (var adminId in adminIds)
         {
-            db.Notifications.Add(new ThongBao
+            db.ThongBao.Add(new ThongBao
             {
                 Id = TaoId.Moi(),
-                UserId = adminId,
-                Type = type,
-                Title = title,
-                Body = $"Giảng viên {requester.Name} ({requester.Email}) vừa gửi yêu cầu.",
-                Link = "/admin/users",
-                Metadata = JsonSerializer.Serialize(new { requesterId = requester.Id, requesterRole = requester.Role }),
-                CreatedAt = now
+                NguoiDungId = adminId,
+                LoaiThongBao = type,
+                TieuDe = title,
+                NoiDung = $"Giảng viên {requester.Ten} ({requester.Email}) vừa gửi yêu cầu.",
+                DuongDan = "/admin/users",
+                Metadata = JsonSerializer.Serialize(new { requesterId = requester.Id, requesterRole = requester.VaiTro }),
+                NgayTao = now
             });
         }
 
@@ -261,13 +261,13 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var user = await db.Users.FirstOrDefaultAsync(item => item.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(item => item.Id == userId);
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng." });
 
-        user.Settings = JsonSerializer.Serialize(settings);
-        user.UpdatedAt = DateTime.UtcNow;
+        user.CaiDat = JsonSerializer.Serialize(settings);
+        user.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        return Results.Ok(new { message = "Cập nhật cài đặt thành công.", settings = ParseSettings(user.Settings) });
+        return Results.Ok(new { message = "Cập nhật cài đặt thành công.", settings = ParseSettings(user.CaiDat) });
     }
 
     private static JsonElement? ParseSettings(string? rawSettings)
@@ -291,16 +291,16 @@ public class AccountController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         user.Id,
         user.Email,
-        user.Name,
-        user.Role,
-        user.Avatar,
-        user.Phone,
-        user.Bio,
-        user.WalletBalance,
-        user.TotalSpent,
-        user.MemberTier,
-        memberTierLabel = TroGiup.TinhHangThanhVien(user.WalletBalance).NhanHieu,
-        user.RewardPoints,
-        user.LoginStreak
+        user.Ten,
+        user.VaiTro,
+        user.AnhDaiDien,
+        user.SoDienThoai,
+        user.TieuSu,
+        user.SoDuVi,
+        user.TongChiTieu,
+        user.HangThanhVien,
+        memberTierLabel = TroGiup.TinhHangThanhVien(user.SoDuVi).NhanHieu,
+        user.DiemThuong,
+        user.ChuoiDangNhap
     };
 }

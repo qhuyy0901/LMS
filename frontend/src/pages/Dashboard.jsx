@@ -8,7 +8,6 @@ import {
   BookOpen,
   CalendarDays,
   Check,
-  DollarSign,
   Eye,
   EyeOff,
   FileCheck,
@@ -18,7 +17,6 @@ import {
   TrendingUp,
   Users,
   Wallet,
-  Webhook,
 } from 'lucide-react';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { StatCard } from '../components/StatCard';
@@ -57,11 +55,16 @@ const normalizeDashboardData = (view, payload = {}) => {
         totalUsers: adminStats.totalUsers ?? 0,
         totalCourses: adminStats.totalCourses ?? 0,
         totalEnrollments: adminStats.totalEnrollments ?? 0,
-        totalRevenue: adminStats.totalRevenue ?? 0,
-        totalRevenueFormatted: adminStats.totalRevenueFormatted ?? formatCurrency(adminStats.totalRevenue ?? 0),
+        pendingInstructorApplications: adminStats.pendingInstructorApplications ?? 0,
+        pendingCourses: adminStats.pendingCourses ?? 0,
+        pendingWithdrawals: adminStats.pendingWithdrawals ?? 0,
         pendingPayments: adminStats.pendingPayments ?? 0,
+        activeUsers: adminStats.activeUsers ?? adminStats.totalUsers ?? 0,
+        activeEvents: adminStats.activeEvents ?? 0,
+        activeCoupons: adminStats.activeCoupons ?? 0,
       },
       recentUsers: payload.recentUsers ?? [],
+      recentActivities: payload.recentActivities ?? [],
     };
   }
 
@@ -431,30 +434,76 @@ const InstructorDashboard = ({ data, loading }) => {
 };
 
 const AdminDashboard = ({ data, loading }) => {
-  const stats = data?.stats;
+  const stats = data?.stats || data || {};
   const recentUsers = data?.recentUsers || [];
+  const recentActivities = data?.recentActivities || [];
   const roleLabels = {
     STUDENT: 'Học viên',
     INSTRUCTOR: 'Giảng viên',
     ADMIN: 'Admin',
   };
+  const taskItems = [
+    {
+      label: 'Hồ sơ giảng viên chờ duyệt',
+      value: stats.pendingInstructorApplications ?? 0,
+      to: '/admin/instructor-applications',
+      icon: FileCheck,
+      color: 'bg-rose-50 text-rose-600',
+    },
+    {
+      label: 'Khóa học chờ duyệt',
+      value: stats.pendingCourses ?? 0,
+      to: '/admin/courses',
+      icon: BookOpen,
+      color: 'bg-amber-50 text-amber-600',
+    },
+    {
+      label: 'Yêu cầu rút tiền chờ xử lý',
+      value: stats.pendingWithdrawals ?? 0,
+      to: '/admin/transactions',
+      icon: Wallet,
+      color: 'bg-sky-50 text-sky-600',
+    },
+    {
+      label: 'Giao dịch cần kiểm tra',
+      value: stats.pendingPayments ?? 0,
+      to: '/admin/transactions',
+      icon: BarChart2,
+      color: 'bg-orange-50 text-orange-600',
+      hideWhenZero: true,
+    },
+  ].filter((item) => !item.hideWhenZero || item.value > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Dashboard Quản trị</h1>
-        <p className="text-sm text-slate-500">Tổng quan hoạt động toàn hệ thống Skillio.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Users} label="Tổng người dùng" value={stats?.totalUsers ?? 0} subtitle="Toàn hệ thống" color="bg-blue-50 text-blue-600" loading={loading} />
-        <StatCard icon={BookOpen} label="Tổng khóa học" value={stats?.totalCourses ?? 0} subtitle="Tất cả trạng thái" color="bg-purple-50 text-purple-600" loading={loading} />
-        <StatCard icon={DollarSign} label="Doanh thu" value={stats?.totalRevenueFormatted || formatCurrency(0)} subtitle="Giao dịch hoàn tất" color="bg-emerald-50 text-emerald-600" loading={loading} />
-        <StatCard icon={Webhook} label="GD chờ xử lý" value={stats?.pendingPayments ?? 0} subtitle="Webhook PENDING" color="bg-orange-50 text-orange-600" loading={loading} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <AdminStatLink to="/admin/users" icon={Users} label="Tổng người dùng" value={stats.totalUsers ?? 0} subtitle="Toàn hệ thống" color="bg-blue-50 text-blue-600" loading={loading} />
+        <AdminStatLink to="/admin/courses" icon={BookOpen} label="Tổng khóa học" value={stats.totalCourses ?? 0} subtitle="Tất cả trạng thái" color="bg-purple-50 text-purple-600" loading={loading} />
+        <AdminStatLink to="/admin/instructor-applications" icon={FileCheck} label="Hồ sơ GV chờ duyệt" value={stats.pendingInstructorApplications ?? 0} subtitle="Cần Admin xử lý" color="bg-rose-50 text-rose-600" loading={loading} />
+        <AdminStatLink to="/admin/courses" icon={CalendarDays} label="Khóa học chờ duyệt" value={stats.pendingCourses ?? 0} subtitle="Chờ kiểm duyệt" color="bg-amber-50 text-amber-600" loading={loading} />
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <h3 className="mb-4 font-semibold text-slate-900">Việc cần xử lý</h3>
+        {loading ? (
+          <ListSkeleton />
+        ) : taskItems.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {taskItems.map((item) => (
+              <AdminTaskItem key={item.label} {...item} />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">Không có việc cần xử lý.</p>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm xl:col-span-2">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-semibold text-slate-900">Người dùng mới nhất</h3>
             <Link to="/admin/users" className="text-sm font-medium text-purple-600 hover:underline">
@@ -464,17 +513,20 @@ const AdminDashboard = ({ data, loading }) => {
           {loading ? (
             <ListSkeleton />
           ) : recentUsers.length > 0 ? (
-            <div className="space-y-3">
+            <div className="divide-y divide-slate-50">
               {recentUsers.map((user) => (
-                <div key={user.id} className="flex items-center gap-3 rounded-xl p-3 transition hover:bg-slate-50">
-                  <Avatar name={user.name} />
+                <div key={user.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <Avatar name={user.ten || user.name || user.email} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-slate-900">{user.name}</p>
-                    <p className="truncate text-xs text-slate-400">{user.email}</p>
+                    <p className="truncate text-sm font-semibold text-slate-900">{user.ten || user.name || user.email}</p>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
                   </div>
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
-                    {roleLabels[user.role] || user.role}
-                  </span>
+                  <div className="shrink-0 text-right">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
+                      {roleLabels[user.vaiTro || user.role] || user.vaiTro || user.role}
+                    </span>
+                    {user.createdAt ? <p className="mt-1 text-[11px] text-slate-400">{formatDate(user.createdAt)}</p> : null}
+                  </div>
                 </div>
               ))}
             </div>
@@ -483,15 +535,39 @@ const AdminDashboard = ({ data, loading }) => {
           )}
         </section>
 
-        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
           <h3 className="mb-4 font-semibold text-slate-900">Tổng quan nền tảng</h3>
-          <div className="space-y-4">
-            <OverviewRow icon={GraduationCap} label="Tổng lượt ghi danh" value={stats?.totalEnrollments ?? 0} color="purple" />
-            <OverviewRow icon={BarChart2} label="Người dùng hoạt động" value={stats?.totalUsers ?? 0} color="blue" />
-            <OverviewRow icon={FileCheck} label="Khóa học trên hệ thống" value={stats?.totalCourses ?? 0} color="amber" />
+          <div className="space-y-3">
+            <OverviewRow icon={GraduationCap} label="Tổng lượt ghi danh" value={stats.totalEnrollments ?? 0} color="purple" />
+            <OverviewRow icon={Users} label="Người dùng hoạt động" value={stats.activeUsers ?? 0} color="blue" />
+            {(stats.activeEvents ?? 0) > 0 ? (
+              <OverviewRow icon={CalendarDays} label="Sự kiện đang mở" value={stats.activeEvents ?? 0} color="amber" />
+            ) : (
+              <OverviewRow icon={FileCheck} label="Mã giảm giá đang hoạt động" value={stats.activeCoupons ?? 0} color="amber" />
+            )}
           </div>
         </section>
       </div>
+
+      {!loading && recentActivities.length > 0 ? (
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 font-semibold text-slate-900">Hoạt động gần đây</h3>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {recentActivities.map((item, index) => (
+              <Link key={`${item.type || 'activity'}-${item.createdAt || index}`} to={item.link || '/admin'} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition hover:border-purple-100 hover:bg-purple-50/40">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <FileCheck className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">{item.title}</p>
+                  <p className="truncate text-xs text-slate-500">{item.description}</p>
+                </div>
+                <span className="shrink-0 text-[11px] text-slate-400">{item.createdAt ? formatDate(item.createdAt) : ''}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </div>
   );
 };
@@ -542,6 +618,31 @@ const CourseSkeleton = () => (
   </div>
 );
 
+const AdminStatLink = ({ to, icon: Icon, label, value, subtitle, color, loading = false }) => {
+  if (loading) return <StatCard icon={Icon} label={label} value={value} subtitle={subtitle} color={color} loading />;
+
+  return (
+    <Link to={to} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-200">
+      <StatCard icon={Icon} label={label} value={value} subtitle={subtitle} color={color} />
+    </Link>
+  );
+};
+
+const AdminTaskItem = ({ icon: Icon, label, value, to, color }) => (
+  <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
+      <Icon className="h-5 w-5" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-sm font-medium text-slate-900">{label}</p>
+      <p className="text-lg font-bold text-slate-950">{value}</p>
+    </div>
+    <Link to={to} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm ring-1 ring-purple-100 transition hover:bg-purple-50">
+      Xem
+    </Link>
+  </div>
+);
+
 const ListSkeleton = () => (
   <div className="space-y-3">
     {[1, 2, 3].map((item) => (
@@ -588,7 +689,7 @@ const QuestRow = ({ icon: Icon, title, subtitle, color, right, done, reward }) =
 
 const Avatar = ({ name = '' }) => (
   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-300 to-pink-300 font-bold text-white">
-    {name?.charAt(0)?.toUpperCase() || '?'}
+    {(name || 'A').trim().charAt(0).toUpperCase()}
   </div>
 );
 

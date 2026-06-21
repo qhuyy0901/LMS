@@ -8,15 +8,15 @@ public class TinNhan
     [Key]
     public Guid Id { get; set; }
 
-    public Guid ConversationId { get; set; }
-    public CuocTroChuyen Conversation { get; set; } = null!;
+    public Guid CuocTroChuyenId { get; set; }
+    public CuocTroChuyen CuocTroChuyen { get; set; } = null!;
 
-    public string SenderId { get; set; } = string.Empty;
-    public NguoiDung Sender { get; set; } = null!;
+    public string NguoiGuiId { get; set; } = string.Empty;
+    public NguoiDung NguoiGui { get; set; } = null!;
 
-    public string Content { get; set; } = string.Empty;
+    public string NoiDung { get; set; } = string.Empty;
 
-    public DateTime SentAt { get; set; } = DateTime.UtcNow;
+    public DateTime GuiLuc { get; set; } = DateTime.UtcNow;
 
-    public ICollection<TinNhanDinhKem> Attachments { get; set; } = [];
+    public ICollection<TinNhanDinhKem> CacFileDinhKem { get; set; } = [];
 }

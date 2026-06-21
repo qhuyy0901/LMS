@@ -5,6 +5,7 @@ import {
   Calendar,
   Compass,
   FileCheck,
+  FolderTree,
   GraduationCap,
   LayoutDashboard,
   MessageCircle,
@@ -20,13 +21,12 @@ import {
 export const STUDENT_MENU = [
   { section: 'Tổng quan' },
   { name: 'Bảng điều khiển', path: '/', icon: LayoutDashboard },
-  { name: 'Khám phá', path: '/explore', icon: Compass },
+  { name: 'Khám phá', path: '/KhamPha', externalUrl: '/KhamPha', icon: Compass },
   { name: 'Sự kiện', path: '/events', icon: Calendar },
 
   { section: 'Học tập' },
   { name: 'Học tập của tôi', path: '/my-learning', icon: GraduationCap },
   { name: 'Tiến trình', path: '/reports', icon: BarChart2 },
-  { name: 'Chứng chỉ', path: '/certificates', icon: Award },
 
   { section: 'Tài khoản' },
   { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
@@ -41,7 +41,7 @@ export const INSTRUCTOR_MENU = [
 
   { section: 'Quản lý nội dung' },
   { name: 'Khóa học của tôi', path: '/instructor/courses', icon: Briefcase },
-  { name: 'Tạo khóa học mới', path: '/instructor/courses/new', icon: PlusCircle },
+  { name: 'Tạo khóa học mới', path: '/instructor/courses/new', externalUrl: '/Instructor/KhoaHoc/Create', icon: PlusCircle },
   { name: 'Mã giảm giá', path: '/instructor/vouchers', icon: Tag },
   { name: 'Quản lý sự kiện', path: '/instructor/events', icon: Calendar },
 
@@ -54,19 +54,15 @@ export const INSTRUCTOR_MENU = [
 
 export const ADMIN_MENU = [
   { section: 'Tổng quan' },
-  { name: 'Dashboard Admin', path: '/', icon: LayoutDashboard },
+  { name: 'Dashboard Admin', path: '/admin', icon: LayoutDashboard },
 
-  { section: 'Quản lý hệ thống' },
+  { section: 'Quản trị hệ thống' },
   { name: 'Quản lý người dùng', path: '/admin/users', icon: UserCog },
+  { name: 'Hồ sơ đăng ký giảng viên', path: '/admin/instructor-applications', icon: Briefcase },
   { name: 'Duyệt khóa học', path: '/admin/courses', icon: FileCheck },
-  { name: 'Mã giảm giá', path: '/admin/coupons', icon: Tag },
-  { name: 'Đối soát giao dịch', path: '/admin/transactions', icon: Webhook },
-
-  { section: 'Khác' },
-  { name: 'Khám phá', path: '/explore', icon: Compass },
-  { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
-  { name: 'Bảo mật', path: '/admin/security', icon: ShieldCheck },
-  { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
+  { name: 'Quản lý danh mục', path: '/admin/categories', icon: FolderTree },
+  { name: 'Quản lý giao dịch', path: '/admin/transactions', icon: Wallet },
+  { name: 'Sự kiện', path: '/admin/events', icon: Calendar },
 ];
 
 export const getMenuByRole = (role) => {

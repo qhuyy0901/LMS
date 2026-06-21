@@ -3,14 +3,14 @@ namespace LMS.Api.Domain.Entities;
 public class ThongBao
 {
     public string Id { get; set; } = string.Empty;
-    public string Type { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Body { get; set; } = string.Empty;
-    public string? Link { get; set; }
-    public bool IsRead { get; set; }
+    public string LoaiThongBao { get; set; } = string.Empty;
+    public string TieuDe { get; set; } = string.Empty;
+    public string NoiDung { get; set; } = string.Empty;
+    public string? DuongDan { get; set; }
+    public bool DaDoc { get; set; }
     public string? Metadata { get; set; }
-    public DateTime? ReadAt { get; set; }
-    public string UserId { get; set; } = string.Empty;
-    public NguoiDung? User { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public DateTime? DocLuc { get; set; }
+    public string NguoiDungId { get; set; } = string.Empty;
+    public NguoiDung? NguoiDung { get; set; }
+    public DateTime NgayTao { get; set; }
 }

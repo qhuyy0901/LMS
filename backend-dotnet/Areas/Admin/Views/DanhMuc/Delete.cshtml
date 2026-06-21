@@ -1,0 +1,270 @@
+@model LMS.Api.Domain.Entities.DanhMuc
+
+@{
+    ViewData["Title"] = "Xác nhận xóa danh mục";
+    var courseCount = ViewData["CourseCount"] as int? ?? 0;
+}
+
+<div class="form-container">
+    <div class="form-header">
+        <a asp-action="Index" class="back-link">
+            <span class="back-icon">&larr;</span> Quay lại quản lý danh mục
+        </a>
+        <h1 class="form-title">Xác nhận xóa danh mục</h1>
+        <p class="form-subtitle">Hệ thống đang kiểm tra điều kiện xóa danh mục khóa học.</p>
+    </div>
+
+    <div class="form-card">
+        <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+        <div class="category-details">
+            <div class="detail-row">
+                <span class="detail-label">Tên danh mục:</span>
+                <span class="detail-value font-semibold">@Model.Ten</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Slug liên kết:</span>
+                <span class="detail-value text-slate-500">@Model.Slug</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Số khóa học thuộc danh mục:</span>
+                <span class="detail-value badge @(courseCount > 0 ? "badge-danger" : "badge-success")">
+                    @courseCount khóa học
+                </span>
+            </div>
+        </div>
+
+        @if (courseCount > 0)
+        {
+            <div class="alert-box alert-danger">
+                <div class="alert-icon">⚠️</div>
+                <div class="alert-content">
+                    <h4 class="alert-title">Không thể xóa danh mục này</h4>
+                    <p class="alert-desc">
+                        Không thể xóa danh mục này vì đang có khóa học thuộc danh mục. Để đảm bảo tính toàn vẹn dữ liệu, bạn chỉ được phép đổi trạng thái hoạt động sang <strong>Ngừng hoạt động</strong> để ẩn danh mục này ở phía người dùng.
+                    </p>
+                </div>
+            </div>
+
+            <div class="form-actions border-none">
+                <a asp-action="Index" class="btn btn-secondary">Quay lại danh sách</a>
+                <form asp-action="ToggleActive" asp-route-id="@Model.Id" method="post" class="inline-form">
+                    @Html.AntiForgeryToken()
+                    @if (Model.HoatDong)
+                    {
+                        <button type="submit" class="btn btn-warning">Ẩn / Ngừng hoạt động</button>
+                    }
+                    else
+                    {
+                        <button type="submit" class="btn btn-primary" disabled>Đã ẩn rồi</button>
+                    }
+                </form>
+            </div>
+        }
+        else
+        {
+            <div class="alert-box alert-warning">
+                <div class="alert-icon">❓</div>
+                <div class="alert-content">
+                    <h4 class="alert-title">Bạn có chắc chắn muốn xóa?</h4>
+                    <p class="alert-desc">
+                        Hành động này không thể hoàn tác. Danh mục <strong>@Model.Ten</strong> sẽ bị xóa vĩnh viễn khỏi cơ sở dữ liệu.
+                    </p>
+                </div>
+            </div>
+
+            <form asp-action="DeleteConfirmed" asp-route-id="@Model.Id" method="post">
+                @Html.AntiForgeryToken()
+                <div class="form-actions">
+                    <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    <button type="submit" class="btn btn-danger">Xác nhận xóa</button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+        .form-header {
+            margin-bottom: 28px;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 12px;
+            transition: color 0.2s;
+        }
+        .back-link:hover {
+            color: #7c3aed;
+        }
+        .form-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.02em;
+        }
+        .form-subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+        }
+        .form-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        }
+        .category-details {
+            margin-bottom: 28px;
+            background-color: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .detail-row:first-child {
+            padding-top: 0;
+        }
+        .detail-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+        }
+        .detail-value {
+            font-size: 14px;
+            color: #0f172a;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-danger {
+            background-color: #fef2f2;
+            color: #b91c1c;
+        }
+        .badge-success {
+            background-color: #ecfdf5;
+            color: #047857;
+        }
+        .alert-box {
+            display: flex;
+            gap: 16px;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 28px;
+        }
+        .alert-danger {
+            background-color: #fff5f5;
+            border: 1px solid #fee2e2;
+            color: #991b1b;
+        }
+        .alert-warning {
+            background-color: #fffbeb;
+            border: 1px solid #fef3c7;
+            color: #92400e;
+        }
+        .alert-icon {
+            font-size: 24px;
+            line-height: 1;
+        }
+        .alert-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin: 0 0 6px 0;
+        }
+        .alert-desc {
+            font-size: 13.5px;
+            line-height: 1.5;
+            margin: 0;
+        }
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .border-none {
+            border-top: none;
+            margin-top: 0;
+            padding-top: 0;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 750;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-danger {
+            background-color: #dc2626;
+            color: #ffffff;
+        }
+        .btn-danger:hover {
+            background-color: #b91c1c;
+        }
+        .btn-warning {
+            background-color: #d97706;
+            color: #ffffff;
+        }
+        .btn-warning:hover {
+            background-color: #b45309;
+        }
+        .btn-secondary {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+        }
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        .inline-form {
+            display: inline-block;
+        }
+        .validation-summary {
+            padding: 12px 16px;
+            border-radius: 12px;
+            background-color: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+        .font-semibold {
+            font-weight: 600;
+        }
+    </style>
+}

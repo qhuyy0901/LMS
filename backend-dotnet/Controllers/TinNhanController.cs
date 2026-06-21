@@ -13,7 +13,7 @@ namespace LMS.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubContext<ChatHub> hubContext) : ControllerBase
+public class TinNhanController(ApplicationDbContext db, IDichVuChat chat, IHubContext<ChatHub> hubContext) : ControllerBase
 {
     private string GetUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
@@ -22,64 +22,64 @@ public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubConte
     {
         var userId = GetUserId();
 
-        var conversations = await db.ConversationParticipants
-            .Where(participant => participant.UserId == userId)
-            .Include(participant => participant.Conversation)
-                .ThenInclude(conversation => conversation.Participants)
-                    .ThenInclude(participant => participant.User)
-            .Include(participant => participant.Conversation)
-                .ThenInclude(conversation => conversation.Messages.OrderByDescending(message => message.SentAt).Take(1))
-                    .ThenInclude(message => message.Attachments)
-            .OrderByDescending(participant => participant.Conversation.UpdatedAt)
+        var conversations = await db.NguoiThamGiaTroChuyen
+            .Where(participant => participant.NguoiDungId == userId)
+            .Include(participant => participant.CuocTroChuyen)
+                .ThenInclude(conversation => conversation.CacNguoiThamGia)
+                    .ThenInclude(participant => participant.NguoiDung)
+            .Include(participant => participant.CuocTroChuyen)
+                .ThenInclude(conversation => conversation.CacTinNhan.OrderByDescending(message => message.GuiLuc).Take(1))
+                    .ThenInclude(message => message.CacFileDinhKem)
+            .OrderByDescending(participant => participant.CuocTroChuyen.NgayCapNhat)
             .ToListAsync();
 
         var courseIds = conversations
-            .Select(item => item.Conversation.CourseId)
+            .Select(item => item.CuocTroChuyen.KhoaHocId)
             .Where(courseId => !string.IsNullOrWhiteSpace(courseId))
             .Distinct()
             .ToList();
 
-        var courseTitles = await db.Courses.AsNoTracking()
+        var courseTitles = await db.KhoaHoc.AsNoTracking()
             .Where(course => courseIds.Contains(course.Id))
-            .ToDictionaryAsync(course => course.Id, course => course.Title);
+            .ToDictionaryAsync(course => course.Id, course => course.TieuDe);
 
         var dtos = new List<CuocTroChuyenDto>();
         foreach (var participant in conversations)
         {
-            if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, participant.ConversationId)) continue;
+            if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, participant.CuocTroChuyenId)) continue;
 
-            var conversation = participant.Conversation;
-            var otherParticipant = conversation.Participants.FirstOrDefault(item => item.UserId != userId)?.User;
-            var lastMessage = conversation.Messages.OrderByDescending(message => message.SentAt).FirstOrDefault();
-            var lastMessageHasImages = lastMessage?.Attachments.Count > 0;
+            var conversation = participant.CuocTroChuyen;
+            var otherParticipant = conversation.CacNguoiThamGia.FirstOrDefault(item => item.NguoiDungId != userId)?.NguoiDung;
+            var lastMessage = conversation.CacTinNhan.OrderByDescending(message => message.GuiLuc).FirstOrDefault();
+            var lastMessageHasImages = lastMessage?.CacFileDinhKem.Count > 0;
 
-            var lastReadAt = participant.LastReadAt;
+            var lastReadAt = participant.DocCuoiLuc;
             var unreadCount = lastReadAt.HasValue
-                ? await db.Messages.CountAsync(m => m.ConversationId == participant.ConversationId && m.SentAt > lastReadAt.Value && m.SenderId != userId)
-                : await db.Messages.CountAsync(m => m.ConversationId == participant.ConversationId && m.SenderId != userId);
+                ? await db.TinNhan.CountAsync(m => m.CuocTroChuyenId == participant.CuocTroChuyenId && m.GuiLuc > lastReadAt.Value && m.NguoiGuiId != userId)
+                : await db.TinNhan.CountAsync(m => m.CuocTroChuyenId == participant.CuocTroChuyenId && m.NguoiGuiId != userId);
 
             dtos.Add(new CuocTroChuyenDto
             {
-                Id = participant.ConversationId,
-                Title = conversation.Title,
-                IsGroup = conversation.IsGroup,
-                CourseId = conversation.CourseId,
-                CourseTitle = conversation.CourseId is not null && courseTitles.TryGetValue(conversation.CourseId, out var courseTitle)
+                Id = participant.CuocTroChuyenId,
+                Title = conversation.TieuDe,
+                IsGroup = conversation.LaNhom,
+                CourseId = conversation.KhoaHocId,
+                CourseTitle = conversation.KhoaHocId is not null && courseTitles.TryGetValue(conversation.KhoaHocId, out var courseTitle)
                     ? courseTitle
                     : null,
                 ClassId = conversation.ClassId,
                 SubjectId = conversation.SubjectId,
-                CreatedAt = conversation.CreatedAt,
-                UpdatedAt = conversation.UpdatedAt,
+                CreatedAt = conversation.NgayTao,
+                UpdatedAt = conversation.NgayCapNhat,
                 OtherUserId = otherParticipant?.Id ?? string.Empty,
-                OtherUserName = otherParticipant?.Name ?? string.Empty,
-                OtherUserAvatar = otherParticipant?.Avatar,
-                OtherUserLastSeenAt = otherParticipant?.LastSeenAt,
-                LastMessage = !string.IsNullOrWhiteSpace(lastMessage?.Content)
-                    ? lastMessage.Content
+                OtherUserName = otherParticipant?.Ten ?? string.Empty,
+                OtherUserAvatar = otherParticipant?.AnhDaiDien,
+                OtherUserLastSeenAt = otherParticipant?.LanCuoiHoatDong,
+                LastMessage = !string.IsNullOrWhiteSpace(lastMessage?.NoiDung)
+                    ? lastMessage.NoiDung
                     : lastMessageHasImages == true ? "Đã gửi ảnh" : null,
                 LastMessageHasImages = lastMessageHasImages == true,
-                LastMessageAt = lastMessage?.SentAt,
+                LastMessageAt = lastMessage?.GuiLuc,
                 UnreadCount = unreadCount
             });
         }
@@ -102,22 +102,22 @@ public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubConte
         if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, conversationId))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Bạn không có quyền xem cuộc trò chuyện này." });
 
-        var userParticipant = await db.ConversationParticipants
-            .FirstOrDefaultAsync(p => p.ConversationId == conversationId && p.UserId == userId);
+        var userParticipant = await db.NguoiThamGiaTroChuyen
+            .FirstOrDefaultAsync(p => p.CuocTroChuyenId == conversationId && p.NguoiDungId == userId);
         if (userParticipant is not null)
         {
-            userParticipant.LastReadAt = DateTime.UtcNow;
+            userParticipant.DocCuoiLuc = DateTime.UtcNow;
             await db.SaveChangesAsync();
         }
 
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 100);
 
-        var messages = await db.Messages
-            .Where(message => message.ConversationId == conversationId)
-            .Include(message => message.Sender)
-            .Include(message => message.Attachments)
-            .OrderByDescending(message => message.SentAt)
+        var messages = await db.TinNhan
+            .Where(message => message.CuocTroChuyenId == conversationId)
+            .Include(message => message.NguoiGui)
+            .Include(message => message.CacFileDinhKem)
+            .OrderByDescending(message => message.GuiLuc)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -133,11 +133,11 @@ public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubConte
         if (!await chat.CoQuyenTruyCapCuocTroChuyenAsync(userId, conversationId))
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Bạn không có quyền truy cập cuộc trò chuyện này." });
 
-        var userParticipant = await db.ConversationParticipants
-            .FirstOrDefaultAsync(p => p.ConversationId == conversationId && p.UserId == userId);
+        var userParticipant = await db.NguoiThamGiaTroChuyen
+            .FirstOrDefaultAsync(p => p.CuocTroChuyenId == conversationId && p.NguoiDungId == userId);
         if (userParticipant is not null)
         {
-            userParticipant.LastReadAt = DateTime.UtcNow;
+            userParticipant.DocCuoiLuc = DateTime.UtcNow;
             await db.SaveChangesAsync();
         }
 
@@ -161,7 +161,7 @@ public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubConte
             request?.SubjectId ?? subjectId);
 
         if (!result.ThanhCong) return ChatError(result);
-        return Ok(new { ConversationId = result.GiaTri });
+        return Ok(new { CuocTroChuyenId = result.GiaTri });
     }
 
     [HttpPost("conversations/{conversationId:guid}/messages")]
@@ -227,24 +227,24 @@ public class ChatController(ApplicationDbContext db, IDichVuChat chat, IHubConte
     [AllowAnonymous]
     public async Task<IActionResult> GetDebugData()
     {
-        var conversations = await db.Conversations
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
+        var conversations = await db.CuocTroChuyen
+            .Include(c => c.CacNguoiThamGia)
+                .ThenInclude(p => p.NguoiDung)
+            .Include(c => c.CacTinNhan)
             .ToListAsync();
 
         return Ok(conversations.Select(c => new
         {
             c.Id,
-            c.Title,
-            c.IsGroup,
-            c.CourseId,
+            c.TieuDe,
+            c.LaNhom,
+            c.KhoaHocId,
             c.ClassId,
             c.SubjectId,
-            c.CreatedAt,
-            c.UpdatedAt,
-            Participants = c.Participants.Select(p => new { p.UserId, Name = p.User != null ? p.User.Name : null }),
-            Messages = c.Messages.OrderBy(m => m.SentAt).Select(m => new { m.Id, m.SenderId, m.Content, m.SentAt })
+            c.NgayTao,
+            c.NgayCapNhat,
+            CacNguoiThamGia = c.CacNguoiThamGia.Select(p => new { p.NguoiDungId, Ten = p.NguoiDung != null ? p.NguoiDung.Ten : null }),
+            CacTinNhan = c.CacTinNhan.OrderBy(m => m.GuiLuc).Select(m => new { m.Id, m.NguoiGuiId, m.NoiDung, m.GuiLuc })
         }));
     }
 

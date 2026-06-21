@@ -12,6 +12,8 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { getInstructorWallet } from '../api/instructorWalletApi';
+import DataTable from '../components/DataTable';
+import DataTableToolbar from '../components/DataTableToolbar';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
   style: 'currency',
@@ -42,6 +44,7 @@ const InstructorRevenue = () => {
   const [submitting, setSubmitting] = useState(false);
   const [query, setQuery] = useState('');
   const [message, setMessage] = useState(null);
+  const [pageSize, setPageSize] = useState(5);
   const [showBalance, setShowBalance] = useState(() => {
     const saved = localStorage.getItem('lms_show_balance');
     return saved !== null ? JSON.parse(saved) : true;
@@ -157,6 +160,48 @@ const InstructorRevenue = () => {
     }
   };
 
+  const columns = [
+    { title: 'Ngày', data: 'createdAt', className: 'px-5 py-4 text-slate-500' },
+    { title: 'Loại giao dịch', data: 'typeLabel', className: 'px-5 py-4 font-semibold text-slate-900' },
+    { title: 'Nội dung', data: 'note', className: 'px-5 py-4 text-slate-600' },
+    { title: 'Số tiền', data: 'amount', className: 'px-5 py-4 text-right font-semibold' },
+    { title: 'Trạng thái', data: 'status', className: 'px-5 py-4 text-right' }
+  ];
+
+  const slots = {
+    0: (data, row) => (
+      <span>
+        {formatDate(row.createdAt || row.date)}
+      </span>
+    ),
+    1: (data, row) => (
+      <span>
+        {row.typeLabel || mapType(row.type)}
+      </span>
+    ),
+    2: (data, row) => (
+      <div>
+        <p className="line-clamp-1">{row.note || row.course?.title || row.bankName || '-'}</p>
+        {row.user?.name || row.accountHolder ? (
+          <p className="mt-1 text-xs text-slate-400">{row.user?.name || row.accountHolder}</p>
+        ) : null}
+      </div>
+    ),
+    3: (data, row) => (
+      <span className={Number(row.amount) < 0 ? 'text-rose-600' : 'text-emerald-600'}>
+        {showBalance ? formatCurrency(row.amount) : '••••••'}
+      </span>
+    ),
+    4: (data, row) => {
+      const statusClass = statusClasses[row.status] || statusClasses.PENDING;
+      return (
+        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClass}`}>
+          {row.statusLabel || row.status || 'Pending'}
+        </span>
+      );
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -242,68 +287,34 @@ const InstructorRevenue = () => {
           </button>
         </form>
 
-        <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 border-b border-slate-100 p-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600">
-                <Landmark className="h-5 w-5" />
-              </div>
-              <div>
-                <h2 className="font-semibold text-slate-900">Lịch sử giao dịch</h2>
-                <p className="text-xs text-slate-500">Bán khóa học, hoàn tiền và rút tiền.</p>
-              </div>
+        <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+          <div className="flex items-center gap-3 pb-4 border-b border-slate-100 mb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-slate-600">
+              <Landmark className="h-5 w-5" />
             </div>
-            <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Tìm giao dịch..."
-                className="w-full rounded-full border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm outline-none transition focus:border-purple-400 focus:bg-white focus:ring-4 focus:ring-purple-100"
-              />
+            <div>
+              <h2 className="font-semibold text-slate-900">Lịch sử giao dịch</h2>
+              <p className="text-xs text-slate-500">Bán khóa học, hoàn tiền và rút tiền.</p>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left">
-              <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Ngày</th>
-                  <th className="px-5 py-3 font-semibold">Loại giao dịch</th>
-                  <th className="px-5 py-3 font-semibold">Nội dung</th>
-                  <th className="px-5 py-3 text-right font-semibold">Số tiền</th>
-                  <th className="px-5 py-3 text-right font-semibold">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {history.length === 0 ? (
-                  <tr>
-                    <td colSpan="5" className="px-5 py-10 text-center text-sm text-slate-500">Chưa có giao dịch doanh thu.</td>
-                  </tr>
-                ) : (
-                  history.map((item) => (
-                    <tr key={`${item.type}-${item.id}`} className="text-sm">
-                      <td className="whitespace-nowrap px-5 py-4 text-slate-500">{formatDate(item.createdAt || item.date)}</td>
-                      <td className="px-5 py-4 font-semibold text-slate-900">{item.typeLabel || mapType(item.type)}</td>
-                      <td className="px-5 py-4 text-slate-600">
-                        <p className="line-clamp-1">{item.note || item.course?.title || item.bankName || '-'}</p>
-                        {item.user?.name || item.accountHolder ? (
-                          <p className="mt-1 text-xs text-slate-400">{item.user?.name || item.accountHolder}</p>
-                        ) : null}
-                      </td>
-                      <td className={`whitespace-nowrap px-5 py-4 text-right font-semibold ${Number(item.amount) < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
-                        {showBalance ? formatCurrency(item.amount) : '••••••'}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusClasses[item.status] || statusClasses.PENDING}`}>
-                          {item.statusLabel || item.status || 'Pending'}
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <DataTableToolbar
+            searchValue={query}
+            onSearchChange={setQuery}
+            placeholder="Tìm giao dịch..."
+            pageSize={pageSize}
+            onPageSizeChange={setPageSize}
+          />
+
+          <div className="mt-4">
+            <DataTable
+              data={history}
+              columns={columns}
+              slots={slots}
+              loading={loading}
+              error={message?.type === 'error' ? message.text : null}
+              pageSize={pageSize}
+            />
           </div>
         </section>
       </div>

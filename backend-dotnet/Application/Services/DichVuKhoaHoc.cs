@@ -51,60 +51,54 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         trang = Math.Max(1, trang);
         soLuong = Math.Clamp(soLuong, 1, 100);
 
-        IQueryable<KhoaHoc> truyVan = db.Courses.AsNoTracking()
-            .Where(kh => kh.IsPublished)
-            .Include(kh => kh.Instructor)
-            .Include(kh => kh.Sections)
-            .Include(kh => kh.Lessons)
-            .Include(kh => kh.Enrollments);
+        IQueryable<KhoaHoc> truyVan = db.KhoaHoc.AsNoTracking()
+            .Where(kh => kh.DaXuatBan)
+            .Include(kh => kh.GiangVien)
+            .Include(kh => kh.CacChuongHoc)
+            .Include(kh => kh.CacBaiHoc)
+            .Include(kh => kh.CacGhiDanh)
+            .Include(kh => kh.DanhMuc);
 
         if (!string.IsNullOrWhiteSpace(loaiTruCuaNguoiDungId))
         {
             truyVan = truyVan.Where(kh =>
-                !kh.Enrollments.Any(ghiDanh => ghiDanh.UserId == loaiTruCuaNguoiDungId) &&
-                !kh.Purchases.Any(mua => mua.UserId == loaiTruCuaNguoiDungId && mua.Status == "COMPLETED"));
+                !kh.CacGhiDanh.Any(ghiDanh => ghiDanh.NguoiDungId == loaiTruCuaNguoiDungId) &&
+                !kh.CacDonMua.Any(mua => mua.NguoiDungId == loaiTruCuaNguoiDungId && mua.TrangThai == "COMPLETED"));
         }
 
         if (!string.IsNullOrWhiteSpace(tuKhoa))
         {
             var tuKhoaChuan = tuKhoa.Trim();
-            var laNhomCongNghe = tuKhoaChuan.Equals("công nghệ", StringComparison.OrdinalIgnoreCase) ||
-                                 tuKhoaChuan.Equals("cong nghe", StringComparison.OrdinalIgnoreCase);
-
-            truyVan = laNhomCongNghe
-                ? truyVan.Where(kh =>
-                    kh.Category.Contains("Công nghệ") ||
-                    kh.Category.Contains("Lập trình") ||
-                    kh.Category.Contains("Dữ liệu") ||
-                    kh.Category.Contains("AI") ||
-                    kh.Category.Contains("Mạng máy tính") ||
-                    kh.Category.Contains("Phần mềm") ||
-                    kh.Category.Contains("An ninh mạng"))
-                : truyVan.Where(kh =>
-                    kh.Title.Contains(tuKhoaChuan) ||
-                    (kh.Description != null && kh.Description.Contains(tuKhoaChuan)) ||
-                    kh.Category.Contains(tuKhoaChuan) ||
-                    (kh.Instructor != null && kh.Instructor.Name.Contains(tuKhoaChuan)));
+            truyVan = truyVan.Where(kh =>
+                kh.TieuDe.Contains(tuKhoaChuan) ||
+                (kh.MoTa != null && kh.MoTa.Contains(tuKhoaChuan)) ||
+                (kh.DanhMuc != null && kh.DanhMuc.Ten.Contains(tuKhoaChuan)) ||
+                kh.ChuyenMuc.Contains(tuKhoaChuan) ||
+                (kh.GiangVien != null && kh.GiangVien.Ten.Contains(tuKhoaChuan)));
         }
 
         if (!string.IsNullOrWhiteSpace(danhMuc))
         {
             var danhMucChuan = danhMuc.Trim();
-            truyVan = truyVan.Where(kh => kh.Category.Contains(danhMucChuan));
+            truyVan = truyVan.Where(kh =>
+                kh.DanhMucId == danhMucChuan ||
+                (kh.DanhMuc != null && kh.DanhMuc.Slug == danhMucChuan) ||
+                (kh.DanhMuc != null && kh.DanhMuc.Ten.Contains(danhMucChuan)) ||
+                kh.ChuyenMuc.Contains(danhMucChuan));
         }
 
-        if (gia == "free") truyVan = truyVan.Where(kh => kh.Price == 0);
-        if (gia == "paid") truyVan = truyVan.Where(kh => kh.Price > 0);
+        if (gia == "free") truyVan = truyVan.Where(kh => kh.Gia == 0);
+        if (gia == "paid") truyVan = truyVan.Where(kh => kh.Gia > 0);
         if (!string.IsNullOrWhiteSpace(hangThanhVien) && hangThanhVien != "all")
-            truyVan = truyVan.Where(kh => kh.MinimumMemberTier == hangThanhVien);
+            truyVan = truyVan.Where(kh => kh.HangThanhVienToiThieu == hangThanhVien);
 
         truyVan = sapXep switch
         {
-            "price_asc" => truyVan.OrderBy(kh => kh.Price),
-            "price_desc" => truyVan.OrderByDescending(kh => kh.Price),
-            "rating_desc" => truyVan.OrderByDescending(kh => kh.AverageRating),
-            "students_desc" => truyVan.OrderByDescending(kh => kh.Enrollments.Count),
-            _ => truyVan.OrderByDescending(kh => kh.CreatedAt)
+            "price_asc" => truyVan.OrderBy(kh => kh.Gia),
+            "price_desc" => truyVan.OrderByDescending(kh => kh.Gia),
+            "rating_desc" => truyVan.OrderByDescending(kh => kh.DiemDanhGiaTrungBinh),
+            "students_desc" => truyVan.OrderByDescending(kh => kh.CacGhiDanh.Count),
+            _ => truyVan.OrderByDescending(kh => kh.NgayTao)
         };
 
         if (!phanTrang)
@@ -122,45 +116,46 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
 
     public async Task<object> LayExploreInsightsAsync()
     {
-        var courses = await db.Courses.AsNoTracking()
-            .Where(kh => kh.IsPublished)
-            .Include(kh => kh.Instructor)
-            .Include(kh => kh.Sections)
-                .ThenInclude(section => section.Lessons)
-            .Include(kh => kh.Enrollments)
-            .Include(kh => kh.Reviews)
-            .OrderByDescending(kh => kh.Enrollments.Count)
-            .ThenByDescending(kh => kh.AverageRating)
-            .ThenByDescending(kh => kh.CreatedAt)
+        var courses = await db.KhoaHoc.AsNoTracking()
+            .Where(kh => kh.DaXuatBan)
+            .Include(kh => kh.GiangVien)
+            .Include(kh => kh.CacChuongHoc)
+                .ThenInclude(section => section.CacBaiHoc)
+            .Include(kh => kh.CacGhiDanh)
+            .Include(kh => kh.CacDanhGia)
+            .Include(kh => kh.DanhMuc)
+            .OrderByDescending(kh => kh.CacGhiDanh.Count)
+            .ThenByDescending(kh => kh.DiemDanhGiaTrungBinh)
+            .ThenByDescending(kh => kh.NgayTao)
             .ToListAsync();
 
         var featuredCourse = courses.FirstOrDefault();
         var recommendedCourses = courses.Skip(featuredCourse is null ? 0 : 1).Take(3).Select(kh => new
         {
             id = kh.Id,
-            title = kh.Title,
-            thumbnail = kh.Thumbnail,
-            instructorName = kh.Instructor?.Name ?? "Giảng viên",
-            lessons = kh.Sections.Sum(section => section.Lessons.Count),
-            students = kh.Enrollments.Count,
-            rating = Math.Round(kh.AverageRating, 1)
+            title = kh.TieuDe,
+            thumbnail = kh.AnhDaiDien,
+            instructorName = kh.GiangVien?.Ten ?? "Giảng viên",
+            lessons = kh.CacChuongHoc.Sum(section => section.CacBaiHoc.Count),
+            students = kh.CacGhiDanh.Count,
+            rating = Math.Round(kh.DiemDanhGiaTrungBinh, 1)
         });
 
         var topInstructors = courses
-            .Where(kh => kh.Instructor is not null)
-            .GroupBy(kh => kh.InstructorId)
+            .Where(kh => kh.GiangVien is not null)
+            .GroupBy(kh => kh.GiangVienId)
             .Select(group =>
             {
-                var instructor = group.First().Instructor!;
+                var instructor = group.First().GiangVien!;
                 return new
                 {
                     id = instructor.Id,
-                    name = instructor.Name,
-                    avatar = instructor.Avatar,
+                    name = instructor.Ten,
+                    avatar = instructor.AnhDaiDien,
                     courseCount = group.Count(),
-                    studentCount = group.Sum(kh => kh.Enrollments.Count),
-                    averageRating = group.SelectMany(kh => kh.Reviews).Any()
-                        ? Math.Round(group.SelectMany(kh => kh.Reviews).Average(review => review.Rating), 1)
+                    studentCount = group.Sum(kh => kh.CacGhiDanh.Count),
+                    averageRating = group.SelectMany(kh => kh.CacDanhGia).Any()
+                        ? Math.Round(group.SelectMany(kh => kh.CacDanhGia).Average(review => review.DiemDanhGia), 1)
                         : 0
                 };
             })
@@ -170,31 +165,32 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
             .ToList();
 
         var trendingTopics = courses
-            .Where(kh => !string.IsNullOrWhiteSpace(kh.Category))
-            .GroupBy(kh => kh.Category.Trim())
+            .Where(kh => kh.DanhMuc != null)
+            .GroupBy(kh => kh.DanhMuc!)
             .Select(group => new
             {
-                name = group.Key,
+                name = group.Key.Ten,
+                slug = group.Key.Slug,
                 courseCount = group.Count(),
-                studentCount = group.Sum(kh => kh.Enrollments.Count),
-                growth = Math.Min(99, Math.Max(8, group.Count() * 7 + group.Sum(kh => kh.Enrollments.Count) * 3))
+                studentCount = group.Sum(kh => kh.CacGhiDanh.Count),
+                growth = Math.Min(99, Math.Max(8, group.Count() * 7 + group.Sum(kh => kh.CacGhiDanh.Count) * 3))
             })
             .OrderByDescending(item => item.studentCount)
             .ThenByDescending(item => item.courseCount)
-            .Take(5)
+            .Take(3)
             .ToList();
 
         var learningPaths = courses
-            .Where(kh => !string.IsNullOrWhiteSpace(kh.Category))
-            .GroupBy(kh => kh.Category.Trim())
+            .Where(kh => kh.DanhMuc != null)
+            .GroupBy(kh => kh.DanhMuc!)
             .Select(group => new
             {
-                id = TaoSlug(group.Key),
-                title = $"Lộ trình {group.Key}",
-                category = group.Key,
+                id = group.Key.Slug,
+                title = $"Lộ trình {group.Key.Ten}",
+                category = group.Key.Ten,
                 courseCount = group.Count(),
-                lessonCount = group.Sum(kh => kh.Sections.Sum(section => section.Lessons.Count)),
-                estimatedMonths = Math.Clamp((int)Math.Ceiling(group.Sum(kh => kh.Sections.Sum(section => section.Lessons.Count)) / 12.0), 1, 12),
+                lessonCount = group.Sum(kh => kh.CacChuongHoc.Sum(section => section.CacBaiHoc.Count)),
+                estimatedMonths = Math.Clamp((int)Math.Ceiling(group.Sum(kh => kh.CacChuongHoc.Sum(section => section.CacBaiHoc.Count)) / 12.0), 1, 12),
                 progress = 0
             })
             .OrderByDescending(item => item.courseCount)
@@ -207,15 +203,15 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
             featuredCourse = featuredCourse is null ? null : new
             {
                 id = featuredCourse.Id,
-                title = featuredCourse.Title,
-                description = featuredCourse.ShortDescription ?? featuredCourse.Description,
-                thumbnail = featuredCourse.Thumbnail,
-                category = featuredCourse.Category,
-                lessons = featuredCourse.Sections.Sum(section => section.Lessons.Count),
-                sections = featuredCourse.Sections.Count,
-                students = featuredCourse.Enrollments.Count,
-                rating = Math.Round(featuredCourse.AverageRating, 1),
-                instructorName = featuredCourse.Instructor?.Name ?? "Giảng viên"
+                title = featuredCourse.TieuDe,
+                description = featuredCourse.MoTaNgan ?? featuredCourse.MoTa,
+                thumbnail = featuredCourse.AnhDaiDien,
+                category = featuredCourse.DanhMuc?.Ten ?? featuredCourse.ChuyenMuc,
+                lessons = featuredCourse.CacChuongHoc.Sum(section => section.CacBaiHoc.Count),
+                sections = featuredCourse.CacChuongHoc.Count,
+                students = featuredCourse.CacGhiDanh.Count,
+                rating = Math.Round(featuredCourse.DiemDanhGiaTrungBinh, 1),
+                instructorName = featuredCourse.GiangVien?.Ten ?? "Giảng viên"
             },
             recommendedCourses,
             topInstructors,
@@ -226,32 +222,33 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
 
     public async Task<object?> LayChiTietAsync(string khoaHocId, ClaimsPrincipal? nguoiDung)
     {
-        var kh = await db.Courses.AsNoTracking()
-            .Include(c => c.Instructor)
-            .Include(c => c.Sections.OrderBy(s => s.Position))
-                .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
-                    .ThenInclude(l => l.Quiz)
-            .Include(c => c.Reviews.OrderByDescending(r => r.CreatedAt).Take(10))
-                .ThenInclude(r => r.User)
+        var kh = await db.KhoaHoc.AsNoTracking()
+            .Include(c => c.GiangVien)
+            .Include(c => c.DanhMuc)
+            .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
+                .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
+                    .ThenInclude(l => l.BaiKiemTra)
+            .Include(c => c.CacDanhGia.OrderByDescending(r => r.NgayTao).Take(10))
+                .ThenInclude(r => r.NguoiDung)
             .FirstOrDefaultAsync(c => c.Id == khoaHocId);
 
         if (kh is null) return null;
-        var studentCount = await db.Enrollments.AsNoTracking()
-            .Where(enrollment => enrollment.CourseId == khoaHocId)
-            .Select(enrollment => enrollment.UserId)
-            .Union(db.Purchases.AsNoTracking()
-                .Where(purchase => purchase.CourseId == khoaHocId && purchase.Status == "COMPLETED")
-                .Select(purchase => purchase.UserId))
+        var studentCount = await db.GhiDanh.AsNoTracking()
+            .Where(enrollment => enrollment.KhoaHocId == khoaHocId)
+            .Select(enrollment => enrollment.NguoiDungId)
+            .Union(db.DonMua.AsNoTracking()
+                .Where(purchase => purchase.KhoaHocId == khoaHocId && purchase.TrangThai == "COMPLETED")
+                .Select(purchase => purchase.NguoiDungId))
             .Distinct()
             .CountAsync();
-        var purchaseCount = await db.Purchases.AsNoTracking()
-            .CountAsync(purchase => purchase.CourseId == khoaHocId && purchase.Status == "COMPLETED");
+        var purchaseCount = await db.DonMua.AsNoTracking()
+            .CountAsync(purchase => purchase.KhoaHocId == khoaHocId && purchase.TrangThai == "COMPLETED");
 
         var userId = TroGiup.LayUserId(nguoiDung!);
         var laXemThuSinhVien = nguoiDung?.HasClaim("StudentPreview", "true") == true;
-        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien && userId is not null && kh.InstructorId == userId;
-        var laChuSoHuu = !laXemThuSinhVien && userId is not null && kh.InstructorId == userId;
-        if (!kh.IsPublished && !laChuSoHuu) return null;
+        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien && userId is not null && kh.GiangVienId == userId;
+        var laChuSoHuu = !laXemThuSinhVien && userId is not null && kh.GiangVienId == userId;
+        if (!kh.DaXuatBan && !laChuSoHuu) return null;
 
         GhiDanh? ghiDanh = null;
         var baiHoanThanh = new List<string>();
@@ -259,18 +256,18 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
 
         if (userId is not null)
         {
-            ghiDanh = await db.Enrollments.AsNoTracking().FirstOrDefaultAsync(e => e.UserId == userId && e.CourseId == khoaHocId);
+            ghiDanh = await db.GhiDanh.AsNoTracking().FirstOrDefaultAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId);
             if (ghiDanh is not null)
             {
-                baiHoanThanh = await db.LessonProgresses.AsNoTracking()
-                    .Where(p => p.UserId == userId && p.IsCompleted && p.Lesson != null && p.Lesson.CourseId == khoaHocId)
-                    .Select(p => p.LessonId).ToListAsync();
-                danhGiaCuaToi = await db.CourseReviews.AsNoTracking().FirstOrDefaultAsync(r => r.UserId == userId && r.CourseId == khoaHocId);
+                baiHoanThanh = await db.TienDoBaiHoc.AsNoTracking()
+                    .Where(p => p.NguoiDungId == userId && p.DaHoanThanh && p.BaiHoc != null && p.BaiHoc.KhoaHocId == khoaHocId)
+                    .Select(p => p.BaiHocId).ToListAsync();
+                danhGiaCuaToi = await db.DanhGiaKhoaHoc.AsNoTracking().FirstOrDefaultAsync(r => r.NguoiDungId == userId && r.KhoaHocId == khoaHocId);
             }
         }
-        if (laKhoaHocCuaGiangVienXemThu && kh.IsPublished)
+        if (laKhoaHocCuaGiangVienXemThu && kh.DaXuatBan)
         {
-            ghiDanh = new GhiDanh { Id = "student-preview", UserId = userId ?? string.Empty, CourseId = khoaHocId, Progress = 0 };
+            ghiDanh = new GhiDanh { Id = "student-preview", NguoiDungId = userId ?? string.Empty, KhoaHocId = khoaHocId, TienDo = 0 };
             baiHoanThanh = [];
             danhGiaCuaToi = null;
         }
@@ -280,25 +277,25 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
 
     public async Task<object?> LayBaiHocThuAsync(string khoaHocId)
     {
-        var kh = await db.Courses.AsNoTracking()
-            .Include(c => c.Sections.OrderBy(s => s.Position))
-                .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
-                    .ThenInclude(l => l.Quiz)
-            .FirstOrDefaultAsync(c => c.Id == khoaHocId && c.IsPublished);
+        var kh = await db.KhoaHoc.AsNoTracking()
+            .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
+                .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
+                    .ThenInclude(l => l.BaiKiemTra)
+            .FirstOrDefaultAsync(c => c.Id == khoaHocId && c.DaXuatBan);
 
         if (kh is null) return null;
 
-        var sections = kh.Sections
-            .OrderBy(section => section.Position)
+        var sections = kh.CacChuongHoc
+            .OrderBy(section => section.ThuTu)
             .Select(section => new
             {
                 id = section.Id,
-                tieuDe = section.Title,
-                title = section.Title,
-                thuTu = section.Position,
-                lessons = section.Lessons
-                    .OrderBy(lesson => lesson.Position)
-                    .Select(lesson => MapStudentLesson(lesson, isLocked: !lesson.IsPreview, isCompleted: false, includeContent: lesson.IsPreview))
+                tieuDe = section.TieuDe,
+                title = section.TieuDe,
+                thuTu = section.ThuTu,
+                lessons = section.CacBaiHoc
+                    .OrderBy(lesson => lesson.ThuTu)
+                    .Select(lesson => MapStudentLesson(lesson, isLocked: !lesson.ChoXemTruoc, isCompleted: false, includeContent: lesson.ChoXemTruoc))
             })
             .ToList();
 
@@ -306,11 +303,11 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         {
             courseId = kh.Id,
             id = kh.Id,
-            tieuDe = kh.Title,
-            title = kh.Title,
-            gia = kh.Price,
-            price = kh.Price,
-            coHocThu = kh.Sections.SelectMany(section => section.Lessons).Any(lesson => lesson.IsPreview),
+            tieuDe = kh.TieuDe,
+            title = kh.TieuDe,
+            gia = kh.Gia,
+            price = kh.Gia,
+            coHocThu = kh.CacChuongHoc.SelectMany(section => section.CacBaiHoc).Any(lesson => lesson.ChoXemTruoc),
             lessons = sections.SelectMany(section => section.lessons),
             sections
         };
@@ -322,34 +319,34 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         if (userId is null) return null;
         var laXemThuSinhVien = nguoiDung.HasClaim("StudentPreview", "true");
 
-        var ghiDanh = await db.Enrollments.AsNoTracking().FirstOrDefaultAsync(e => e.UserId == userId && e.CourseId == khoaHocId);
+        var ghiDanh = await db.GhiDanh.AsNoTracking().FirstOrDefaultAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId);
         var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien &&
-            await db.Courses.AnyAsync(course => course.Id == khoaHocId && course.InstructorId == userId && course.IsPublished);
+            await db.KhoaHoc.AnyAsync(course => course.Id == khoaHocId && course.GiangVienId == userId && course.DaXuatBan);
         if (ghiDanh is null && !laKhoaHocCuaGiangVienXemThu) return null;
 
-        var kh = await db.Courses.AsNoTracking()
-            .Include(c => c.Sections.OrderBy(s => s.Position))
-                .ThenInclude(s => s.Lessons.OrderBy(l => l.Position))
-                    .ThenInclude(l => l.Quiz)
-            .FirstOrDefaultAsync(c => c.Id == khoaHocId && c.IsPublished);
+        var kh = await db.KhoaHoc.AsNoTracking()
+            .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
+                .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
+                    .ThenInclude(l => l.BaiKiemTra)
+            .FirstOrDefaultAsync(c => c.Id == khoaHocId && c.DaXuatBan);
 
         if (kh is null) return null;
 
-        var completedLessonIds = laKhoaHocCuaGiangVienXemThu ? new List<string>() : await db.LessonProgresses.AsNoTracking()
-            .Where(progress => progress.UserId == userId && progress.IsCompleted && progress.Lesson != null && progress.Lesson.CourseId == khoaHocId)
-            .Select(progress => progress.LessonId)
+        var completedLessonIds = laKhoaHocCuaGiangVienXemThu ? new List<string>() : await db.TienDoBaiHoc.AsNoTracking()
+            .Where(progress => progress.NguoiDungId == userId && progress.DaHoanThanh && progress.BaiHoc != null && progress.BaiHoc.KhoaHocId == khoaHocId)
+            .Select(progress => progress.BaiHocId)
             .ToListAsync();
 
-        var sections = kh.Sections
-            .OrderBy(section => section.Position)
+        var sections = kh.CacChuongHoc
+            .OrderBy(section => section.ThuTu)
             .Select(section => new
             {
                 id = section.Id,
-                tieuDe = section.Title,
-                title = section.Title,
-                thuTu = section.Position,
-                lessons = section.Lessons
-                    .OrderBy(lesson => lesson.Position)
+                tieuDe = section.TieuDe,
+                title = section.TieuDe,
+                thuTu = section.ThuTu,
+                lessons = section.CacBaiHoc
+                    .OrderBy(lesson => lesson.ThuTu)
                     .Select(lesson => MapStudentLesson(lesson, isLocked: false, completedLessonIds.Contains(lesson.Id), includeContent: false))
             })
             .ToList();
@@ -358,9 +355,9 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         {
             courseId = kh.Id,
             id = kh.Id,
-            tieuDe = kh.Title,
-            title = kh.Title,
-            progress = ghiDanh?.Progress ?? 0,
+            tieuDe = kh.TieuDe,
+            title = kh.TieuDe,
+            progress = ghiDanh?.TienDo ?? 0,
             sections
         };
     }
@@ -370,93 +367,93 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         var userId = TroGiup.LayUserId(nguoiDung);
         if (userId is null) return null;
 
-        var baiHoc = await db.Lessons.AsNoTracking()
-            .Include(lesson => lesson.Course)
-            .Include(lesson => lesson.Section)
-            .Include(lesson => lesson.Quiz)
-            .FirstOrDefaultAsync(lesson => lesson.Id == baiHocId && lesson.Course != null && lesson.Course.IsPublished);
+        var baiHoc = await db.BaiHoc.AsNoTracking()
+            .Include(lesson => lesson.KhoaHoc)
+            .Include(lesson => lesson.ChuongHoc)
+            .Include(lesson => lesson.BaiKiemTra)
+            .FirstOrDefaultAsync(lesson => lesson.Id == baiHocId && lesson.KhoaHoc != null && lesson.KhoaHoc.DaXuatBan);
 
         if (baiHoc is null) return null;
 
-        var daGhiDanh = await db.Enrollments.AsNoTracking().AnyAsync(e => e.UserId == userId && e.CourseId == baiHoc.CourseId);
+        var daGhiDanh = await db.GhiDanh.AsNoTracking().AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == baiHoc.KhoaHocId);
         var laXemThuSinhVien = nguoiDung.HasClaim("StudentPreview", "true");
-        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien && baiHoc.Course?.InstructorId == userId;
-        var isLocked = !laKhoaHocCuaGiangVienXemThu && !daGhiDanh && !baiHoc.IsPreview;
-        var isCompleted = !laKhoaHocCuaGiangVienXemThu && await db.LessonProgresses.AsNoTracking().AnyAsync(p => p.UserId == userId && p.LessonId == baiHocId && p.IsCompleted);
+        var laKhoaHocCuaGiangVienXemThu = laXemThuSinhVien && baiHoc.KhoaHoc?.GiangVienId == userId;
+        var isLocked = !laKhoaHocCuaGiangVienXemThu && !daGhiDanh && !baiHoc.ChoXemTruoc;
+        var isCompleted = !laKhoaHocCuaGiangVienXemThu && await db.TienDoBaiHoc.AsNoTracking().AnyAsync(p => p.NguoiDungId == userId && p.BaiHocId == baiHocId && p.DaHoanThanh);
 
         return MapStudentLesson(baiHoc, isLocked, isCompleted, includeContent: !isLocked);
     }
 
     public async Task<object?> LayDanhGiaAsync(string khoaHocId)
     {
-        var kh = await db.Courses.AsNoTracking()
-            .Include(c => c.Reviews.OrderByDescending(r => r.CreatedAt)).ThenInclude(r => r.User)
-            .FirstOrDefaultAsync(c => c.Id == khoaHocId && c.IsPublished);
+        var kh = await db.KhoaHoc.AsNoTracking()
+            .Include(c => c.CacDanhGia.OrderByDescending(r => r.NgayTao)).ThenInclude(r => r.NguoiDung)
+            .FirstOrDefaultAsync(c => c.Id == khoaHocId && c.DaXuatBan);
         if (kh is null) return null;
 
-        return new { averageRating = kh.AverageRating, reviewCount = kh.ReviewCount, reviews = kh.Reviews.Select(DanhGiaDto.TuDanhGia) };
+        return new { averageRating = kh.DiemDanhGiaTrungBinh, reviewCount = kh.SoLuongDanhGia, reviews = kh.CacDanhGia.Select(DanhGiaDto.TuDanhGia) };
     }
 
     public async Task<IResult> GuiDanhGiaAsync(string khoaHocId, string userId, int soSao, string? binhLuan)
     {
         if (soSao < 1 || soSao > 5) return Results.BadRequest(new { message = "Số sao đánh giá phải trong khoảng từ 1 đến 5" });
 
-        var kh = await db.Courses.FirstOrDefaultAsync(c => c.Id == khoaHocId && c.IsPublished);
+        var kh = await db.KhoaHoc.FirstOrDefaultAsync(c => c.Id == khoaHocId && c.DaXuatBan);
         if (kh is null) return Results.NotFound(new { message = "Không tìm thấy khóa học" });
-        if (kh.InstructorId == userId) return Results.Json(new { message = "Giảng viên không thể tự đánh giá khóa học của mình" }, statusCode: 403);
+        if (kh.GiangVienId == userId) return Results.Json(new { message = "Giảng viên không thể tự đánh giá khóa học của mình" }, statusCode: 403);
 
-        if (!await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == khoaHocId))
+        if (!await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId))
             return Results.Json(new { message = "Bạn cần đăng ký khóa học trước khi đánh giá" }, statusCode: 403);
 
         var now = DateTime.UtcNow;
-        var dg = await db.CourseReviews.Include(r => r.User).FirstOrDefaultAsync(r => r.UserId == userId && r.CourseId == khoaHocId);
+        var dg = await db.DanhGiaKhoaHoc.Include(r => r.NguoiDung).FirstOrDefaultAsync(r => r.NguoiDungId == userId && r.KhoaHocId == khoaHocId);
 
         if (dg is null)
         {
-            dg = new DanhGiaKhoaHoc { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, CreatedAt = now };
-            db.CourseReviews.Add(dg);
+            dg = new DanhGiaKhoaHoc { Id = TaoId.Moi(), NguoiDungId = userId, KhoaHocId = khoaHocId, NgayTao = now };
+            db.DanhGiaKhoaHoc.Add(dg);
         }
 
-        dg.Rating = soSao;
-        dg.Comment = string.IsNullOrWhiteSpace(binhLuan) ? null : binhLuan.Trim();
-        dg.UpdatedAt = now;
+        dg.DiemDanhGia = soSao;
+        dg.BinhLuan = string.IsNullOrWhiteSpace(binhLuan) ? null : binhLuan.Trim();
+        dg.NgayCapNhat = now;
 
-        var studentName = await db.Users.AsNoTracking()
+        var studentName = await db.NguoiDung.AsNoTracking()
             .Where(user => user.Id == userId)
-            .Select(user => user.Name)
+            .Select(user => user.Ten)
             .FirstOrDefaultAsync() ?? "Một học viên";
-        db.Notifications.Add(new ThongBao
+        db.ThongBao.Add(new ThongBao
         {
             Id = TaoId.Moi(),
-            UserId = kh.InstructorId,
-            Type = "INSTRUCTOR_COURSE_REVIEW",
-            Title = "Khóa học có đánh giá mới",
-            Body = $"{studentName} vừa đánh giá {soSao} sao cho khóa học {kh.Title}.",
-            Link = $"/course/{khoaHocId}",
+            NguoiDungId = kh.GiangVienId,
+            LoaiThongBao = "INSTRUCTOR_COURSE_REVIEW",
+            TieuDe = "Khóa học có đánh giá mới",
+            NoiDung = $"{studentName} vừa đánh giá {soSao} sao cho khóa học {kh.TieuDe}.",
+            DuongDan = $"/course/{khoaHocId}",
             Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, reviewId = dg.Id, studentId = userId }),
-            CreatedAt = now
+            NgayTao = now
         });
 
         await db.SaveChangesAsync();
         await DongBoThongKeDanhGia(khoaHocId);
 
-        var dgDaLuu = await db.CourseReviews.AsNoTracking().Include(r => r.User).FirstAsync(r => r.Id == dg.Id);
-        var khCapNhat = await db.Courses.AsNoTracking().FirstAsync(c => c.Id == khoaHocId);
+        var dgDaLuu = await db.DanhGiaKhoaHoc.AsNoTracking().Include(r => r.NguoiDung).FirstAsync(r => r.Id == dg.Id);
+        var khCapNhat = await db.KhoaHoc.AsNoTracking().FirstAsync(c => c.Id == khoaHocId);
 
-        return Results.Ok(new { message = "Đã lưu đánh giá khóa học", review = DanhGiaDto.TuDanhGia(dgDaLuu), averageRating = khCapNhat.AverageRating, reviewCount = khCapNhat.ReviewCount });
+        return Results.Ok(new { message = "Đã lưu đánh giá khóa học", review = DanhGiaDto.TuDanhGia(dgDaLuu), averageRating = khCapNhat.DiemDanhGiaTrungBinh, reviewCount = khCapNhat.SoLuongDanhGia });
     }
 
     public async Task<IResult> XoaDanhGiaAsync(string khoaHocId, string userId)
     {
-        var dg = await db.CourseReviews.FirstOrDefaultAsync(r => r.UserId == userId && r.CourseId == khoaHocId);
+        var dg = await db.DanhGiaKhoaHoc.FirstOrDefaultAsync(r => r.NguoiDungId == userId && r.KhoaHocId == khoaHocId);
         if (dg is null) return Results.NotFound(new { message = "Bạn chưa có đánh giá nào để xóa" });
 
-        db.CourseReviews.Remove(dg);
+        db.DanhGiaKhoaHoc.Remove(dg);
         await db.SaveChangesAsync();
         await DongBoThongKeDanhGia(khoaHocId);
 
-        var kh = await db.Courses.AsNoTracking().FirstAsync(c => c.Id == khoaHocId);
-        return Results.Ok(new { message = "Đã xóa đánh giá của bạn", averageRating = kh.AverageRating, reviewCount = kh.ReviewCount });
+        var kh = await db.KhoaHoc.AsNoTracking().FirstAsync(c => c.Id == khoaHocId);
+        return Results.Ok(new { message = "Đã xóa đánh giá của bạn", averageRating = kh.DiemDanhGiaTrungBinh, reviewCount = kh.SoLuongDanhGia });
     }
 
     public async Task<object> LayChuongTrinhAsync(KhoaHoc khoaHoc)
@@ -469,12 +466,12 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         var loiXuatBan = KiemTraXuatBan(khoaHoc);
         return new
         {
-            khoaHoc.Id, khoaHoc.Title, khoaHoc.Slug, khoaHoc.Description, khoaHoc.Thumbnail,
-            khoaHoc.Price, khoaHoc.AverageRating, khoaHoc.ReviewCount, khoaHoc.MinimumMemberTier,
-            khoaHoc.TotalDurationSeconds, khoaHoc.IsPublished, khoaHoc.PublishedAt,
+            khoaHoc.Id, khoaHoc.TieuDe, khoaHoc.DuongDanThanThien, khoaHoc.MoTa, khoaHoc.AnhDaiDien,
+            khoaHoc.Gia, khoaHoc.DiemDanhGiaTrungBinh, khoaHoc.SoLuongDanhGia, khoaHoc.HangThanhVienToiThieu,
+            khoaHoc.TongThoiLuongGiay, khoaHoc.DaXuatBan, khoaHoc.NgayXuatBan,
             khoaHoc.StartDate, khoaHoc.EndDate,
-            totalLessons = khoaHoc.Sections.Sum(c => c.Lessons.Count),
-            sections = khoaHoc.Sections.OrderBy(c => c.Position).Select(ChuongDto.TuChuong),
+            totalLessons = khoaHoc.CacChuongHoc.Sum(c => c.CacBaiHoc.Count),
+            sections = khoaHoc.CacChuongHoc.OrderBy(c => c.ThuTu).Select(ChuongDto.TuChuong),
             publishValidationErrors = loiXuatBan,
             canPublish = loiXuatBan.Count == 0
         };
@@ -498,12 +495,12 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
 
     private async Task DongBoThongKeDanhGia(string khoaHocId)
     {
-        var danhGia = await db.CourseReviews.Where(r => r.CourseId == khoaHocId).ToListAsync();
-        var kh = await db.Courses.FirstOrDefaultAsync(c => c.Id == khoaHocId);
+        var danhGia = await db.DanhGiaKhoaHoc.Where(r => r.KhoaHocId == khoaHocId).ToListAsync();
+        var kh = await db.KhoaHoc.FirstOrDefaultAsync(c => c.Id == khoaHocId);
         if (kh is null) return;
-        kh.AverageRating = danhGia.Count == 0 ? 0 : danhGia.Average(r => r.Rating);
-        kh.ReviewCount = danhGia.Count;
-        kh.UpdatedAt = DateTime.UtcNow;
+        kh.DiemDanhGiaTrungBinh = danhGia.Count == 0 ? 0 : danhGia.Average(r => r.DiemDanhGia);
+        kh.SoLuongDanhGia = danhGia.Count;
+        kh.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
 
@@ -513,35 +510,35 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         {
             id = lesson.Id,
             lessonId = lesson.Id,
-            courseId = lesson.CourseId,
-            sectionId = lesson.SectionId,
-            sectionTitle = lesson.Section?.Title,
-            tieuDe = lesson.Title,
-            title = lesson.Title,
-            noiDung = includeContent ? lesson.Content : null,
-            content = includeContent ? lesson.Content : null,
+            courseId = lesson.KhoaHocId,
+            sectionId = lesson.ChuongHocId,
+            sectionTitle = lesson.ChuongHoc?.TieuDe,
+            tieuDe = lesson.TieuDe,
+            title = lesson.TieuDe,
+            noiDung = includeContent ? lesson.NoiDung : null,
+            content = includeContent ? lesson.NoiDung : null,
             videoUrl = includeContent ? lesson.VideoUrl : null,
             anhMinhHoa = includeContent ? lesson.IllustrationUrl : null,
             illustrationUrl = includeContent ? lesson.IllustrationUrl : null,
-            thoiLuongGiay = lesson.DurationSeconds ?? 0,
-            durationSeconds = lesson.DurationSeconds ?? 0,
-            choPhepHocThu = lesson.IsPreview,
-            isPreview = lesson.IsPreview,
-            isPublished = lesson.IsPublished,
+            thoiLuongGiay = lesson.ThoiLuongGiay ?? 0,
+            durationSeconds = lesson.ThoiLuongGiay ?? 0,
+            choPhepHocThu = lesson.ChoXemTruoc,
+            isPreview = lesson.ChoXemTruoc,
+            isPublished = lesson.DaXuatBan,
             isLocked,
             isCompleted,
-            hasQuiz = lesson.Quiz is not null,
-            quizId = lesson.Quiz?.Id,
-            quiz = lesson.Quiz == null ? null : new { lesson.Quiz.Id, lesson.Quiz.Title, lesson.Quiz.PassingScore }
+            hasQuiz = lesson.BaiKiemTra is not null,
+            quizId = lesson.BaiKiemTra?.Id,
+            quiz = lesson.BaiKiemTra == null ? null : new { lesson.BaiKiemTra.Id, lesson.BaiKiemTra.TieuDe, lesson.BaiKiemTra.DiemDat }
         };
     }
 
     public static List<string> KiemTraXuatBan(KhoaHoc khoaHoc)
     {
         var loi = new List<string>();
-        if (string.IsNullOrWhiteSpace(khoaHoc.Description)) loi.Add("Khóa học cần có mô tả trước khi xuất bản");
-        if (string.IsNullOrWhiteSpace(khoaHoc.Thumbnail)) loi.Add("Khóa học cần có ảnh bìa trước khi xuất bản");
-        if (khoaHoc.Sections.Sum(s => s.Lessons.Count) < 1)
+        if (string.IsNullOrWhiteSpace(khoaHoc.MoTa)) loi.Add("Khóa học cần có mô tả trước khi xuất bản");
+        if (string.IsNullOrWhiteSpace(khoaHoc.AnhDaiDien)) loi.Add("Khóa học cần có ảnh bìa trước khi xuất bản");
+        if (khoaHoc.CacChuongHoc.Sum(s => s.CacBaiHoc.Count) < 1)
             loi.Add("Khóa học phải có ít nhất 1 bài giảng đã xuất bản");
         return loi;
     }

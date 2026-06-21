@@ -1,4 +1,4 @@
-﻿# Skillio LMS
+# Skillio LMS
 
 Du an LMS Skillio gom backend ASP.NET Core va frontend React. Backend da duoc sap xep theo huong MVC-style Areas + Domain/Application/Infrastructure, nhung van giu cac endpoint hien co de frontend hien tai chay nhu cu.
 
@@ -94,6 +94,10 @@ FRONTEND_URL=http://localhost:5173
 
 
 
+# Recommended: auto-kills port 5000 first, then starts the server
+.\restart-backend.ps1
+
+# Or manually (only if port 5000 is free):
 dotnet run --project backend-dotnet/LMS.Api.csproj --urls http://localhost:5000
 
 

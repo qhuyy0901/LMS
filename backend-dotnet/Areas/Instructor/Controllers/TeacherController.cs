@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Instructor.Controllers;
+namespace LMS.Api.Areas.GiangVien.Controllers;
 
 [ApiController]
 [Authorize]
@@ -31,11 +31,11 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         if (!IsTeacher()) return Results.Forbid();
         var teacherId = CurrentUserId()!;
-        var courses = await db.Courses.AsNoTracking()
-            .Where(course => course.InstructorId == teacherId)
-            .Include(course => course.Sections.OrderBy(section => section.Position))
-                .ThenInclude(section => section.Lessons.OrderBy(lesson => lesson.Position))
-            .OrderByDescending(course => course.UpdatedAt)
+        var courses = await db.KhoaHoc.AsNoTracking()
+            .Where(course => course.GiangVienId == teacherId)
+            .Include(course => course.CacChuongHoc.OrderBy(section => section.ThuTu))
+                .ThenInclude(section => section.CacBaiHoc.OrderBy(lesson => lesson.ThuTu))
+            .OrderByDescending(course => course.NgayCapNhat)
             .ToListAsync();
 
         return Results.Ok(courses.Select(ToCourseDto));
@@ -71,25 +71,25 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var course = new KhoaHoc
         {
             Id = TaoId.Moi(),
-            Title = title,
-            Slug = await CreateUniqueSlug(title),
-            ShortDescription = form.ShortDescription?.Trim(),
-            Description = string.IsNullOrWhiteSpace(form.Description) ? form.ShortDescription?.Trim() : form.Description.Trim(),
-            DetailedDescription = form.DetailedDescription?.Trim(),
-            Thumbnail = imageUrl ?? form.ImageUrl,
-            Category = string.IsNullOrWhiteSpace(form.Category) ? "Khác" : form.Category.Trim(),
-            Level = NormalizeLevel(form.Level),
-            Price = Math.Max(0, form.Price),
-            Status = status,
-            IsPublished = status == "PUBLIC",
-            PublishedAt = status == "PUBLIC" ? now : null,
-            MinimumMemberTier = "BRONZE",
-            InstructorId = CurrentUserId()!,
-            CreatedAt = now,
-            UpdatedAt = now
+            TieuDe = title,
+            DuongDanThanThien = await CreateUniqueSlug(title),
+            MoTaNgan = form.ShortDescription?.Trim(),
+            MoTa = string.IsNullOrWhiteSpace(form.Description) ? form.ShortDescription?.Trim() : form.Description.Trim(),
+            MoTaChiTiet = form.DetailedDescription?.Trim(),
+            AnhDaiDien = imageUrl ?? form.ImageUrl,
+            ChuyenMuc = string.IsNullOrWhiteSpace(form.Category) ? "Khác" : form.Category.Trim(),
+            TrinhDo = NormalizeLevel(form.Level),
+            Gia = Math.Max(0, form.Price),
+            TrangThai = status,
+            DaXuatBan = status == "PUBLIC",
+            NgayXuatBan = status == "PUBLIC" ? now : null,
+            HangThanhVienToiThieu = "BRONZE",
+            GiangVienId = CurrentUserId()!,
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
-        db.Courses.Add(course);
+        db.KhoaHoc.Add(course);
         await db.SaveChangesAsync();
         return Results.Created($"/api/teacher/courses/{course.Id}", ToCourseDto(course));
     }
@@ -108,31 +108,31 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         {
             var fileError = ValidateFile(form.ImageFile, ImageTypes, 5 * 1024 * 1024, "Ảnh khóa học");
             if (fileError is not null) return fileError;
-            course.Thumbnail = await SaveUpload(form.ImageFile, "uploads/courses");
+            course.AnhDaiDien = await SaveUpload(form.ImageFile, "uploads/courses");
         }
         else if (form.ImageUrl is not null)
         {
-            course.Thumbnail = form.ImageUrl;
+            course.AnhDaiDien = form.ImageUrl;
         }
 
         var title = form.Title!.Trim();
-        if (course.Title != title)
+        if (course.TieuDe != title)
         {
-            course.Title = title;
-            course.Slug = await CreateUniqueSlug(title, course.Id);
+            course.TieuDe = title;
+            course.DuongDanThanThien = await CreateUniqueSlug(title, course.Id);
         }
 
         var status = NormalizeCourseStatus(form.Status);
-        course.ShortDescription = form.ShortDescription?.Trim();
-        course.Description = string.IsNullOrWhiteSpace(form.Description) ? form.ShortDescription?.Trim() : form.Description.Trim();
-        course.DetailedDescription = form.DetailedDescription?.Trim();
-        course.Category = string.IsNullOrWhiteSpace(form.Category) ? "Khác" : form.Category.Trim();
-        course.Level = NormalizeLevel(form.Level);
-        course.Price = Math.Max(0, form.Price);
-        course.Status = status;
-        course.IsPublished = status == "PUBLIC";
-        course.PublishedAt = status == "PUBLIC" ? course.PublishedAt ?? DateTime.UtcNow : course.PublishedAt;
-        course.UpdatedAt = DateTime.UtcNow;
+        course.MoTaNgan = form.ShortDescription?.Trim();
+        course.MoTa = string.IsNullOrWhiteSpace(form.Description) ? form.ShortDescription?.Trim() : form.Description.Trim();
+        course.MoTaChiTiet = form.DetailedDescription?.Trim();
+        course.ChuyenMuc = string.IsNullOrWhiteSpace(form.Category) ? "Khác" : form.Category.Trim();
+        course.TrinhDo = NormalizeLevel(form.Level);
+        course.Gia = Math.Max(0, form.Price);
+        course.TrangThai = status;
+        course.DaXuatBan = status == "PUBLIC";
+        course.NgayXuatBan = status == "PUBLIC" ? course.NgayXuatBan ?? DateTime.UtcNow : course.NgayXuatBan;
+        course.NgayCapNhat = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
         return Results.Ok(ToCourseDto(course));
@@ -143,13 +143,13 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         var course = await LoadOwnedCourse(id);
         if (course is null) return ForbiddenCourse();
-        if (await db.Enrollments.AnyAsync(enrollment => enrollment.CourseId == id))
+        if (await db.GhiDanh.AnyAsync(enrollment => enrollment.KhoaHocId == id))
             return Results.BadRequest(new { message = "Không thể xóa khóa học đã có học viên đăng ký." });
 
-        db.Assignments.RemoveRange(db.Assignments.Where(assignment => assignment.CourseId == id));
-        db.Lessons.RemoveRange(db.Lessons.Where(lesson => lesson.CourseId == id));
-        db.Sections.RemoveRange(db.Sections.Where(section => section.CourseId == id));
-        db.Courses.Remove(course);
+        db.BaiTap.RemoveRange(db.BaiTap.Where(assignment => assignment.KhoaHocId == id));
+        db.BaiHoc.RemoveRange(db.BaiHoc.Where(lesson => lesson.KhoaHocId == id));
+        db.ChuongHoc.RemoveRange(db.ChuongHoc.Where(section => section.KhoaHocId == id));
+        db.KhoaHoc.Remove(course);
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã xóa khóa học." });
     }
@@ -158,7 +158,7 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     public async Task<IResult> GetChapters(string courseId)
     {
         var course = await LoadOwnedCourse(courseId, asNoTracking: true);
-        return course is null ? ForbiddenCourse() : Results.Ok(course.Sections.OrderBy(section => section.Position).Select(ToChapterDto));
+        return course is null ? ForbiddenCourse() : Results.Ok(course.CacChuongHoc.OrderBy(section => section.ThuTu).Select(ToChapterDto));
     }
 
     [HttpPost("/api/teacher/courses/{courseId}/chapters")]
@@ -173,14 +173,14 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var chapter = new ChuongHoc
         {
             Id = TaoId.Moi(),
-            CourseId = courseId,
-            Title = request.Title.Trim(),
-            Description = request.Description?.Trim(),
-            Position = request.Position <= 0 ? course.Sections.Count + 1 : request.Position,
-            CreatedAt = now,
-            UpdatedAt = now
+            KhoaHocId = courseId,
+            TieuDe = request.Title.Trim(),
+            MoTa = request.Description?.Trim(),
+            ThuTu = request.Position <= 0 ? course.CacChuongHoc.Count + 1 : request.Position,
+            NgayTao = now,
+            NgayCapNhat = now
         };
-        db.Sections.Add(chapter);
+        db.ChuongHoc.Add(chapter);
         await db.SaveChangesAsync();
         await NormalizeChapterPositions(courseId);
         return Results.Created($"/api/teacher/chapters/{chapter.Id}", ToChapterDto(chapter));
@@ -194,12 +194,12 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length < 3)
             return Results.BadRequest(new { message = "Tiêu đề chương tối thiểu 3 ký tự." });
 
-        chapter.Title = request.Title.Trim();
-        chapter.Description = request.Description?.Trim();
-        if (request.Position > 0) chapter.Position = request.Position;
-        chapter.UpdatedAt = DateTime.UtcNow;
+        chapter.TieuDe = request.Title.Trim();
+        chapter.MoTa = request.Description?.Trim();
+        if (request.Position > 0) chapter.ThuTu = request.Position;
+        chapter.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        await NormalizeChapterPositions(chapter.CourseId);
+        await NormalizeChapterPositions(chapter.KhoaHocId);
         return Results.Ok(ToChapterDto(chapter));
     }
 
@@ -208,8 +208,8 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         var chapter = await LoadOwnedChapter(chapterId);
         if (chapter is null) return ForbiddenCourse();
-        var courseId = chapter.CourseId;
-        db.Sections.Remove(chapter);
+        var courseId = chapter.KhoaHocId;
+        db.ChuongHoc.Remove(chapter);
         await db.SaveChangesAsync();
         await NormalizeChapterPositions(courseId);
         await RecalculateCourseDuration(courseId);
@@ -220,7 +220,7 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     public async Task<IResult> GetLessons(string chapterId)
     {
         var chapter = await LoadOwnedChapter(chapterId, asNoTracking: true);
-        return chapter is null ? ForbiddenCourse() : Results.Ok(chapter.Lessons.OrderBy(lesson => lesson.Position).Select(ToLessonDto));
+        return chapter is null ? ForbiddenCourse() : Results.Ok(chapter.CacBaiHoc.OrderBy(lesson => lesson.ThuTu).Select(ToLessonDto));
     }
 
     [HttpPost("/api/teacher/chapters/{chapterId}/lessons")]
@@ -237,24 +237,24 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var lesson = new BaiHoc
         {
             Id = TaoId.Moi(),
-            CourseId = chapter.CourseId,
-            SectionId = chapterId,
-            Title = form.Title!.Trim(),
-            Content = form.Content?.Trim(),
-            DurationSeconds = Math.Max(0, form.DurationSeconds),
-            Position = form.Position <= 0 ? chapter.Lessons.Count + 1 : form.Position,
-            Status = status,
-            IsPublished = status == "PUBLIC",
-            IsPreview = form.IsPreview,
-            CreatedAt = now,
-            UpdatedAt = now
+            KhoaHocId = chapter.KhoaHocId,
+            ChuongHocId = chapterId,
+            TieuDe = form.Title!.Trim(),
+            NoiDung = form.Content?.Trim(),
+            ThoiLuongGiay = Math.Max(0, form.DurationSeconds),
+            ThuTu = form.Position <= 0 ? chapter.CacBaiHoc.Count + 1 : form.Position,
+            TrangThai = status,
+            DaXuatBan = status == "PUBLIC",
+            ChoXemTruoc = form.IsPreview,
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
         await ApplyLessonFiles(lesson, form);
-        db.Lessons.Add(lesson);
+        db.BaiHoc.Add(lesson);
         await db.SaveChangesAsync();
         await NormalizeLessonPositions(chapterId);
-        await RecalculateCourseDuration(chapter.CourseId);
+        await RecalculateCourseDuration(chapter.KhoaHocId);
         return Results.Created($"/api/teacher/lessons/{lesson.Id}", ToLessonDto(lesson));
     }
 
@@ -267,30 +267,30 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var error = ValidateLessonForm(form, isUpdate: true);
         if (error is not null) return error;
 
-        var oldChapterId = lesson.SectionId;
-        var targetChapterId = string.IsNullOrWhiteSpace(form.ChapterId) ? lesson.SectionId : form.ChapterId;
-        if (targetChapterId != lesson.SectionId)
+        var oldChapterId = lesson.ChuongHocId;
+        var targetChapterId = string.IsNullOrWhiteSpace(form.ChapterId) ? lesson.ChuongHocId : form.ChapterId;
+        if (targetChapterId != lesson.ChuongHocId)
         {
             var targetChapter = await LoadOwnedChapter(targetChapterId);
-            if (targetChapter is null || targetChapter.CourseId != lesson.CourseId) return Results.BadRequest(new { message = "Chương không hợp lệ." });
-            lesson.SectionId = targetChapterId;
+            if (targetChapter is null || targetChapter.KhoaHocId != lesson.KhoaHocId) return Results.BadRequest(new { message = "Chương không hợp lệ." });
+            lesson.ChuongHocId = targetChapterId;
         }
 
         var status = NormalizeLessonStatus(form.Status);
-        lesson.Title = form.Title!.Trim();
-        lesson.Content = form.Content?.Trim();
-        lesson.DurationSeconds = Math.Max(0, form.DurationSeconds);
-        lesson.Position = form.Position <= 0 ? lesson.Position : form.Position;
-        lesson.Status = status;
-        lesson.IsPublished = status == "PUBLIC";
-        lesson.IsPreview = form.IsPreview;
-        lesson.UpdatedAt = DateTime.UtcNow;
+        lesson.TieuDe = form.Title!.Trim();
+        lesson.NoiDung = form.Content?.Trim();
+        lesson.ThoiLuongGiay = Math.Max(0, form.DurationSeconds);
+        lesson.ThuTu = form.Position <= 0 ? lesson.ThuTu : form.Position;
+        lesson.TrangThai = status;
+        lesson.DaXuatBan = status == "PUBLIC";
+        lesson.ChoXemTruoc = form.IsPreview;
+        lesson.NgayCapNhat = DateTime.UtcNow;
         await ApplyLessonFiles(lesson, form);
 
         await db.SaveChangesAsync();
         await NormalizeLessonPositions(oldChapterId);
-        if (oldChapterId != lesson.SectionId) await NormalizeLessonPositions(lesson.SectionId);
-        await RecalculateCourseDuration(lesson.CourseId);
+        if (oldChapterId != lesson.ChuongHocId) await NormalizeLessonPositions(lesson.ChuongHocId);
+        await RecalculateCourseDuration(lesson.KhoaHocId);
         return Results.Ok(ToLessonDto(lesson));
     }
 
@@ -299,9 +299,9 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         var lesson = await LoadOwnedLesson(lessonId);
         if (lesson is null) return ForbiddenCourse();
-        var chapterId = lesson.SectionId;
-        var courseId = lesson.CourseId;
-        db.Lessons.Remove(lesson);
+        var chapterId = lesson.ChuongHocId;
+        var courseId = lesson.KhoaHocId;
+        db.BaiHoc.Remove(lesson);
         await db.SaveChangesAsync();
         await NormalizeLessonPositions(chapterId);
         await RecalculateCourseDuration(courseId);
@@ -313,9 +313,9 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         var course = await LoadOwnedCourse(courseId, asNoTracking: true);
         if (course is null) return ForbiddenCourse();
-        var assignments = await db.Assignments.AsNoTracking()
-            .Where(assignment => assignment.CourseId == courseId)
-            .OrderByDescending(assignment => assignment.UpdatedAt)
+        var assignments = await db.BaiTap.AsNoTracking()
+            .Where(assignment => assignment.KhoaHocId == courseId)
+            .OrderByDescending(assignment => assignment.NgayCapNhat)
             .ToListAsync();
         return Results.Ok(assignments.Select(ToAssignmentDto));
     }
@@ -339,21 +339,21 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var assignment = new BaiTap
         {
             Id = TaoId.Moi(),
-            CourseId = courseId,
-            LessonId = string.IsNullOrWhiteSpace(form.LessonId) ? null : form.LessonId,
-            TeacherId = CurrentUserId()!,
-            Title = form.Title!.Trim(),
-            Description = form.Description?.Trim(),
-            DueDate = form.DueDate,
-            MaxScore = Math.Max(1, form.MaxScore),
-            AttachmentUrl = attachmentUrl,
-            AllowTextSubmission = form.AllowTextSubmission,
-            AllowFileSubmission = form.AllowFileSubmission,
-            CreatedAt = now,
-            UpdatedAt = now
+            KhoaHocId = courseId,
+            BaiHocId = string.IsNullOrWhiteSpace(form.LessonId) ? null : form.LessonId,
+            GiangVienId = CurrentUserId()!,
+            TieuDe = form.Title!.Trim(),
+            MoTa = form.Description?.Trim(),
+            HanNop = form.DueDate,
+            DiemToiDa = Math.Max(1, form.MaxScore),
+            FileDinhKemUrl = attachmentUrl,
+            ChoPhepNopText = form.AllowTextSubmission,
+            ChoPhepNopFile = form.AllowFileSubmission,
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
-        db.Assignments.Add(assignment);
+        db.BaiTap.Add(assignment);
         await db.SaveChangesAsync();
         return Results.Created($"/api/teacher/assignments/{assignment.Id}", ToAssignmentDto(assignment));
     }
@@ -364,22 +364,22 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         var assignment = await LoadOwnedAssignment(assignmentId);
         if (assignment is null) return ForbiddenCourse();
-        var error = await ValidateAssignmentForm(assignment.CourseId, form);
+        var error = await ValidateAssignmentForm(assignment.KhoaHocId, form);
         if (error is not null) return error;
 
         if (form.AttachmentFile is not null)
         {
-            assignment.AttachmentUrl = await SaveUpload(form.AttachmentFile, "uploads/lessons/files");
+            assignment.FileDinhKemUrl = await SaveUpload(form.AttachmentFile, "uploads/lessons/files");
         }
 
-        assignment.LessonId = string.IsNullOrWhiteSpace(form.LessonId) ? null : form.LessonId;
-        assignment.Title = form.Title!.Trim();
-        assignment.Description = form.Description?.Trim();
-        assignment.DueDate = form.DueDate;
-        assignment.MaxScore = Math.Max(1, form.MaxScore);
-        assignment.AllowTextSubmission = form.AllowTextSubmission;
-        assignment.AllowFileSubmission = form.AllowFileSubmission;
-        assignment.UpdatedAt = DateTime.UtcNow;
+        assignment.BaiHocId = string.IsNullOrWhiteSpace(form.LessonId) ? null : form.LessonId;
+        assignment.TieuDe = form.Title!.Trim();
+        assignment.MoTa = form.Description?.Trim();
+        assignment.HanNop = form.DueDate;
+        assignment.DiemToiDa = Math.Max(1, form.MaxScore);
+        assignment.ChoPhepNopText = form.AllowTextSubmission;
+        assignment.ChoPhepNopFile = form.AllowFileSubmission;
+        assignment.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Results.Ok(ToAssignmentDto(assignment));
     }
@@ -389,7 +389,7 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
     {
         var assignment = await LoadOwnedAssignment(assignmentId);
         if (assignment is null) return ForbiddenCourse();
-        db.Assignments.Remove(assignment);
+        db.BaiTap.Remove(assignment);
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã xóa bài tập." });
     }
@@ -436,10 +436,10 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var teacherId = CurrentUserId();
         if (teacherId is null) return null;
 
-        var query = db.Courses
-            .Include(course => course.Sections.OrderBy(section => section.Position))
-                .ThenInclude(section => section.Lessons.OrderBy(lesson => lesson.Position))
-            .Where(course => course.Id == courseId && (course.InstructorId == teacherId || User.IsInRole("ADMIN")));
+        var query = db.KhoaHoc
+            .Include(course => course.CacChuongHoc.OrderBy(section => section.ThuTu))
+                .ThenInclude(section => section.CacBaiHoc.OrderBy(lesson => lesson.ThuTu))
+            .Where(course => course.Id == courseId && (course.GiangVienId == teacherId || User.IsInRole("ADMIN")));
         if (asNoTracking) query = query.AsNoTracking();
         return await query.FirstOrDefaultAsync();
     }
@@ -450,10 +450,10 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var teacherId = CurrentUserId();
         if (teacherId is null) return null;
 
-        var query = db.Sections
-            .Include(chapter => chapter.Course)
-            .Include(chapter => chapter.Lessons.OrderBy(lesson => lesson.Position))
-            .Where(chapter => chapter.Id == chapterId && chapter.Course != null && (chapter.Course.InstructorId == teacherId || User.IsInRole("ADMIN")));
+        var query = db.ChuongHoc
+            .Include(chapter => chapter.KhoaHoc)
+            .Include(chapter => chapter.CacBaiHoc.OrderBy(lesson => lesson.ThuTu))
+            .Where(chapter => chapter.Id == chapterId && chapter.KhoaHoc != null && (chapter.KhoaHoc.GiangVienId == teacherId || User.IsInRole("ADMIN")));
         if (asNoTracking) query = query.AsNoTracking();
         return await query.FirstOrDefaultAsync();
     }
@@ -464,9 +464,9 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var teacherId = CurrentUserId();
         if (teacherId is null) return null;
 
-        return await db.Lessons
-            .Include(lesson => lesson.Course)
-            .FirstOrDefaultAsync(lesson => lesson.Id == lessonId && lesson.Course != null && (lesson.Course.InstructorId == teacherId || User.IsInRole("ADMIN")));
+        return await db.BaiHoc
+            .Include(lesson => lesson.KhoaHoc)
+            .FirstOrDefaultAsync(lesson => lesson.Id == lessonId && lesson.KhoaHoc != null && (lesson.KhoaHoc.GiangVienId == teacherId || User.IsInRole("ADMIN")));
     }
 
     private async Task<BaiTap?> LoadOwnedAssignment(string assignmentId)
@@ -475,9 +475,9 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var teacherId = CurrentUserId();
         if (teacherId is null) return null;
 
-        return await db.Assignments
-            .Include(assignment => assignment.Course)
-            .FirstOrDefaultAsync(assignment => assignment.Id == assignmentId && assignment.Course != null && (assignment.Course.InstructorId == teacherId || User.IsInRole("ADMIN")));
+        return await db.BaiTap
+            .Include(assignment => assignment.KhoaHoc)
+            .FirstOrDefaultAsync(assignment => assignment.Id == assignmentId && assignment.KhoaHoc != null && (assignment.KhoaHoc.GiangVienId == teacherId || User.IsInRole("ADMIN")));
     }
 
     private static IResult? ValidateCourseForm(TeacherCourseForm form)
@@ -520,7 +520,7 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         if (string.IsNullOrWhiteSpace(form.Title) || form.Title.Trim().Length < 3)
             return Results.BadRequest(new { message = "Tiêu đề bài tập tối thiểu 3 ký tự." });
         if (form.MaxScore <= 0) return Results.BadRequest(new { message = "Điểm tối đa phải lớn hơn 0." });
-        if (!string.IsNullOrWhiteSpace(form.LessonId) && !await db.Lessons.AnyAsync(lesson => lesson.Id == form.LessonId && lesson.CourseId == courseId))
+        if (!string.IsNullOrWhiteSpace(form.LessonId) && !await db.BaiHoc.AnyAsync(lesson => lesson.Id == form.LessonId && lesson.KhoaHocId == courseId))
             return Results.BadRequest(new { message = "Bài học áp dụng không hợp lệ." });
         if (form.AttachmentFile is not null)
         {
@@ -562,7 +562,7 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
         var baseSlug = Slugify(title);
         var slug = baseSlug;
         var counter = 2;
-        while (await db.Courses.AnyAsync(course => course.Slug == slug && course.Id != excludeCourseId))
+        while (await db.KhoaHoc.AnyAsync(course => course.DuongDanThanThien == slug && course.Id != excludeCourseId))
         {
             slug = $"{baseSlug}-{counter++}";
         }
@@ -607,83 +607,83 @@ public class TeacherController(ApplicationDbContext db, IWebHostEnvironment env)
 
     private async Task NormalizeChapterPositions(string courseId)
     {
-        var chapters = await db.Sections.Where(chapter => chapter.CourseId == courseId).OrderBy(chapter => chapter.Position).ToListAsync();
-        for (var index = 0; index < chapters.Count; index++) chapters[index].Position = index + 1;
+        var chapters = await db.ChuongHoc.Where(chapter => chapter.KhoaHocId == courseId).OrderBy(chapter => chapter.ThuTu).ToListAsync();
+        for (var index = 0; index < chapters.Count; index++) chapters[index].ThuTu = index + 1;
         await db.SaveChangesAsync();
     }
 
     private async Task NormalizeLessonPositions(string chapterId)
     {
-        var lessons = await db.Lessons.Where(lesson => lesson.SectionId == chapterId).OrderBy(lesson => lesson.Position).ToListAsync();
-        for (var index = 0; index < lessons.Count; index++) lessons[index].Position = index + 1;
+        var lessons = await db.BaiHoc.Where(lesson => lesson.ChuongHocId == chapterId).OrderBy(lesson => lesson.ThuTu).ToListAsync();
+        for (var index = 0; index < lessons.Count; index++) lessons[index].ThuTu = index + 1;
         await db.SaveChangesAsync();
     }
 
     private async Task RecalculateCourseDuration(string courseId)
     {
-        var total = await db.Lessons.Where(lesson => lesson.CourseId == courseId).SumAsync(lesson => lesson.DurationSeconds ?? 0);
-        var course = await db.Courses.FirstOrDefaultAsync(item => item.Id == courseId);
+        var total = await db.BaiHoc.Where(lesson => lesson.KhoaHocId == courseId).SumAsync(lesson => lesson.ThoiLuongGiay ?? 0);
+        var course = await db.KhoaHoc.FirstOrDefaultAsync(item => item.Id == courseId);
         if (course is null) return;
-        course.TotalDurationSeconds = total;
-        course.UpdatedAt = DateTime.UtcNow;
+        course.TongThoiLuongGiay = total;
+        course.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
     }
 
     private static TeacherCourseDto ToCourseDto(KhoaHoc course) => new(
         course.Id,
-        course.Title,
-        course.ShortDescription,
-        course.Description,
-        course.DetailedDescription,
-        course.Thumbnail,
-        course.Category,
-        course.Level,
-        course.Price,
-        course.Status,
-        course.IsPublished,
-        course.CreatedAt,
-        course.UpdatedAt,
-        course.InstructorId,
-        course.TotalDurationSeconds,
-        course.Sections.OrderBy(section => section.Position).Select(ToChapterDto).ToList());
+        course.TieuDe,
+        course.MoTaNgan,
+        course.MoTa,
+        course.MoTaChiTiet,
+        course.AnhDaiDien,
+        course.ChuyenMuc,
+        course.TrinhDo,
+        course.Gia,
+        course.TrangThai,
+        course.DaXuatBan,
+        course.NgayTao,
+        course.NgayCapNhat,
+        course.GiangVienId,
+        course.TongThoiLuongGiay,
+        course.CacChuongHoc.OrderBy(section => section.ThuTu).Select(ToChapterDto).ToList());
 
     private static TeacherChapterDto ToChapterDto(ChuongHoc chapter) => new(
         chapter.Id,
-        chapter.CourseId,
-        chapter.Title,
-        chapter.Description,
-        chapter.Position,
-        chapter.Lessons.OrderBy(lesson => lesson.Position).Select(ToLessonDto).ToList());
+        chapter.KhoaHocId,
+        chapter.TieuDe,
+        chapter.MoTa,
+        chapter.ThuTu,
+        chapter.CacBaiHoc.OrderBy(lesson => lesson.ThuTu).Select(ToLessonDto).ToList());
 
     private static TeacherLessonDto ToLessonDto(BaiHoc lesson) => new(
         lesson.Id,
-        lesson.CourseId,
-        lesson.SectionId,
-        lesson.Title,
-        lesson.Content,
+        lesson.KhoaHocId,
+        lesson.ChuongHocId,
+        lesson.TieuDe,
+        lesson.NoiDung,
         lesson.IllustrationUrl,
         lesson.VideoUrl,
         lesson.FileUrl,
-        lesson.DurationSeconds ?? 0,
-        lesson.Status,
-        lesson.IsPublished,
-        lesson.IsPreview,
-        lesson.Position);
+        lesson.ThoiLuongGiay ?? 0,
+        lesson.TrangThai,
+        lesson.DaXuatBan,
+        lesson.ChoXemTruoc,
+        lesson.ThuTu);
 
     private static TeacherAssignmentDto ToAssignmentDto(BaiTap assignment) => new(
         assignment.Id,
-        assignment.CourseId,
-        assignment.LessonId,
-        assignment.Title,
-        assignment.Description,
-        assignment.DueDate,
-        assignment.MaxScore,
-        assignment.AttachmentUrl,
-        assignment.AllowTextSubmission,
-        assignment.AllowFileSubmission,
-        assignment.CreatedAt,
-        assignment.UpdatedAt,
-        assignment.TeacherId);
+        assignment.KhoaHocId,
+        assignment.BaiHocId,
+        assignment.TieuDe,
+        assignment.MoTa,
+        assignment.HanNop,
+        assignment.DiemToiDa,
+        assignment.FileDinhKemUrl,
+        assignment.ChoPhepNopText,
+        assignment.ChoPhepNopFile,
+        assignment.NgayTao,
+        assignment.NgayCapNhat,
+        assignment.GiangVienId);
 }
 
 [Area("Instructor")]

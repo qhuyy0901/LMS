@@ -34,22 +34,22 @@ public class DichVuXacThuc(IConfiguration cauHinh, ApplicationDbContext db) : ID
             return (false, "Mật khẩu tối thiểu 6 ký tự.", null);
 
         var emailChuan = email.Trim().ToLowerInvariant();
-        if (await db.Users.AnyAsync(u => u.Email == emailChuan))
+        if (await db.NguoiDung.AnyAsync(u => u.Email == emailChuan))
             return (false, "Email đã tồn tại", null);
 
         var nguoiDung = new NguoiDung
         {
             Id = TaoId.Moi(),
             Email = emailChuan,
-            Name = string.IsNullOrWhiteSpace(ten) ? emailChuan : ten.Trim(),
-            Password = BCrypt.Net.BCrypt.HashPassword(matKhau),
-            Role = "STUDENT",
-            MemberTier = "BRONZE",
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
+            Ten = string.IsNullOrWhiteSpace(ten) ? emailChuan : ten.Trim(),
+            MatKhau = BCrypt.Net.BCrypt.HashPassword(matKhau),
+            VaiTro = "STUDENT",
+            HangThanhVien = "BRONZE",
+            NgayTao = DateTime.UtcNow,
+            NgayCapNhat = DateTime.UtcNow
         };
 
-        db.Users.Add(nguoiDung);
+        db.NguoiDung.Add(nguoiDung);
         await db.SaveChangesAsync();
 
         return (true, null, XacThucPhanHoi.TuUser(nguoiDung, TaoToken(nguoiDung)));
@@ -58,25 +58,28 @@ public class DichVuXacThuc(IConfiguration cauHinh, ApplicationDbContext db) : ID
     public async Task<(bool ThanhCong, XacThucPhanHoi? KetQua)> DangNhapAsync(string email, string matKhau)
     {
         var emailChuan = email.Trim().ToLowerInvariant();
-        var nguoiDung = await db.Users.FirstOrDefaultAsync(u => u.Email == emailChuan);
+        var nguoiDung = await db.NguoiDung.FirstOrDefaultAsync(u => u.Email == emailChuan);
 
-        if (nguoiDung is null || !BCrypt.Net.BCrypt.Verify(matKhau, nguoiDung.Password))
+        if (nguoiDung is null || !BCrypt.Net.BCrypt.Verify(matKhau, nguoiDung.MatKhau))
+            return (false, null);
+
+        if (TroGiup.CoCoCaiDat(nguoiDung, "accountLocked"))
             return (false, null);
 
         var daThayDoi = TroGiup.DongBoHangThanhVien(nguoiDung);
         var homNay = TroGiup.LayNgayDiaPhuong();
-        var ngayGanNhat = nguoiDung.LastRewardLoginDate?.Date;
+        var ngayGanNhat = nguoiDung.NgayNhanThuongDangNhapCuoi?.Date;
 
         if (ngayGanNhat != homNay)
         {
-            nguoiDung.LoginStreak = ngayGanNhat == homNay.AddDays(-1)
-                ? Math.Max(1, nguoiDung.LoginStreak) + 1
+            nguoiDung.ChuoiDangNhap = ngayGanNhat == homNay.AddDays(-1)
+                ? Math.Max(1, nguoiDung.ChuoiDangNhap) + 1
                 : 1;
 
-            var diemTheoChuoi = Math.Min(10, 2 + nguoiDung.LoginStreak);
-            nguoiDung.RewardPoints = Math.Min(100, nguoiDung.RewardPoints + diemTheoChuoi);
-            nguoiDung.LastRewardLoginDate = homNay;
-            nguoiDung.UpdatedAt = DateTime.UtcNow;
+            var diemTheoChuoi = Math.Min(10, 2 + nguoiDung.ChuoiDangNhap);
+            nguoiDung.DiemThuong = Math.Min(100, nguoiDung.DiemThuong + diemTheoChuoi);
+            nguoiDung.NgayNhanThuongDangNhapCuoi = homNay;
+            nguoiDung.NgayCapNhat = DateTime.UtcNow;
             daThayDoi = true;
         }
 
@@ -89,40 +92,43 @@ public class DichVuXacThuc(IConfiguration cauHinh, ApplicationDbContext db) : ID
     public async Task<XacThucPhanHoi> DangNhapMangXaHoiAsync(string email, string? ten)
     {
         var emailChuan = email.Trim().ToLowerInvariant();
-        var nguoiDung = await db.Users.FirstOrDefaultAsync(user => user.Email == emailChuan);
+        var nguoiDung = await db.NguoiDung.FirstOrDefaultAsync(user => user.Email == emailChuan);
         if (nguoiDung is null)
         {
             nguoiDung = new NguoiDung
             {
                 Id = TaoId.Moi(),
                 Email = emailChuan,
-                Name = string.IsNullOrWhiteSpace(ten) ? emailChuan : ten.Trim(),
-                Password = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
-                Role = "STUDENT",
-                MemberTier = "BRONZE",
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                Ten = string.IsNullOrWhiteSpace(ten) ? emailChuan : ten.Trim(),
+                MatKhau = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+                VaiTro = "STUDENT",
+                HangThanhVien = "BRONZE",
+                NgayTao = DateTime.UtcNow,
+                NgayCapNhat = DateTime.UtcNow
             };
-            db.Users.Add(nguoiDung);
+            db.NguoiDung.Add(nguoiDung);
             await db.SaveChangesAsync();
         }
         else
         {
             // Cập nhật login streak và reward points cho user đã tồn tại (giống đăng nhập thường)
+            if (TroGiup.CoCoCaiDat(nguoiDung, "accountLocked"))
+                throw new UnauthorizedAccessException("Tai khoan da bi khoa.");
+
             var daThayDoi = TroGiup.DongBoHangThanhVien(nguoiDung);
             var homNay = TroGiup.LayNgayDiaPhuong();
-            var ngayGanNhat = nguoiDung.LastRewardLoginDate?.Date;
+            var ngayGanNhat = nguoiDung.NgayNhanThuongDangNhapCuoi?.Date;
 
             if (ngayGanNhat != homNay)
             {
-                nguoiDung.LoginStreak = ngayGanNhat == homNay.AddDays(-1)
-                    ? Math.Max(1, nguoiDung.LoginStreak) + 1
+                nguoiDung.ChuoiDangNhap = ngayGanNhat == homNay.AddDays(-1)
+                    ? Math.Max(1, nguoiDung.ChuoiDangNhap) + 1
                     : 1;
 
-                var diemTheoChuoi = Math.Min(10, 2 + nguoiDung.LoginStreak);
-                nguoiDung.RewardPoints = Math.Min(100, nguoiDung.RewardPoints + diemTheoChuoi);
-                nguoiDung.LastRewardLoginDate = homNay;
-                nguoiDung.UpdatedAt = DateTime.UtcNow;
+                var diemTheoChuoi = Math.Min(10, 2 + nguoiDung.ChuoiDangNhap);
+                nguoiDung.DiemThuong = Math.Min(100, nguoiDung.DiemThuong + diemTheoChuoi);
+                nguoiDung.NgayNhanThuongDangNhapCuoi = homNay;
+                nguoiDung.NgayCapNhat = DateTime.UtcNow;
                 daThayDoi = true;
             }
 
@@ -141,7 +147,7 @@ public class DichVuXacThuc(IConfiguration cauHinh, ApplicationDbContext db) : ID
             [
                 new Claim(ClaimTypes.NameIdentifier, nguoiDung.Id),
                 new Claim(ClaimTypes.Email, nguoiDung.Email),
-                new Claim(ClaimTypes.Role, nguoiDung.Role)
+                new Claim(ClaimTypes.Role, nguoiDung.VaiTro)
             ],
             expires: DateTime.UtcNow.AddDays(7),
             signingCredentials: thongTin

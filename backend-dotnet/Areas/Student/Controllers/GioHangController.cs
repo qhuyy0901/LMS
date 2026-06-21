@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Student.Controllers;
+namespace LMS.Api.Areas.HocVien.Controllers;
 
 /// <summary>Quản lý giỏ hàng / khóa học đã lưu từ trang Khám phá</summary>
 [ApiController]
@@ -20,31 +20,31 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var ds = await db.SavedCourses
+        var ds = await db.KhoaHocDaLuu
             .AsNoTracking()
-            .Where(s => s.UserId == userId)
-            .Include(s => s.Course)
-                .ThenInclude(c => c!.Instructor)
-            .OrderByDescending(s => s.CreatedAt)
+            .Where(s => s.NguoiDungId == userId)
+            .Include(s => s.KhoaHoc)
+                .ThenInclude(c => c!.GiangVien)
+            .OrderByDescending(s => s.NgayTao)
             .ToListAsync();
 
         var ketQua = ds.Select(s => new
         {
             id = s.Id,
-            courseId = s.CourseId,
-            savedAt = s.CreatedAt,
-            course = s.Course == null ? null : new
+            courseId = s.KhoaHocId,
+            savedAt = s.NgayTao,
+            course = s.KhoaHoc == null ? null : new
             {
-                id = s.Course.Id,
-                title = s.Course.Title,
-                thumbnail = s.Course.Thumbnail,
-                price = s.Course.Price,
-                category = s.Course.Category,
-                averageRating = s.Course.AverageRating,
-                reviewCount = s.Course.ReviewCount,
-                instructorName = s.Course.Instructor?.Name ?? "Giảng viên",
-                lessonCount = s.Course.Lessons?.Count ?? 0,
-                isPublished = s.Course.IsPublished
+                id = s.KhoaHoc.Id,
+                title = s.KhoaHoc.TieuDe,
+                thumbnail = s.KhoaHoc.AnhDaiDien,
+                price = s.KhoaHoc.Gia,
+                category = s.KhoaHoc.ChuyenMuc,
+                averageRating = s.KhoaHoc.DiemDanhGiaTrungBinh,
+                reviewCount = s.KhoaHoc.SoLuongDanhGia,
+                instructorName = s.KhoaHoc.GiangVien?.Ten ?? "Giảng viên",
+                lessonCount = s.KhoaHoc.CacBaiHoc?.Count ?? 0,
+                isPublished = s.KhoaHoc.DaXuatBan
             }
         });
 
@@ -62,16 +62,16 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
             return Results.BadRequest(new { message = "courseId không được để trống" });
 
         // Kiểm tra khóa học tồn tại và đã public
-        var khoaHoc = await db.Courses
+        var khoaHoc = await db.KhoaHoc
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == yeuCau.CourseId && c.IsPublished);
+            .FirstOrDefaultAsync(c => c.Id == yeuCau.CourseId && c.DaXuatBan);
 
         if (khoaHoc is null)
             return Results.NotFound(new { message = "Không tìm thấy khóa học" });
 
         // Kiểm tra đã lưu chưa
-        var daLuu = await db.SavedCourses
-            .AnyAsync(s => s.UserId == userId && s.CourseId == yeuCau.CourseId);
+        var daLuu = await db.KhoaHocDaLuu
+            .AnyAsync(s => s.NguoiDungId == userId && s.KhoaHocId == yeuCau.CourseId);
 
         if (daLuu)
             return Results.Conflict(new { message = "Khóa học đã được lưu" });
@@ -79,19 +79,19 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
         var mucDaLuu = new KhoaHocDaLuu
         {
             Id = TaoId.Moi(),
-            UserId = userId,
-            CourseId = yeuCau.CourseId,
-            CreatedAt = DateTime.UtcNow
+            NguoiDungId = userId,
+            KhoaHocId = yeuCau.CourseId,
+            NgayTao = DateTime.UtcNow
         };
 
-        db.SavedCourses.Add(mucDaLuu);
+        db.KhoaHocDaLuu.Add(mucDaLuu);
         await db.SaveChangesAsync();
 
         return Results.Created($"/api/user/saved-courses/{yeuCau.CourseId}", new
         {
             id = mucDaLuu.Id,
-            courseId = mucDaLuu.CourseId,
-            savedAt = mucDaLuu.CreatedAt
+            courseId = mucDaLuu.KhoaHocId,
+            savedAt = mucDaLuu.NgayTao
         });
     }
 
@@ -102,13 +102,13 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var mucDaLuu = await db.SavedCourses
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.CourseId == courseId);
+        var mucDaLuu = await db.KhoaHocDaLuu
+            .FirstOrDefaultAsync(s => s.NguoiDungId == userId && s.KhoaHocId == courseId);
 
         if (mucDaLuu is null)
             return Results.NotFound(new { message = "Không tìm thấy mục đã lưu" });
 
-        db.SavedCourses.Remove(mucDaLuu);
+        db.KhoaHocDaLuu.Remove(mucDaLuu);
         await db.SaveChangesAsync();
 
         return Results.Ok(new { message = "Đã xóa khỏi danh sách đã lưu" });
@@ -121,8 +121,8 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var daLuu = await db.SavedCourses
-            .AnyAsync(s => s.UserId == userId && s.CourseId == courseId);
+        var daLuu = await db.KhoaHocDaLuu
+            .AnyAsync(s => s.NguoiDungId == userId && s.KhoaHocId == courseId);
 
         return Results.Ok(new { saved = daLuu });
     }

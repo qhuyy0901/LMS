@@ -3,23 +3,23 @@ namespace LMS.Api.Domain.Entities;
 public class SuKien
 {
     public string Id { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Description { get; set; } = string.Empty;
-    public string Type { get; set; } = "WORKSHOP";
+    public string TieuDe { get; set; } = string.Empty;
+    public string MoTa { get; set; } = string.Empty;
+    public string LoaiSuKien { get; set; } = "WORKSHOP";
     public string Format { get; set; } = "OFFLINE";
-    public DateTime StartAt { get; set; }
-    public DateTime EndAt { get; set; }
-    public string? Location { get; set; }
+    public DateTime ThoiGianBatDau { get; set; }
+    public DateTime ThoiGianKetThuc { get; set; }
+    public string? DiaDiem { get; set; }
     public string? LinkThamGia { get; set; }
-    public string? ImageUrl { get; set; }
-    public int Capacity { get; set; } = 50;
-    public int PointCost { get; set; }
-    public string Status { get; set; } = "DRAFT";
-    public string InstructorId { get; set; } = string.Empty;
-    public NguoiDung? Instructor { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public string? AnhUrl { get; set; }
+    public int SucChua { get; set; } = 50;
+    public int DiemYeuCau { get; set; }
+    public string TrangThai { get; set; } = "DRAFT";
+    public string GiangVienId { get; set; } = string.Empty;
+    public NguoiDung? GiangVien { get; set; }
+    public DateTime NgayTao { get; set; }
+    public DateTime NgayCapNhat { get; set; }
 
-    public ICollection<DangKySuKien> Registrations { get; set; } = [];
-    public ICollection<SuKienAnh> Images { get; set; } = [];
+    public ICollection<DangKySuKien> CacDangKy { get; set; } = [];
+    public ICollection<SuKienAnh> CacHinhAnh { get; set; } = [];
 }

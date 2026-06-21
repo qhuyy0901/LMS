@@ -23,12 +23,12 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     public async Task<IResult> DanhSachCongKhai()
     {
         var userId = TroGiup.LayUserId(User);
-        var events = await db.Events.AsNoTracking()
-            .Where(item => item.Status == "PUBLISHED")
-            .Include(item => item.Instructor)
-            .Include(item => item.Registrations)
-            .Include(item => item.Images)
-            .OrderBy(item => item.StartAt)
+        var events = await db.SuKien.AsNoTracking()
+            .Where(item => item.TrangThai == "PUBLISHED")
+            .Include(item => item.GiangVien)
+            .Include(item => item.CacDangKy)
+            .Include(item => item.CacHinhAnh)
+            .OrderBy(item => item.ThoiGianBatDau)
             .ToListAsync();
 
         return Results.Ok(events.Select(item => MapEvent(item, userId)));
@@ -38,11 +38,11 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     public async Task<IResult> ChiTietCongKhai(string id)
     {
         var userId = TroGiup.LayUserId(User);
-        var item = await db.Events.AsNoTracking()
-            .Where(item => item.Id == id && item.Status == "PUBLISHED")
-            .Include(item => item.Instructor)
-            .Include(item => item.Registrations)
-            .Include(item => item.Images)
+        var item = await db.SuKien.AsNoTracking()
+            .Where(item => item.Id == id && item.TrangThai == "PUBLISHED")
+            .Include(item => item.GiangVien)
+            .Include(item => item.CacDangKy)
+            .Include(item => item.CacHinhAnh)
             .FirstOrDefaultAsync();
         return item is null
             ? Results.NotFound(new { message = "Không tìm thấy sự kiện." })
@@ -55,9 +55,9 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         var permissionError = TroGiup.YeuCauGiangVien(User);
         if (permissionError is not null) return permissionError;
         var userId = TroGiup.LayUserId(User)!;
-        var settings = await db.Users.AsNoTracking()
+        var settings = await db.NguoiDung.AsNoTracking()
             .Where(user => user.Id == userId)
-            .Select(user => user.Settings)
+            .Select(user => user.CaiDat)
             .FirstOrDefaultAsync();
         return Results.Ok(new { googleMeetLink = DocGoogleMeetLink(settings) });
     }
@@ -72,22 +72,22 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
             return Results.BadRequest(new { message = "Liên kết Google Meet phải bắt đầu bằng https://meet.google.com/" });
 
         var userId = TroGiup.LayUserId(User)!;
-        var user = await db.Users.FirstOrDefaultAsync(user => user.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(user => user.Id == userId);
         if (user is null) return Results.Unauthorized();
         Dictionary<string, JsonElement> settings;
         try
         {
-            settings = string.IsNullOrWhiteSpace(user.Settings)
+            settings = string.IsNullOrWhiteSpace(user.CaiDat)
                 ? []
-                : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(user.Settings) ?? [];
+                : JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(user.CaiDat) ?? [];
         }
         catch (JsonException)
         {
             settings = [];
         }
         settings["googleMeetLink"] = JsonSerializer.SerializeToElement(link);
-        user.Settings = JsonSerializer.Serialize(settings);
-        user.UpdatedAt = DateTime.UtcNow;
+        user.CaiDat = JsonSerializer.Serialize(settings);
+        user.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã lưu liên kết Google Meet.", googleMeetLink = link });
     }
@@ -99,13 +99,13 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         if (permissionError is not null) return permissionError;
 
         var userId = TroGiup.LayUserId(User)!;
-        var events = await db.Events.AsNoTracking()
-            .Where(item => item.InstructorId == userId)
-            .Include(item => item.Instructor)
-            .Include(item => item.Registrations)
-                .ThenInclude(item => item.User)
-            .Include(item => item.Images)
-            .OrderByDescending(item => item.CreatedAt)
+        var events = await db.SuKien.AsNoTracking()
+            .Where(item => item.GiangVienId == userId)
+            .Include(item => item.GiangVien)
+            .Include(item => item.CacDangKy)
+                .ThenInclude(item => item.NguoiDung)
+            .Include(item => item.CacHinhAnh)
+            .OrderByDescending(item => item.NgayTao)
             .ToListAsync();
 
         return Results.Ok(events.Select(item => MapEvent(item, userId, includeAttendees: true)));
@@ -118,11 +118,11 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         if (permissionError is not null) return permissionError;
 
         var userId = TroGiup.LayUserId(User)!;
-        var item = await db.Events.AsNoTracking()
-            .Include(e => e.Instructor)
-            .Include(e => e.Registrations).ThenInclude(r => r.User)
-            .Include(e => e.Images)
-            .FirstOrDefaultAsync(e => e.Id == id && e.InstructorId == userId);
+        var item = await db.SuKien.AsNoTracking()
+            .Include(e => e.GiangVien)
+            .Include(e => e.CacDangKy).ThenInclude(r => r.NguoiDung)
+            .Include(e => e.CacHinhAnh)
+            .FirstOrDefaultAsync(e => e.Id == id && e.GiangVienId == userId);
 
         if (item is null) return Results.NotFound(new { message = "Không tìm thấy sự kiện." });
         return Results.Ok(MapEvent(item, userId, includeAttendees: true));
@@ -141,15 +141,15 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         var item = new SuKien
         {
             Id = TaoId.Moi(),
-            InstructorId = TroGiup.LayUserId(User)!,
-            Status = "PUBLISHED",
-            CreatedAt = now,
-            UpdatedAt = now
+            GiangVienId = TroGiup.LayUserId(User)!,
+            TrangThai = "PUBLISHED",
+            NgayTao = now,
+            NgayCapNhat = now
         };
         Apply(item, request);
-        db.Events.Add(item);
+        db.SuKien.Add(item);
         await db.SaveChangesAsync();
-        return Results.Created($"/api/instructor/events/{item.Id}", MapEvent(item, item.InstructorId));
+        return Results.Created($"/api/instructor/events/{item.Id}", MapEvent(item, item.GiangVienId));
     }
 
     [HttpPut("/api/instructor/events/{id}")]
@@ -162,12 +162,12 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         if (validationError is not null) return Results.BadRequest(new { message = validationError });
 
         Apply(item, request);
-        item.UpdatedAt = DateTime.UtcNow;
+        item.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         // Reload with images for response
-        await db.Entry(item).Collection(e => e.Images).LoadAsync();
-        return Results.Ok(MapEvent(item, item.InstructorId));
+        await db.Entry(item).Collection(e => e.CacHinhAnh).LoadAsync();
+        return Results.Ok(MapEvent(item, item.GiangVienId));
     }
 
     [HttpPost("/api/instructor/events/{id}/images")]
@@ -186,8 +186,8 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         Directory.CreateDirectory(uploadsDir);
 
         // Check if event already has any images (for auto-cover)
-        var existingCount = await db.EventImages.CountAsync(img => img.SuKienId == id);
-        var hasCover = existingCount > 0 && await db.EventImages.AnyAsync(img => img.SuKienId == id && img.IsCover);
+        var existingCount = await db.SuKienAnh.CountAsync(img => img.SuKienId == id);
+        var hasCover = existingCount > 0 && await db.SuKienAnh.AnyAsync(img => img.SuKienId == id && img.AnhBia);
 
         for (int i = 0; i < files.Count; i++)
         {
@@ -219,25 +219,25 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
             {
                 Id = TaoId.Moi(),
                 SuKienId = id,
-                ImageUrl = $"/uploads/events/{fileName}",
-                IsCover = isCover,
-                CreatedAt = DateTime.UtcNow
+                AnhUrl = $"/uploads/events/{fileName}",
+                AnhBia = isCover,
+                NgayTao = DateTime.UtcNow
             };
 
-            db.EventImages.Add(imageRecord);
+            db.SuKienAnh.Add(imageRecord);
             existingCount++;
             if (isCover) hasCover = true;
 
             uploadedImages.Add(new
             {
                 id = imageRecord.Id,
-                imageUrl = imageRecord.ImageUrl,
-                isCover = imageRecord.IsCover,
-                createdAt = imageRecord.CreatedAt
+                imageUrl = imageRecord.AnhUrl,
+                isCover = imageRecord.AnhBia,
+                createdAt = imageRecord.NgayTao
             });
         }
 
-        // Sync SuKien.ImageUrl with cover image
+        // Sync SuKien.AnhUrl with cover image
         await SyncCoverImage(item);
         await db.SaveChangesAsync();
 
@@ -257,31 +257,31 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         var item = await LoadOwnedEvent(id);
         if (item is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa sự kiện này." }, statusCode: 403);
 
-        var image = await db.EventImages.FirstOrDefaultAsync(img => img.Id == imageId && img.SuKienId == id);
-        if (image is null) return Results.NotFound(new { message = "Không tìm thấy ảnh." });
+        var suKienAnh = await db.SuKienAnh.FirstOrDefaultAsync(img => img.Id == imageId && img.SuKienId == id);
+        if (suKienAnh is null) return Results.NotFound(new { message = "Không tìm thấy ảnh." });
 
         // Delete physical file
-        var filePath = Path.Combine(env.WebRootPath, image.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        var filePath = Path.Combine(env.WebRootPath, suKienAnh.AnhUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
         if (System.IO.File.Exists(filePath))
         {
             System.IO.File.Delete(filePath);
         }
 
-        var wasCover = image.IsCover;
-        db.EventImages.Remove(image);
+        var wasCover = suKienAnh.AnhBia;
+        db.SuKienAnh.Remove(suKienAnh);
         await db.SaveChangesAsync();
 
         // If deleted image was cover, assign cover to first remaining image
         if (wasCover)
         {
-            var firstRemaining = await db.EventImages
+            var firstRemaining = await db.SuKienAnh
                 .Where(img => img.SuKienId == id)
-                .OrderBy(img => img.CreatedAt)
+                .OrderBy(img => img.NgayTao)
                 .FirstOrDefaultAsync();
 
             if (firstRemaining is not null)
             {
-                firstRemaining.IsCover = true;
+                firstRemaining.AnhBia = true;
             }
 
             await SyncCoverImage(item);
@@ -297,22 +297,22 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         var item = await LoadOwnedEvent(id);
         if (item is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa sự kiện này." }, statusCode: 403);
 
-        var image = await db.EventImages.FirstOrDefaultAsync(img => img.Id == imageId && img.SuKienId == id);
-        if (image is null) return Results.NotFound(new { message = "Không tìm thấy ảnh." });
+        var suKienAnh = await db.SuKienAnh.FirstOrDefaultAsync(img => img.Id == imageId && img.SuKienId == id);
+        if (suKienAnh is null) return Results.NotFound(new { message = "Không tìm thấy ảnh." });
 
         // Clear all covers for this event
-        var currentCovers = await db.EventImages
-            .Where(img => img.SuKienId == id && img.IsCover)
+        var currentCovers = await db.SuKienAnh
+            .Where(img => img.SuKienId == id && img.AnhBia)
             .ToListAsync();
         foreach (var cover in currentCovers)
         {
-            cover.IsCover = false;
+            cover.AnhBia = false;
         }
 
         // Set new cover
-        image.IsCover = true;
-        item.ImageUrl = image.ImageUrl;
-        item.UpdatedAt = DateTime.UtcNow;
+        suKienAnh.AnhBia = true;
+        item.AnhUrl = suKienAnh.AnhUrl;
+        item.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         return Results.Ok(new { message = "Đã đặt ảnh đại diện." });
@@ -323,11 +323,11 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     {
         var item = await LoadOwnedEvent(id);
         if (item is null) return Results.Json(new { message = "Bạn không có quyền xuất bản sự kiện này." }, statusCode: 403);
-        if (item.EndAt <= item.StartAt || item.EndAt <= DateTime.UtcNow)
+        if (item.ThoiGianKetThuc <= item.ThoiGianBatDau || item.ThoiGianKetThuc <= DateTime.UtcNow)
             return Results.BadRequest(new { message = "Thời gian sự kiện không hợp lệ hoặc sự kiện đã kết thúc." });
 
-        item.Status = "PUBLISHED";
-        item.UpdatedAt = DateTime.UtcNow;
+        item.TrangThai = "PUBLISHED";
+        item.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã xuất bản sự kiện." });
     }
@@ -338,8 +338,8 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
         var item = await LoadOwnedEvent(id);
         if (item is null) return Results.Json(new { message = "Bạn không có quyền hủy sự kiện này." }, statusCode: 403);
 
-        item.Status = "CANCELLED";
-        item.UpdatedAt = DateTime.UtcNow;
+        item.TrangThai = "CANCELLED";
+        item.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã hủy sự kiện." });
     }
@@ -349,23 +349,23 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     {
         var item = await LoadOwnedEvent(id);
         if (item is null) return Results.Json(new { message = "Bạn không có quyền xóa sự kiện này." }, statusCode: 403);
-        if (item.Registrations.Any(registration => registration.Status == "REGISTERED"))
+        if (item.CacDangKy.Any(registration => registration.TrangThai == "REGISTERED"))
             return Results.BadRequest(new { message = "Sự kiện đã có người đăng ký nên không thể xóa. Bạn có thể hủy sự kiện." });
 
         // Delete all image files
-        var images = await db.EventImages.Where(img => img.SuKienId == id).ToListAsync();
-        foreach (var image in images)
+        var dsSuKienAnh = await db.SuKienAnh.Where(img => img.SuKienId == id).ToListAsync();
+        foreach (var suKienAnh in dsSuKienAnh)
         {
-            var filePath = Path.Combine(env.WebRootPath, image.ImageUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+            var filePath = Path.Combine(env.WebRootPath, suKienAnh.AnhUrl.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
             if (System.IO.File.Exists(filePath))
             {
                 System.IO.File.Delete(filePath);
             }
         }
 
-        db.EventImages.RemoveRange(images);
-        db.EventRegistrations.RemoveRange(item.Registrations);
-        db.Events.Remove(item);
+        db.SuKienAnh.RemoveRange(dsSuKienAnh);
+        db.DangKySuKien.RemoveRange(item.CacDangKy);
+        db.SuKien.Remove(item);
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã xóa sự kiện." });
     }
@@ -376,26 +376,26 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     {
         if (User.FindFirstValue(ClaimTypes.Role) != "STUDENT") return Results.Forbid();
         var userId = TroGiup.LayUserId(User)!;
-        var item = await db.Events.Include(item => item.Registrations).FirstOrDefaultAsync(item => item.Id == id);
-        if (item is null || item.Status != "PUBLISHED") return Results.NotFound(new { message = "Không tìm thấy sự kiện đang mở đăng ký." });
-        if (item.EndAt <= DateTime.UtcNow) return Results.BadRequest(new { message = "Sự kiện đã kết thúc, không thể đăng ký." });
+        var item = await db.SuKien.Include(item => item.CacDangKy).FirstOrDefaultAsync(item => item.Id == id);
+        if (item is null || item.TrangThai != "PUBLISHED") return Results.NotFound(new { message = "Không tìm thấy sự kiện đang mở đăng ký." });
+        if (item.ThoiGianKetThuc <= DateTime.UtcNow) return Results.BadRequest(new { message = "Sự kiện đã kết thúc, không thể đăng ký." });
 
-        var registration = item.Registrations.FirstOrDefault(entry => entry.UserId == userId);
-        var activeCount = item.Registrations.Count(entry => entry.Status == "REGISTERED");
-        if (registration?.Status == "REGISTERED") return Results.BadRequest(new { message = "Bạn đã đăng ký sự kiện này." });
-        if (activeCount >= item.Capacity) return Results.BadRequest(new { message = "Sự kiện đã đủ số lượng đăng ký." });
+        var registration = item.CacDangKy.FirstOrDefault(entry => entry.NguoiDungId == userId);
+        var activeCount = item.CacDangKy.Count(entry => entry.TrangThai == "REGISTERED");
+        if (registration?.TrangThai == "REGISTERED") return Results.BadRequest(new { message = "Bạn đã đăng ký sự kiện này." });
+        if (activeCount >= item.SucChua) return Results.BadRequest(new { message = "Sự kiện đã đủ số lượng đăng ký." });
 
         var now = DateTime.UtcNow;
-        var user = await db.Users.FirstOrDefaultAsync(user => user.Id == userId);
+        var user = await db.NguoiDung.FirstOrDefaultAsync(user => user.Id == userId);
         if (user is null) return Results.Unauthorized();
-        var pointsUsed = Math.Max(0, item.PointCost);
+        var pointsUsed = Math.Max(0, item.DiemYeuCau);
         if (pointsUsed > 0)
         {
-            if (user.RewardPoints < pointsUsed)
+            if (user.DiemThuong < pointsUsed)
                 return Results.BadRequest(new { message = "Bạn không đủ điểm để tham gia sự kiện này" });
 
-            user.RewardPoints -= pointsUsed;
-            user.UpdatedAt = now;
+            user.DiemThuong -= pointsUsed;
+            user.NgayCapNhat = now;
         }
 
         if (registration is null)
@@ -403,34 +403,34 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
             registration = new DangKySuKien
             {
                 Id = TaoId.Moi(),
-                EventId = id,
-                UserId = userId,
-                PointsUsed = pointsUsed,
-                RegisteredAt = now,
-                CreatedAt = now,
-                UpdatedAt = now
+                SuKienId = id,
+                NguoiDungId = userId,
+                DiemDaDung = pointsUsed,
+                NgayDangKy = now,
+                NgayTao = now,
+                NgayCapNhat = now
             };
-            db.EventRegistrations.Add(registration);
+            db.DangKySuKien.Add(registration);
         }
         else
         {
-            registration.Status = "REGISTERED";
-            registration.PointsUsed = pointsUsed;
-            registration.RegisteredAt = now;
-            registration.UpdatedAt = now;
+            registration.TrangThai = "REGISTERED";
+            registration.DiemDaDung = pointsUsed;
+            registration.NgayDangKy = now;
+            registration.NgayCapNhat = now;
         }
 
-        var studentName = user.Name;
-        db.Notifications.Add(new ThongBao
+        var studentName = user.Ten;
+        db.ThongBao.Add(new ThongBao
         {
             Id = TaoId.Moi(),
-            UserId = item.InstructorId,
-            Type = "INSTRUCTOR_EVENT_REGISTRATION",
-            Title = "Có học viên đăng ký sự kiện",
-            Body = $"{studentName} vừa đăng ký sự kiện {item.Title}.",
-            Link = "/instructor/events",
+            NguoiDungId = item.GiangVienId,
+            LoaiThongBao = "INSTRUCTOR_EVENT_REGISTRATION",
+            TieuDe = "Có học viên đăng ký sự kiện",
+            NoiDung = $"{studentName} vừa đăng ký sự kiện {item.TieuDe}.",
+            DuongDan = "/instructor/events",
             Metadata = System.Text.Json.JsonSerializer.Serialize(new { eventId = item.Id, studentId = userId }),
-            CreatedAt = now
+            NgayTao = now
         });
 
         await db.SaveChangesAsync();
@@ -440,7 +440,7 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
             isRegistered = true,
             registrationCount = activeCount + 1,
             pointsUsed,
-            rewardPoints = user.RewardPoints,
+            rewardPoints = user.DiemThuong,
             linkThamGia = item.LinkThamGia,
             onlineUrl = item.LinkThamGia
         });
@@ -452,16 +452,16 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     {
         if (User.FindFirstValue(ClaimTypes.Role) != "STUDENT") return Results.Forbid();
         var userId = TroGiup.LayUserId(User)!;
-        var registration = await db.EventRegistrations
+        var registration = await db.DangKySuKien
             .Include(item => item.Event)
-            .FirstOrDefaultAsync(item => item.EventId == id && item.UserId == userId);
-        if (registration is null || registration.Status != "REGISTERED")
+            .FirstOrDefaultAsync(item => item.SuKienId == id && item.NguoiDungId == userId);
+        if (registration is null || registration.TrangThai != "REGISTERED")
             return Results.NotFound(new { message = "Bạn chưa đăng ký sự kiện này." });
-        if (registration.Event?.StartAt <= DateTime.UtcNow)
+        if (registration.Event?.ThoiGianBatDau <= DateTime.UtcNow)
             return Results.BadRequest(new { message = "Sự kiện đã bắt đầu, không thể hủy đăng ký." });
 
-        registration.Status = "CANCELLED";
-        registration.UpdatedAt = DateTime.UtcNow;
+        registration.TrangThai = "CANCELLED";
+        registration.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Đã hủy đăng ký sự kiện." });
     }
@@ -470,18 +470,18 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
     {
         if (TroGiup.YeuCauGiangVien(User) is not null) return null;
         var userId = TroGiup.LayUserId(User);
-        return await db.Events.Include(item => item.Registrations)
-            .FirstOrDefaultAsync(item => item.Id == id && item.InstructorId == userId);
+        return await db.SuKien.Include(item => item.CacDangKy)
+            .FirstOrDefaultAsync(item => item.Id == id && item.GiangVienId == userId);
     }
 
     private async Task SyncCoverImage(SuKien item)
     {
-        var coverImage = await db.EventImages
-            .Where(img => img.SuKienId == item.Id && img.IsCover)
+        var coverImage = await db.SuKienAnh
+            .Where(img => img.SuKienId == item.Id && img.AnhBia)
             .FirstOrDefaultAsync();
 
-        item.ImageUrl = coverImage?.ImageUrl;
-        item.UpdatedAt = DateTime.UtcNow;
+        item.AnhUrl = coverImage?.AnhUrl;
+        item.NgayCapNhat = DateTime.UtcNow;
     }
 
     private static string? Validate(LuuSuKienRequest request)
@@ -501,59 +501,59 @@ public class SuKienController(ApplicationDbContext db, IWebHostEnvironment env) 
 
     private static void Apply(SuKien item, LuuSuKienRequest request)
     {
-        item.Title = request.Title!.Trim();
-        item.Description = request.Description!.Trim();
-        item.Type = request.Type!.Trim().ToUpperInvariant();
+        item.TieuDe = request.Title!.Trim();
+        item.MoTa = request.Description!.Trim();
+        item.LoaiSuKien = request.Type!.Trim().ToUpperInvariant();
         item.Format = request.Format!.Trim().ToUpperInvariant();
-        item.StartAt = request.StartAt;
-        item.EndAt = request.EndAt;
-        item.Location = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
+        item.ThoiGianBatDau = request.StartAt;
+        item.ThoiGianKetThuc = request.EndAt;
+        item.DiaDiem = string.IsNullOrWhiteSpace(request.Location) ? null : request.Location.Trim();
         item.LinkThamGia = string.IsNullOrWhiteSpace(request.LinkThamGia) ? null : request.LinkThamGia.Trim();
-        item.Capacity = request.Capacity;
-        item.PointCost = request.PointCost;
+        item.SucChua = request.Capacity;
+        item.DiemYeuCau = request.PointCost;
         // Note: ImageUrl is now managed via SuKienAnh (cover image sync)
         // Keep backward compat: if request has imageUrl and no images uploaded yet, use it
         if (!string.IsNullOrWhiteSpace(request.ImageUrl))
-            item.ImageUrl = request.ImageUrl.Trim();
+            item.AnhUrl = request.ImageUrl.Trim();
     }
 
     private static object MapEvent(SuKien item, string? userId, bool includeAttendees = false)
     {
-        var activeRegistrations = item.Registrations.Where(entry => entry.Status == "REGISTERED").ToList();
-        var isRegistered = activeRegistrations.Any(entry => entry.UserId == userId);
+        var activeRegistrations = item.CacDangKy.Where(entry => entry.TrangThai == "REGISTERED").ToList();
+        var isRegistered = activeRegistrations.Any(entry => entry.NguoiDungId == userId);
         var joinLink = includeAttendees || isRegistered ? item.LinkThamGia : null;
-        var images = item.Images?.OrderByDescending(img => img.IsCover).ThenBy(img => img.CreatedAt)
-            .Select(img => new { id = img.Id, imageUrl = img.ImageUrl, isCover = img.IsCover, createdAt = img.CreatedAt })
+        var images = item.CacHinhAnh?.OrderByDescending(img => img.AnhBia).ThenBy(img => img.NgayTao)
+            .Select(img => new { id = img.Id, imageUrl = img.AnhUrl, isCover = img.AnhBia, createdAt = img.NgayTao })
             .ToList();
-        var coverImage = item.Images?.FirstOrDefault(img => img.IsCover) ?? item.Images?.FirstOrDefault();
+        var coverImage = item.CacHinhAnh?.FirstOrDefault(img => img.AnhBia) ?? item.CacHinhAnh?.FirstOrDefault();
 
         return new
         {
             id = item.Id,
-            title = item.Title,
-            description = item.Description,
-            type = item.Type,
+            title = item.TieuDe,
+            description = item.MoTa,
+            type = item.LoaiSuKien,
             format = item.Format,
-            startAt = item.StartAt,
-            endAt = item.EndAt,
-            location = item.Location,
+            startAt = item.ThoiGianBatDau,
+            endAt = item.ThoiGianKetThuc,
+            location = item.DiaDiem,
             onlineUrl = joinLink,
             linkThamGia = joinLink,
-            imageUrl = coverImage?.ImageUrl ?? item.ImageUrl,
-            capacity = item.Capacity,
-            pointCost = Math.Max(0, item.PointCost),
-            pointsUsed = activeRegistrations.FirstOrDefault(entry => entry.UserId == userId)?.PointsUsed ?? 0,
-            status = item.Status,
-            instructorId = item.InstructorId,
-            instructorName = item.Instructor?.Name ?? "Giảng viên",
+            imageUrl = coverImage?.AnhUrl ?? item.AnhUrl,
+            capacity = item.SucChua,
+            pointCost = Math.Max(0, item.DiemYeuCau),
+            pointsUsed = activeRegistrations.FirstOrDefault(entry => entry.NguoiDungId == userId)?.DiemDaDung ?? 0,
+            status = item.TrangThai,
+            instructorId = item.GiangVienId,
+            instructorName = item.GiangVien?.Ten ?? "Giảng viên",
             registrationCount = activeRegistrations.Count,
             isRegistered,
             images,
             attendees = includeAttendees
-                ? activeRegistrations.Select(entry => new { id = entry.UserId, name = entry.User?.Name, email = entry.User?.Email, pointsUsed = entry.PointsUsed, registeredAt = entry.RegisteredAt })
+                ? activeRegistrations.Select(entry => new { id = entry.NguoiDungId, name = entry.NguoiDung?.Ten, email = entry.NguoiDung?.Email, pointsUsed = entry.DiemDaDung, registeredAt = entry.NgayDangKy })
                 : null,
-            createdAt = item.CreatedAt,
-            updatedAt = item.UpdatedAt
+            createdAt = item.NgayTao,
+            updatedAt = item.NgayCapNhat
         };
     }
 

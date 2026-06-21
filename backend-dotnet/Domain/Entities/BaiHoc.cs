@@ -3,25 +3,25 @@ namespace LMS.Api.Domain.Entities;
 public class BaiHoc
 {
     public string Id { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string? Content { get; set; }
+    public string TieuDe { get; set; } = string.Empty;
+    public string? NoiDung { get; set; }
     public string? VideoUrl { get; set; }
     public string? IllustrationUrl { get; set; }
     public string? FileUrl { get; set; }
-    public int? DurationSeconds { get; set; }
-    public int Position { get; set; }
-    public bool IsPublished { get; set; }
-    public string Status { get; set; } = "DRAFT";
-    public bool IsPreview { get; set; }
-    public string CourseId { get; set; } = string.Empty;
-    public KhoaHoc? Course { get; set; }
-    public string SectionId { get; set; } = string.Empty;
-    public ChuongHoc? Section { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public int? ThoiLuongGiay { get; set; }
+    public int ThuTu { get; set; }
+    public bool DaXuatBan { get; set; }
+    public string TrangThai { get; set; } = "DRAFT";
+    public bool ChoXemTruoc { get; set; }
+    public string KhoaHocId { get; set; } = string.Empty;
+    public KhoaHoc? KhoaHoc { get; set; }
+    public string ChuongHocId { get; set; } = string.Empty;
+    public ChuongHoc? ChuongHoc { get; set; }
+    public DateTime NgayTao { get; set; }
+    public DateTime NgayCapNhat { get; set; }
 
-    public ICollection<TienDoBaiHoc> Progresses { get; set; } = [];
-    public ICollection<BinhLuan> Comments { get; set; } = [];
-    public ICollection<BaiTap> Assignments { get; set; } = [];
-    public BaiKiemTra? Quiz { get; set; }
+    public ICollection<TienDoBaiHoc> CacTienDoBaiHoc { get; set; } = [];
+    public ICollection<BinhLuan> CacBinhLuan { get; set; } = [];
+    public ICollection<BaiTap> CacBaiTap { get; set; } = [];
+    public BaiKiemTra? BaiKiemTra { get; set; }
 }

@@ -27,8 +27,7 @@ export default function AdminSecurity() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Bảo mật và audit log</h1>
-        <p className="mt-1 text-sm text-slate-500">Theo dõi các hành động quản trị tác động đến người dùng, khóa học và giao dịch.</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Bảo mật</h1>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">

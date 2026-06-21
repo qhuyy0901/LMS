@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Instructor.Controllers;
+namespace LMS.Api.Areas.GiangVien.Controllers;
 
 [ApiController]
 [Authorize]
@@ -23,19 +23,19 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         if (loi is not null) return loi;
 
         var teacherId = TroGiup.LayUserId(User)!;
-        var query = db.Coupons.AsNoTracking()
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
-            .Where(coupon => coupon.TeacherId == teacherId);
+        var query = db.MaGiamGia.AsNoTracking()
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
+            .Where(coupon => coupon.GiangVienId == teacherId);
 
         if (!string.IsNullOrWhiteSpace(q))
         {
             var keyword = q.Trim();
-            query = query.Where(coupon => coupon.Code.Contains(keyword) || (coupon.Course != null && coupon.Course.Title.Contains(keyword)));
+            query = query.Where(coupon => coupon.Ma.Contains(keyword) || (coupon.KhoaHoc != null && coupon.KhoaHoc.TieuDe.Contains(keyword)));
         }
 
         var vouchers = await query
-            .OrderByDescending(coupon => coupon.CreatedAt)
+            .OrderByDescending(coupon => coupon.NgayTao)
             .ToListAsync();
 
         if (!string.IsNullOrWhiteSpace(status))
@@ -62,7 +62,7 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         if (string.IsNullOrWhiteSpace(request.Code)) return Results.BadRequest(new { message = "Mã giảm giá không được để trống" });
 
         var code = request.Code.Trim().ToUpperInvariant();
-        if (await db.Coupons.AnyAsync(coupon => coupon.Code == code)) return Results.Conflict(new { message = "Mã giảm giá đã tồn tại" });
+        if (await db.MaGiamGia.AnyAsync(coupon => coupon.Ma == code)) return Results.Conflict(new { message = "Mã giảm giá đã tồn tại" });
 
         var discountType = NormalizeDiscountType(request.DiscountType);
         if (request.DiscountValue <= 0) return Results.BadRequest(new { message = "Giá trị giảm phải lớn hơn 0" });
@@ -73,7 +73,7 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         KhoaHoc? course = null;
         if (!string.IsNullOrWhiteSpace(request.CourseId))
         {
-            course = await db.Courses.FirstOrDefaultAsync(item => item.Id == request.CourseId && item.InstructorId == teacherId);
+            course = await db.KhoaHoc.FirstOrDefaultAsync(item => item.Id == request.CourseId && item.GiangVienId == teacherId);
             if (course is null) return Results.Json(new { message = "Bạn không có quyền tạo voucher cho khóa học này" }, statusCode: 403);
         }
 
@@ -81,7 +81,7 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         var voucher = new MaGiamGia
         {
             Id = TaoId.Moi(),
-            Code = code,
+            Ma = code,
             DiscountType = discountType,
             DiscountValue = request.DiscountValue,
             MinPurchaseAmount = Math.Max(0, request.MinPurchaseAmount ?? 0),
@@ -90,21 +90,21 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
             EndDate = request.EndDate,
             UsageLimit = request.UsageLimit,
             UsageCount = 0,
-            CourseId = course?.Id,
-            TeacherId = teacherId,
-            Status = "ACTIVE",
-            IsActive = true,
+            KhoaHocId = course?.Id,
+            GiangVienId = teacherId,
+            TrangThai = "ACTIVE",
+            HoatDong = true,
             IsPrivate = false,
-            CreatedAt = now,
-            UpdatedAt = now
+            NgayTao = now,
+            NgayCapNhat = now
         };
 
-        db.Coupons.Add(voucher);
+        db.MaGiamGia.Add(voucher);
         await db.SaveChangesAsync();
 
-        var saved = await db.Coupons.AsNoTracking()
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
+        var saved = await db.MaGiamGia.AsNoTracking()
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
             .FirstAsync(coupon => coupon.Id == voucher.Id);
         return Results.Created($"/api/teacher/vouchers/{voucher.Id}", MapVoucher(saved));
     }
@@ -117,15 +117,15 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         if (loi is not null) return loi;
 
         var teacherId = TroGiup.LayUserId(User)!;
-        var voucher = await db.Coupons
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
-            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.TeacherId == teacherId);
+        var voucher = await db.MaGiamGia
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
+            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.GiangVienId == teacherId);
         if (voucher is null) return Results.NotFound(new { message = "Không tìm thấy voucher" });
 
-        voucher.IsActive = !voucher.IsActive;
-        voucher.Status = voucher.IsActive ? "ACTIVE" : "INACTIVE";
-        voucher.UpdatedAt = DateTime.UtcNow;
+        voucher.HoatDong = !voucher.HoatDong;
+        voucher.TrangThai = voucher.HoatDong ? "ACTIVE" : "INACTIVE";
+        voucher.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
         return Results.Ok(MapVoucher(voucher));
@@ -139,18 +139,18 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         if (loi is not null) return loi;
 
         var teacherId = TroGiup.LayUserId(User)!;
-        var voucher = await db.Coupons
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
-            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.TeacherId == teacherId);
+        var voucher = await db.MaGiamGia
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
+            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.GiangVienId == teacherId);
         if (voucher is null) return Results.NotFound(new { message = "Không tìm thấy voucher" });
 
         if (!string.IsNullOrWhiteSpace(request.Code))
         {
             var code = request.Code.Trim().ToUpperInvariant();
-            if (code != voucher.Code && await db.Coupons.AnyAsync(coupon => coupon.Code == code))
+            if (code != voucher.Ma && await db.MaGiamGia.AnyAsync(coupon => coupon.Ma == code))
                 return Results.Conflict(new { message = "Mã giảm giá đã tồn tại" });
-            voucher.Code = code;
+            voucher.Ma = code;
         }
 
         var discountType = NormalizeDiscountType(request.DiscountType);
@@ -162,7 +162,7 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         KhoaHoc? course = null;
         if (!string.IsNullOrWhiteSpace(request.CourseId))
         {
-            course = await db.Courses.FirstOrDefaultAsync(item => item.Id == request.CourseId && item.InstructorId == teacherId);
+            course = await db.KhoaHoc.FirstOrDefaultAsync(item => item.Id == request.CourseId && item.GiangVienId == teacherId);
             if (course is null) return Results.Json(new { message = "Bạn không có quyền sử dụng khóa học này" }, statusCode: 403);
         }
 
@@ -173,13 +173,13 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         voucher.StartDate = request.StartDate;
         voucher.EndDate = request.EndDate;
         voucher.UsageLimit = request.UsageLimit;
-        voucher.CourseId = course?.Id;
-        voucher.UpdatedAt = DateTime.UtcNow;
+        voucher.KhoaHocId = course?.Id;
+        voucher.NgayCapNhat = DateTime.UtcNow;
         await db.SaveChangesAsync();
 
-        var saved = await db.Coupons.AsNoTracking()
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
+        var saved = await db.MaGiamGia.AsNoTracking()
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
             .FirstAsync(coupon => coupon.Id == voucher.Id);
         return Results.Ok(MapVoucher(saved));
     }
@@ -192,15 +192,15 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         if (loi is not null) return loi;
 
         var teacherId = TroGiup.LayUserId(User)!;
-        var voucher = await db.Coupons
-            .Include(coupon => coupon.Recipients)
-            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.TeacherId == teacherId);
+        var voucher = await db.MaGiamGia
+            .Include(coupon => coupon.CacNguoiNhan)
+            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.GiangVienId == teacherId);
         if (voucher is null) return Results.NotFound(new { message = "Không tìm thấy voucher" });
 
-        if (voucher.Recipients.Count > 0)
-            db.CouponRecipients.RemoveRange(voucher.Recipients);
+        if (voucher.CacNguoiNhan.Count > 0)
+            db.NguoiNhanMaGiamGia.RemoveRange(voucher.CacNguoiNhan);
 
-        db.Coupons.Remove(voucher);
+        db.MaGiamGia.Remove(voucher);
         await db.SaveChangesAsync();
 
         return Results.Ok(new { message = "Đã xóa voucher thành công" });
@@ -214,21 +214,21 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         if (loi is not null) return loi;
 
         var teacherId = TroGiup.LayUserId(User)!;
-        if (!await db.Courses.AnyAsync(course => course.Id == sourceCourseId && course.InstructorId == teacherId))
+        if (!await db.KhoaHoc.AnyAsync(course => course.Id == sourceCourseId && course.GiangVienId == teacherId))
             return Results.Json(new { message = "Bạn không có quyền xem học viên của khóa học này" }, statusCode: 403);
 
-        var purchased = db.Purchases.AsNoTracking()
-            .Where(purchase => purchase.CourseId == sourceCourseId && purchase.Status == "COMPLETED")
-            .Select(purchase => purchase.UserId);
-        var completed = db.Enrollments.AsNoTracking()
-            .Where(enrollment => enrollment.CourseId == sourceCourseId && (enrollment.CompletedAt != null || enrollment.Progress >= 100))
-            .Select(enrollment => enrollment.UserId);
+        var purchased = db.DonMua.AsNoTracking()
+            .Where(purchase => purchase.KhoaHocId == sourceCourseId && purchase.TrangThai == "COMPLETED")
+            .Select(purchase => purchase.NguoiDungId);
+        var completed = db.GhiDanh.AsNoTracking()
+            .Where(enrollment => enrollment.KhoaHocId == sourceCourseId && (enrollment.NgayHoanThanh != null || enrollment.TienDo >= 100))
+            .Select(enrollment => enrollment.NguoiDungId);
         var userIds = await purchased.Union(completed).Distinct().ToListAsync();
 
-        var students = await db.Users.AsNoTracking()
+        var students = await db.NguoiDung.AsNoTracking()
             .Where(user => userIds.Contains(user.Id))
-            .OrderBy(user => user.Name)
-            .Select(user => new { id = user.Id, name = user.Name, email = user.Email, avatar = user.Avatar })
+            .OrderBy(user => user.Ten)
+            .Select(user => new { id = user.Id, name = user.Ten, email = user.Email, avatar = user.AnhDaiDien })
             .ToListAsync();
 
         return Results.Ok(new { items = students, total = students.Count });
@@ -245,15 +245,15 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
         var sourceCourseId = request.SourceCourseId?.Trim();
         if (string.IsNullOrWhiteSpace(sourceCourseId)) return Results.BadRequest(new { message = "Vui lòng chọn khóa học nguồn để gửi voucher" });
 
-        var sourceCourse = await db.Courses.AsNoTracking().FirstOrDefaultAsync(course => course.Id == sourceCourseId && course.InstructorId == teacherId);
+        var sourceCourse = await db.KhoaHoc.AsNoTracking().FirstOrDefaultAsync(course => course.Id == sourceCourseId && course.GiangVienId == teacherId);
         if (sourceCourse is null) return Results.Json(new { message = "Bạn không có quyền gửi voucher từ khóa học này" }, statusCode: 403);
 
-        var voucher = await db.Coupons
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
-            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.TeacherId == teacherId);
+        var voucher = await db.MaGiamGia
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
+            .FirstOrDefaultAsync(coupon => coupon.Id == id && coupon.GiangVienId == teacherId);
         if (voucher is null) return Results.NotFound(new { message = "Không tìm thấy voucher" });
-        if (!string.IsNullOrWhiteSpace(voucher.CourseId) && voucher.CourseId == sourceCourseId)
+        if (!string.IsNullOrWhiteSpace(voucher.KhoaHocId) && voucher.KhoaHocId == sourceCourseId)
             return Results.BadRequest(new { message = "Voucher tặng học viên phải áp dụng cho khóa học khác của cùng giảng viên" });
 
         var requestedStudentIds = (request.StudentIds ?? [])
@@ -263,51 +263,51 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
             .ToList();
         if (requestedStudentIds.Count == 0) return Results.BadRequest(new { message = "Vui lòng chọn ít nhất một học viên" });
 
-        var purchased = db.Purchases
-            .Where(purchase => purchase.CourseId == sourceCourseId && purchase.Status == "COMPLETED")
-            .Select(purchase => purchase.UserId);
-        var completed = db.Enrollments
-            .Where(enrollment => enrollment.CourseId == sourceCourseId && (enrollment.CompletedAt != null || enrollment.Progress >= 100))
-            .Select(enrollment => enrollment.UserId);
+        var purchased = db.DonMua
+            .Where(purchase => purchase.KhoaHocId == sourceCourseId && purchase.TrangThai == "COMPLETED")
+            .Select(purchase => purchase.NguoiDungId);
+        var completed = db.GhiDanh
+            .Where(enrollment => enrollment.KhoaHocId == sourceCourseId && (enrollment.NgayHoanThanh != null || enrollment.TienDo >= 100))
+            .Select(enrollment => enrollment.NguoiDungId);
         var eligible = await purchased.Union(completed)
             .Where(userId => requestedStudentIds.Contains(userId))
             .Distinct()
             .ToListAsync();
         if (eligible.Count == 0) return Results.BadRequest(new { message = "Không có học viên hợp lệ để nhận voucher" });
 
-        var existingRecipients = voucher.Recipients.Select(recipient => recipient.UserId).ToHashSet();
+        var existingRecipients = voucher.CacNguoiNhan.Select(recipient => recipient.NguoiDungId).ToHashSet();
         var now = DateTime.UtcNow;
         foreach (var studentId in eligible.Where(studentId => !existingRecipients.Contains(studentId)))
         {
-            db.CouponRecipients.Add(new NguoiNhanMaGiamGia
+            db.NguoiNhanMaGiamGia.Add(new NguoiNhanMaGiamGia
             {
                 Id = TaoId.Moi(),
-                CouponId = voucher.Id,
-                UserId = studentId,
-                TeacherId = teacherId,
+                MaGiamGiaId = voucher.Id,
+                NguoiDungId = studentId,
+                GiangVienId = teacherId,
                 SourceCourseId = sourceCourseId,
-                CreatedAt = now
+                NgayTao = now
             });
-            db.Notifications.Add(new ThongBao
+            db.ThongBao.Add(new ThongBao
             {
                 Id = TaoId.Moi(),
-                UserId = studentId,
-                Type = "TEACHER_VOUCHER",
-                Title = "Bạn nhận được mã giảm giá",
-                Body = $"Giảng viên đã gửi mã {voucher.Code} cho khóa học tiếp theo của bạn.",
-                Link = voucher.CourseId is null ? "/explore" : $"/course/{voucher.CourseId}",
-                Metadata = JsonSerializer.Serialize(new { couponId = voucher.Id, code = voucher.Code, sourceCourseId }),
-                CreatedAt = now
+                NguoiDungId = studentId,
+                LoaiThongBao = "TEACHER_VOUCHER",
+                TieuDe = "Bạn nhận được mã giảm giá",
+                NoiDung = $"Giảng viên đã gửi mã {voucher.Ma} cho khóa học tiếp theo của bạn.",
+                DuongDan = voucher.KhoaHocId is null ? "/explore" : $"/course/{voucher.KhoaHocId}",
+                Metadata = JsonSerializer.Serialize(new { couponId = voucher.Id, code = voucher.Ma, sourceCourseId }),
+                NgayTao = now
             });
         }
 
         voucher.IsPrivate = true;
-        voucher.UpdatedAt = now;
+        voucher.NgayCapNhat = now;
         await db.SaveChangesAsync();
 
-        var saved = await db.Coupons.AsNoTracking()
-            .Include(coupon => coupon.Course)
-            .Include(coupon => coupon.Recipients)
+        var saved = await db.MaGiamGia.AsNoTracking()
+            .Include(coupon => coupon.KhoaHoc)
+            .Include(coupon => coupon.CacNguoiNhan)
             .FirstAsync(coupon => coupon.Id == voucher.Id);
         return Results.Ok(new { message = "Đã gửi voucher cho học viên hợp lệ", voucher = MapVoucher(saved), sentCount = eligible.Count });
     }
@@ -320,7 +320,7 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
 
     private static string VoucherStatus(MaGiamGia coupon)
     {
-        if (!coupon.IsActive || string.Equals(coupon.Status, "INACTIVE", StringComparison.OrdinalIgnoreCase)) return "INACTIVE";
+        if (!coupon.HoatDong || string.Equals(coupon.TrangThai, "INACTIVE", StringComparison.OrdinalIgnoreCase)) return "INACTIVE";
         if (coupon.EndDate is not null && DateTime.UtcNow > coupon.EndDate.Value) return "EXPIRED";
         return "ACTIVE";
     }
@@ -349,7 +349,7 @@ public class GiangVienMaGiamGiaController(ApplicationDbContext db) : ControllerB
             dto.TeacherId,
             status = VoucherStatus(coupon),
             dto.IsPrivate,
-            recipientCount = coupon.Recipients.Count,
+            recipientCount = coupon.CacNguoiNhan.Count,
             dto.CreatedAt,
             dto.UpdatedAt
         };

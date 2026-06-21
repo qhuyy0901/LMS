@@ -1,0 +1,319 @@
+@model IEnumerable<LMS.Api.Domain.Entities.KhoaHoc>
+
+@{
+    ViewData["Title"] = "Khám phá khóa học";
+    var categories = ViewData["Categories"] as List<LMS.Api.Domain.Entities.DanhMuc> ?? new List<LMS.Api.Domain.Entities.DanhMuc>();
+    var selectedCategoryId = ViewData["SelectedCategoryId"] as string;
+}
+
+<div class="explore-container animate-fade-in">
+    <div class="explore-header">
+        <h1 class="explore-title">Khám phá khóa học</h1>
+        <p class="explore-subtitle">Đồng hành cùng hàng ngàn học viên trên con đường phát triển sự nghiệp lập trình và công nghệ.</p>
+    </div>
+
+    <!-- Category Chips -->
+    <div class="chips-container">
+        <a asp-action="Index" class="chip @(string.IsNullOrEmpty(selectedCategoryId) ? "chip-active" : "")">
+            Tất cả
+        </a>
+        @foreach (var cat in categories)
+        {
+            <a asp-action="Index" asp-route-danhMucId="@cat.Id" class="chip @(selectedCategoryId == cat.Id ? "chip-active" : "")">
+                @cat.Ten
+            </a>
+        }
+    </div>
+
+    <!-- Course Grid -->
+    @if (!Model.Any())
+    {
+        <div class="empty-state">
+            <div class="empty-icon">🎓</div>
+            <h3 class="empty-title">Chưa có khóa học nào thuộc chủ đề này</h3>
+            <p class="empty-desc">Vui lòng thử chọn chuyên mục khác để tiếp tục tìm kiếm khóa học phù hợp.</p>
+            <a asp-action="Index" class="btn btn-primary mt-4">Xem tất cả khóa học</a>
+        </div>
+    }
+    else
+    {
+        <div class="course-grid">
+            @foreach (var course in Model)
+            {
+                <div class="course-card">
+                    <div class="course-thumb">
+                        @{
+                            var thumbnail = course.AnhDaiDien;
+                            if (string.IsNullOrWhiteSpace(thumbnail))
+                            {
+                                thumbnail = "/wwwroot/uploads/courses/default.png";
+                            }
+                            else if (!thumbnail.StartsWith("http") && !thumbnail.StartsWith("/"))
+                            {
+                                thumbnail = "/" + thumbnail;
+                            }
+                        }
+                        <img src="@thumbnail" alt="@course.TieuDe" onerror="this.src='/uploads/courses/default.png'" />
+                        <span class="course-tag">@(course.DanhMuc?.Ten ?? course.ChuyenMuc)</span>
+                    </div>
+                    <div class="course-body">
+                        <div class="course-instructor">
+                            <span class="avatar-stub">@((course.GiangVien?.Ten ?? "G")?[0])</span>
+                            <span>@(course.GiangVien?.Ten ?? "Giảng viên Skillio")</span>
+                        </div>
+                        <h3 class="course-card-title" title="@course.TieuDe">@course.TieuDe</h3>
+                        <p class="course-card-desc">@(string.IsNullOrWhiteSpace(course.MoTaNgan) ? "Chưa có mô tả ngắn về khóa học này." : course.MoTaNgan)</p>
+                        
+                        <div class="course-meta">
+                            <span class="meta-item">📚 @course.CacBaiHoc.Count bài học</span>
+                            <span class="meta-item">⭐ @course.DiemDanhGiaTrungBinh.ToString("0.0")</span>
+                        </div>
+
+                        <div class="course-footer">
+                            <span class="course-price">
+                                @(course.Gia == 0 ? "Miễn phí" : $"{course.Gia.ToString("N0")} đ")
+                            </span>
+                            <a href="http://localhost:5173/course/@course.Id" class="btn btn-view">
+                                Xem chi tiết
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Styles {
+    <style>
+        .explore-container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 10px 0;
+        }
+        .explore-header {
+            margin-bottom: 32px;
+        }
+        .explore-title {
+            font-size: 32px;
+            font-weight: 850;
+            color: #0f172a;
+            margin: 0 0 8px 0;
+            letter-spacing: -0.03em;
+        }
+        .explore-subtitle {
+            font-size: 15px;
+            color: #64748b;
+            max-width: 600px;
+            margin: 0;
+            line-height: 1.5;
+        }
+        .chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 36px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+        .chip {
+            white-space: nowrap;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 650;
+            border-radius: 999px;
+            background-color: #ffffff;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            transition: all 0.2s;
+        }
+        .chip:hover {
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        .chip-active {
+            background-color: #7c3aed;
+            color: #ffffff;
+            border-color: #7c3aed;
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.2);
+        }
+        .chip-active:hover {
+            color: #ffffff;
+            opacity: 0.95;
+        }
+        .course-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 28px;
+        }
+        .course-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.03), 0 2px 4px -2px rgb(0 0 0 / 0.03);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+        }
+        .course-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 20px -8px rgba(0, 0, 0, 0.08);
+            border-color: #cbd5e1;
+        }
+        .course-thumb {
+            position: relative;
+            width: 100%;
+            height: 180px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #e0e7ff, #fae8ff);
+        }
+        .course-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .course-tag {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background-color: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .course-body {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+        .course-instructor {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 550;
+            margin-bottom: 10px;
+        }
+        .avatar-stub {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #7c3aed;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+        .course-card-title {
+            font-size: 17px;
+            font-weight: 750;
+            color: #0f172a;
+            margin: 0 0 8px 0;
+            line-height: 1.4;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            height: 48px;
+        }
+        .course-card-desc {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+            margin: 0 0 16px 0;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            height: 38px;
+        }
+        .course-meta {
+            display: flex;
+            gap: 16px;
+            font-size: 13px;
+            color: #475569;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
+        }
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .course-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+        .course-price {
+            font-size: 18px;
+            font-weight: 800;
+            color: #7c3aed;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 20px;
+            font-size: 13.5px;
+            font-weight: 750;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+        }
+        .btn-view {
+            background-color: #f1f5f9;
+            color: #475569;
+            font-size: 13px;
+        }
+        .btn-view:hover {
+            background-color: #e2e8f0;
+            color: #0f172a;
+        }
+        .empty-state {
+            padding: 64px 32px;
+            text-align: center;
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+        }
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .empty-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 8px 0;
+        }
+        .empty-desc {
+            font-size: 14px;
+            color: #64748b;
+            max-width: 320px;
+            margin: 0 auto;
+        }
+        .mt-4 {
+            margin-top: 16px;
+        }
+    </style>
+}

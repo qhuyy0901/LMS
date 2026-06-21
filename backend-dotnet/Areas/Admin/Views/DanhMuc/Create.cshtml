@@ -1,0 +1,220 @@
+@model LMS.Api.Domain.Entities.DanhMuc
+
+@{
+    ViewData["Title"] = "Thêm danh mục mới";
+}
+
+<div class="form-container">
+    <div class="form-header">
+        <a asp-action="Index" class="back-link">
+            <span class="back-icon">&larr;</span> Quay lại quản lý danh mục
+        </a>
+        <h1 class="form-title">Thêm danh mục mới</h1>
+        <p class="form-subtitle">Điền thông tin chi tiết bên dưới để tạo chuyên mục khóa học mới.</p>
+    </div>
+
+    <div class="form-card">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+
+            <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+            <div class="form-group">
+                <label asp-for="Ten" class="form-label">Tên danh mục</label>
+                <input asp-for="Ten" class="form-input" placeholder="Ví dụ: An toàn thông tin, Thiết kế đồ họa..." />
+                <span asp-validation-for="Ten" class="field-validation-error"></span>
+            </div>
+
+            <div class="form-group">
+                <label asp-for="MoTa" class="form-label">Mô tả ngắn (Tùy chọn)</label>
+                <textarea asp-for="MoTa" class="form-textarea" placeholder="Nhập một vài mô tả tóm tắt cho danh mục này..."></textarea>
+                <span asp-validation-for="MoTa" class="field-validation-error"></span>
+            </div>
+
+            <div class="form-group toggle-group">
+                <label class="toggle-switch-label">
+                    <input type="checkbox" asp-for="HoatDong" class="toggle-checkbox" />
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-text">Kích hoạt hoạt động của danh mục</span>
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+                <button type="submit" class="btn btn-primary">Tạo danh mục</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px 0;
+        }
+        .form-header {
+            margin-bottom: 28px;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #64748b;
+            margin-bottom: 12px;
+            transition: color 0.2s;
+        }
+        .back-link:hover {
+            color: #7c3aed;
+        }
+        .form-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+            margin: 0 0 6px 0;
+            letter-spacing: -0.02em;
+        }
+        .form-subtitle {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+        }
+        .form-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 32px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+        }
+        .form-group {
+            margin-bottom: 24px;
+        }
+        .form-label {
+            display: block;
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #334155;
+            margin-bottom: 8px;
+        }
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            background-color: #f8fafc;
+            color: #0f172a;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .form-input:focus, .form-textarea:focus {
+            border-color: #7c3aed;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.1);
+        }
+        .form-textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+        .toggle-group {
+            margin-top: 8px;
+        }
+        .toggle-switch-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+        .toggle-checkbox {
+            display: none;
+        }
+        .toggle-slider {
+            position: relative;
+            width: 44px;
+            height: 24px;
+            background-color: #cbd5e1;
+            border-radius: 999px;
+            transition: background-color 0.2s;
+        }
+        .toggle-slider::before {
+            content: "";
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: #ffffff;
+            top: 3px;
+            left: 3px;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .toggle-checkbox:checked + .toggle-slider {
+            background-color: #7c3aed;
+        }
+        .toggle-checkbox:checked + .toggle-slider::before {
+            transform: translateX(20px);
+        }
+        .toggle-text {
+            font-size: 14px;
+            font-weight: 650;
+            color: #475569;
+        }
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 750;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #a855f7, #7c3aed);
+            color: #ffffff;
+            box-shadow: 0 4px 10px rgba(124, 58, 237, 0.25);
+        }
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px rgba(124, 58, 237, 0.35);
+        }
+        .btn-secondary {
+            background-color: #ffffff;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+        }
+        .btn-secondary:hover {
+            background-color: #f8fafc;
+            color: #0f172a;
+        }
+        .validation-summary {
+            padding: 12px 16px;
+            border-radius: 12px;
+            background-color: #fef2f2;
+            border: 1px solid #fca5a5;
+            color: #991b1b;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+        .field-validation-error {
+            display: block;
+            margin-top: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #dc2626;
+        }
+    </style>
+}

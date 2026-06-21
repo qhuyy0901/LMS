@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { PanelLeftClose, PanelLeftOpen, Zap } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ChevronDown, KeyRound, LogOut, PanelLeftClose, PanelLeftOpen, Settings, User, Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { getMenuByRole } from '../config/sidebar.config';
@@ -23,6 +23,7 @@ const ROLE_BADGES = {
 
 const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { activeView, realRole, isImpersonating } = useDashboardView();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('skillio_sidebar_collapsed') === 'true');
@@ -32,7 +33,9 @@ const Sidebar = () => {
   const menuItems = getMenuByRole(activeView);
   const exactActivePath = menuItems.find((item) => !item.section && item.path === location.pathname)?.path;
 
+  const isAdminAccount = realRole === 'ADMIN' && !isImpersonating;
   const roleBadge = isImpersonating ? null : ROLE_BADGES[realRole];
+
   const toggleSidebar = () => {
     setCollapsed((current) => {
       const next = !current;
@@ -196,11 +199,17 @@ const Sidebar = () => {
         {/* Current User Card */}
         <div className={`${collapsed ? '' : 'pt-2'}`}>
           <div
-            title="Tài khoản đang đăng nhập"
-            className={`flex items-center rounded-xl p-2.5 border ${
+            title={isAdminAccount ? "Cài đặt tài khoản quản trị" : "Tài khoản đang đăng nhập"}
+            role={isAdminAccount ? "button" : undefined}
+            onClick={isAdminAccount ? () => navigate('/admin/settings') : undefined}
+            className={`flex items-center rounded-xl p-2.5 border transition-all duration-200 ${
               collapsed 
                 ? 'justify-center border-transparent' 
                 : 'gap-3 border-slate-100/80 bg-slate-50/60'
+            } ${
+              isAdminAccount 
+                ? 'cursor-pointer hover:bg-slate-100/85 hover:border-slate-200 hover:shadow-sm' 
+                : ''
             }`}
           >
             <div className="relative shrink-0">
@@ -215,14 +224,21 @@ const Sidebar = () => {
                 <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                   <span className="inline-block w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                   <span className="text-[10px] text-green-600 font-semibold uppercase tracking-wider">Online</span>
-                  <span className="text-[10px] text-slate-300">•</span>
-                  <span className="text-[10px] text-slate-400">
-                    {TIER_LABELS[user?.memberTier] || 'Đồng'}
-                  </span>
+                  {user?.role !== 'ADMIN' && (
+                    <>
+                      <span className="text-[10px] text-slate-300">•</span>
+                      <span className="text-[10px] text-slate-400">
+                        {TIER_LABELS[user?.memberTier] || 'Đồng'}
+                      </span>
+                    </>
+                  )}
                   {roleBadge && (
-                    <span className={`text-[9px] font-semibold px-1 py-0.5 rounded-full ${roleBadge.color}`}>
-                      {roleBadge.label}
-                    </span>
+                    <>
+                      <span className="text-[10px] text-slate-300">•</span>
+                      <span className={`text-[9px] font-semibold px-1 py-0.5 rounded-full ${roleBadge.color}`}>
+                        {roleBadge.label}
+                      </span>
+                    </>
                   )}
                 </div>
               </div>

@@ -1,5 +1,5 @@
-import { Suspense, lazy } from 'react';
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
@@ -8,12 +8,37 @@ import { ChatProvider } from './context/ChatContext';
 import { DashboardViewProvider } from './context/DashboardViewContext';
 import { SavedCoursesProvider } from './context/SavedCoursesContext';
 
+const ExternalRedirect = ({ to }) => {
+  useEffect(() => {
+    window.location.replace(to);
+  }, [to]);
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-b-purple-600" />
+    </div>
+  );
+};
+
+const ExternalCourseEditRedirect = () => {
+  const { id } = useParams();
+  useEffect(() => {
+    window.location.replace(`/Instructor/KhoaHoc/Edit/${id}`);
+  }, [id]);
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-slate-200 border-b-purple-600" />
+    </div>
+  );
+};
+
+const AdminCategories = lazy(() => import('./pages/AdminCategories'));
 const AdminCoupons = lazy(() => import('./pages/AdminCoupons'));
 const AdminCourses = lazy(() => import('./pages/AdminCourses'));
-const AdminSecurity = lazy(() => import('./pages/AdminSecurity'));
+const AdminEvents = lazy(() => import('./pages/AdminEvents'));
+const AdminHoSoGiangVien = lazy(() => import('./pages/AdminHoSoGiangVien'));
+const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const AdminTransactions = lazy(() => import('./pages/AdminTransactions'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
-const Certificates = lazy(() => import('./pages/Certificates'));
 const CourseDetails = lazy(() => import('./pages/CourseDetails'));
 const CourseEditor = lazy(() => import('./pages/CourseEditor'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -78,12 +103,12 @@ function App() {
                     <Route path="my-courses" element={<Navigate to="/my-learning" replace />} />
                     <Route path="my-classes" element={<Navigate to="/my-learning" replace />} />
 
-                    <Route path="explore" element={<Explore />} />
+                    <Route path="explore" element={<ExternalRedirect to="/KhamPha" />} />
                     <Route path="course/:id" element={<CourseDetails />} />
                     <Route path="instructors" element={<Instructors />} />
                     <Route path="messages" element={<Messages />} />
                     <Route path="reports" element={<Reports />} />
-                    <Route path="certificates" element={<Certificates />} />
+                    <Route path="certificates" element={<Navigate to="/my-learning" replace />} />
                     <Route path="missions" element={<Navigate to="/" replace />} />
                     <Route path="tasks" element={<Navigate to="/" replace />} />
                     <Route path="points" element={<Navigate to="/" replace />} />
@@ -162,7 +187,7 @@ function App() {
                       path="instructor/courses/new"
                       element={
                         <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
-                          <CourseEditor />
+                          <ExternalRedirect to="/Instructor/KhoaHoc/Create" />
                         </RoleRoute>
                       }
                     />
@@ -170,7 +195,7 @@ function App() {
                       path="instructor/courses/:id/edit"
                       element={
                         <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
-                          <CourseEditor />
+                          <ExternalCourseEditRedirect />
                         </RoleRoute>
                       }
                     />
@@ -183,45 +208,22 @@ function App() {
                       }
                     />
                     <Route
-                      path="admin/users"
-                      element={
-                        <RoleRoute roles={['ADMIN']}>
-                          <AdminUsers />
-                        </RoleRoute>
-                      }
-                    />
-                    <Route
-                      path="admin/courses"
-                      element={
-                        <RoleRoute roles={['ADMIN']}>
-                          <AdminCourses />
-                        </RoleRoute>
-                      }
-                    />
-                    <Route
-                      path="admin/coupons"
-                      element={
-                        <RoleRoute roles={['ADMIN']}>
-                          <AdminCoupons />
-                        </RoleRoute>
-                      }
-                    />
-                    <Route
-                      path="admin/transactions"
-                      element={
-                        <RoleRoute roles={['ADMIN']}>
-                          <AdminTransactions />
-                        </RoleRoute>
-                      }
-                    />
-                    <Route
-                      path="admin/security"
-                      element={
-                        <RoleRoute roles={['ADMIN']}>
-                          <AdminSecurity />
-                        </RoleRoute>
-                      }
-                    />
+                      path="admin"
+                      element={<RoleRoute roles={['ADMIN']} />}
+                    >
+                      <Route index element={<Dashboard />} />
+                      <Route path="users" element={<AdminUsers />} />
+                      <Route path="instructor-applications" element={<AdminHoSoGiangVien />} />
+                      <Route path="courses" element={<AdminCourses />} />
+                      <Route path="categories" element={<AdminCategories />} />
+                      <Route path="coupons" element={<Navigate to="/admin" replace />} />
+                      <Route path="transactions" element={<AdminTransactions />} />
+                      <Route path="events" element={<AdminEvents />} />
+                      <Route path="support" element={<Navigate to="/admin" replace />} />
+                      <Route path="messages" element={<Navigate to="/admin" replace />} />
+                      <Route path="settings" element={<AdminSettings />} />
+                      <Route path="security" element={<Navigate to="/admin/settings" replace />} />
+                    </Route>
                   </Route>
                 </Route>
 

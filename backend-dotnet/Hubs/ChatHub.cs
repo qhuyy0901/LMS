@@ -28,9 +28,9 @@ public class ChatHub(ApplicationDbContext db, IDichVuChat chat) : Hub
             await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
             
             // Join user to all their conversations
-            var conversations = await db.ConversationParticipants
-                .Where(cp => cp.UserId == userId)
-                .Select(cp => cp.ConversationId)
+            var conversations = await db.NguoiThamGiaTroChuyen
+                .Where(cp => cp.NguoiDungId == userId)
+                .Select(cp => cp.CuocTroChuyenId)
                 .ToListAsync();
 
             foreach (var convId in conversations)
@@ -44,9 +44,9 @@ public class ChatHub(ApplicationDbContext db, IDichVuChat chat) : Hub
             // Notify others if this is the first connection tab
             if (ActiveUsers.TryGetValue(userId, out var count) && count == 1)
             {
-                var userDetails = await db.Users
+                var userDetails = await db.NguoiDung
                     .Where(u => u.Id == userId)
-                    .Select(u => new { Id = u.Id, Name = u.Name, Avatar = u.Avatar, Role = u.Role })
+                    .Select(u => new { Id = u.Id, Ten = u.Ten, AnhDaiDien = u.AnhDaiDien, VaiTro = u.VaiTro })
                     .FirstOrDefaultAsync();
 
                 if (userDetails != null)
@@ -71,10 +71,10 @@ public class ChatHub(ApplicationDbContext db, IDichVuChat chat) : Hub
 
                     // Persist LastSeenAt to the database
                     var now = DateTime.UtcNow;
-                    var userEntity = await db.Users.FindAsync(userId);
+                    var userEntity = await db.NguoiDung.FindAsync(userId);
                     if (userEntity != null)
                     {
-                        userEntity.LastSeenAt = now;
+                        userEntity.LanCuoiHoatDong = now;
                         await db.SaveChangesAsync();
                     }
 

@@ -546,28 +546,35 @@ const Pagination = ({ page, totalPages, totalItems, onChange }) => (
   </div>
 );
 
-const TrendingTopics = ({ topics, onSelect }) => (
-  <Panel title="Chủ đề thịnh hành">
-    <div className="space-y-3">
-      {topics.length === 0 ? (
-        <EmptyText>Chưa có đủ dữ liệu chủ đề.</EmptyText>
-      ) : (
-        topics.map((topic, index) => (
-          <button key={topic.name} onClick={() => onSelect(topic.name)} className="flex w-full items-center gap-4 rounded-xl p-3 text-left hover:bg-slate-50">
-            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${topicColor(index)}`}>
-              <Hash className="h-5 w-5" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">#{topic.name}</p>
-              <p className="text-xs text-slate-400">{formatCompact(topic.courseCount)} khóa học · {formatCompact(topic.studentCount)} học viên</p>
-            </div>
-            <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">+{topic.growth}%</span>
-          </button>
-        ))
-      )}
-    </div>
-  </Panel>
-);
+const TrendingTopics = ({ topics, onSelect }) => {
+  const sortedAndSliced = [...topics]
+    .sort((a, b) => (b.studentCount || 0) - (a.studentCount || 0))
+    .slice(0, 3);
+
+  return (
+    <Panel title="Chủ đề thịnh hành">
+      <div className="space-y-3">
+        {sortedAndSliced.length === 0 ? (
+          <EmptyText>Chưa có đủ dữ liệu chủ đề.</EmptyText>
+        ) : (
+          sortedAndSliced.map((topic, index) => (
+            <button key={topic.name} onClick={() => onSelect(topic.name)} className="flex w-full items-center gap-4 rounded-xl p-3 text-left hover:bg-slate-50">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${topicColor(index)}`}>
+                <Hash className="h-5 w-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-900">#{topic.name}</p>
+                <p className="text-xs text-slate-400">{formatCompact(topic.courseCount)} khóa học · {formatCompact(topic.studentCount)} học viên</p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-600">+{topic.growth}%</span>
+            </button>
+          ))
+        )}
+      </div>
+    </Panel>
+  );
+};
+
 
 const RecommendedCourses = ({ courses }) => (
   <Panel title="Đề xuất cho bạn" action="Làm mới">

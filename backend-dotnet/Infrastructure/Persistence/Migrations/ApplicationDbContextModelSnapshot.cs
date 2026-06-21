@@ -27,18 +27,15 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Content")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<bool>("ChoXemTruoc")
+                        .HasColumnType("bit");
 
-                    b.Property<string>("CourseId")
+                    b.Property<string>("ChuongHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("DurationSeconds")
-                        .HasColumnType("int");
+                    b.Property<bool>("DaXuatBan")
+                        .HasColumnType("bit");
 
                     b.Property<string>("FileUrl")
                         .HasColumnType("nvarchar(max)");
@@ -46,42 +43,45 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("IllustrationUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsPreview")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("Position")
-                        .HasColumnType("int");
-
-                    b.Property<string>("SectionId")
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Status")
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NoiDung")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ThoiLuongGiay")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ThuTu")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TieuDe")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("DRAFT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("VideoUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("ChuongHocId");
 
-                    b.HasIndex("SectionId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.ToTable("Lesson", (string)null);
+                    b.ToTable("BaiHoc", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiKiemTra", b =>
@@ -89,34 +89,70 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("LessonId")
+                    b.Property<string>("BaiHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("PassingScore")
+                    b.Property<int>("DiemDat")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(80);
 
-                    b.Property<string>("Title")
+                    b.Property<string>("MoTa")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TieuDe")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("UpdatedAt")
+                    b.HasKey("Id");
+
+                    b.HasIndex("BaiHocId")
+                        .IsUnique();
+
+                    b.ToTable("BaiKiemTra", (string)null);
+                });
+
+            modelBuilder.Entity("LMS.Api.Domain.Entities.BaiNopKiemTra", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BaiKiemTraId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("DapAn")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<bool>("Dat")
+                        .HasColumnType("bit");
+
+                    b.Property<double>("Diem")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LessonId")
-                        .IsUnique();
+                    b.HasIndex("BaiKiemTraId");
 
-                    b.ToTable("Quiz", (string)null);
+                    b.HasIndex("NguoiDungId");
+
+                    b.ToTable("BaiNopKiemTra", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiTap", b =>
@@ -124,60 +160,60 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<bool>("AllowFileSubmission")
+                    b.Property<string>("BaiHocId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("ChoPhepNopFile")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<bool>("AllowTextSubmission")
+                    b.Property<bool>("ChoPhepNopText")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<string>("AttachmentUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CourseId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("DueDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LessonId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("MaxScore")
+                    b.Property<int>("DiemToiDa")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(100);
 
-                    b.Property<string>("TeacherId")
+                    b.Property<string>("FileDinhKemUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GiangVienId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Title")
+                    b.Property<DateTime?>("HanNop")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("KhoaHocId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("MoTa")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TieuDe")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("BaiHocId");
 
-                    b.HasIndex("LessonId");
+                    b.HasIndex("GiangVienId");
 
-                    b.HasIndex("TeacherId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.ToTable("Assignment", (string)null);
+                    b.ToTable("BaiTap", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BinhLuan", b =>
@@ -185,36 +221,36 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Content")
+                    b.Property<string>("BaiHocId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BinhLuanChaId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("NoiDung")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LessonId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("ParentId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("LessonId");
+                    b.HasIndex("BaiHocId");
 
-                    b.HasIndex("ParentId");
+                    b.HasIndex("BinhLuanChaId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("NguoiDungId");
 
-                    b.ToTable("Comment", (string)null);
+                    b.ToTable("BinhLuan", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.CauHoiKiemTra", b =>
@@ -222,39 +258,39 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("CorrectOptionIndex")
-                        .HasColumnType("int");
+                    b.Property<string>("BaiKiemTraId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Explanation")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Options")
+                    b.Property<string>("CacLuaChon")
                         .IsRequired()
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
-                    b.Property<int>("Position")
+                    b.Property<int>("DapAnDungIndex")
                         .HasColumnType("int");
 
-                    b.Property<string>("QuestionText")
+                    b.Property<string>("GiaiThich")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NoiDungCauHoi")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("QuizId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<int>("ThuTu")
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("QuizId");
+                    b.HasIndex("BaiKiemTraId");
 
-                    b.ToTable("QuizQuestion", (string)null);
+                    b.ToTable("CauHoiKiemTra", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ChungChi", b =>
@@ -262,39 +298,39 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CertificateNo")
-                        .IsRequired()
+                    b.Property<string>("AnhChupHoanThanh")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CompletionSnapshot")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CourseId")
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("IssuedAt")
+                    b.Property<string>("MaXacThuc")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("NgayCap")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("PdfUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("VerifyCode")
+                    b.Property<string>("SoChungChi")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.HasIndex("UserId", "CourseId")
+                    b.HasIndex("NguoiDungId", "KhoaHocId")
                         .IsUnique();
 
-                    b.ToTable("Certificate", (string)null);
+                    b.ToTable("ChungChi", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ChuongHoc", b =>
@@ -302,31 +338,31 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CourseId")
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
+                    b.Property<string>("MoTa")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("Position")
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("ThuTu")
                         .HasColumnType("int");
 
-                    b.Property<string>("Title")
+                    b.Property<string>("TieuDe")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.ToTable("Section", (string)null);
+                    b.ToTable("ChuongHoc", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.CuocTroChuyen", b =>
@@ -339,36 +375,36 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CourseId")
+                    b.Property<string>("KhoaHocId")
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsGroup")
+                    b.Property<bool>("LaNhom")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("SubjectId")
                         .HasMaxLength(450)
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Title")
+                    b.Property<string>("TieuDe")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.HasIndex("CourseId", "ClassId", "SubjectId");
+                    b.HasIndex("KhoaHocId", "ClassId", "SubjectId");
 
-                    b.ToTable("Conversation", (string)null);
+                    b.ToTable("CuocTroChuyen", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.DangKySuKien", b =>
@@ -376,42 +412,42 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EventId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int>("PointsUsed")
+                    b.Property<int>("DiemDaDung")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
-                    b.Property<DateTime>("RegisteredAt")
+                    b.Property<DateTime>("NgayCapNhat")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Status")
+                    b.Property<DateTime>("NgayDangKy")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("SuKienId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("REGISTERED");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("EventId", "UserId")
+                    b.HasIndex("NguoiDungId", "NgayDangKy");
+
+                    b.HasIndex("SuKienId", "NguoiDungId")
                         .IsUnique();
 
-                    b.HasIndex("UserId", "RegisteredAt");
-
-                    b.ToTable("EventRegistration", (string)null);
+                    b.ToTable("DangKySuKien", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.DanhGiaKhoaHoc", b =>
@@ -419,36 +455,75 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Comment")
+                    b.Property<string>("BinhLuan")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("CourseId")
+                    b.Property<int>("DiemDanhGia")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("NgayCapNhat")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("Rating")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserId")
+                    b.Property<string>("NguoiDungId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId", "CreatedAt");
+                    b.HasIndex("KhoaHocId", "NgayTao");
 
-                    b.HasIndex("UserId", "CourseId")
+                    b.HasIndex("NguoiDungId", "KhoaHocId")
                         .IsUnique();
 
-                    b.HasIndex("UserId", "CreatedAt");
+                    b.HasIndex("NguoiDungId", "NgayTao");
 
-                    b.ToTable("CourseReview", (string)null);
+                    b.ToTable("DanhGiaKhoaHoc", (string)null);
+                });
+
+            modelBuilder.Entity("LMS.Api.Domain.Entities.DanhMuc", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("HoatDong")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("MoTa")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Ten")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Slug")
+                        .IsUnique();
+
+                    b.HasIndex("Ten")
+                        .IsUnique();
+
+                    b.ToTable("DanhMuc", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.DoiThuongSuKien", b =>
@@ -456,30 +531,89 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<int>("DiemYeuCau")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("EventTitle")
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("PhanThuongId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("TieuDeSuKien")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("PointCost")
+                    b.HasKey("Id");
+
+                    b.HasIndex("NguoiDungId", "PhanThuongId")
+                        .IsUnique();
+
+                    b.ToTable("DoiThuongSuKien", (string)null);
+                });
+
+            modelBuilder.Entity("LMS.Api.Domain.Entities.DonMua", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("KhoaHocId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("LoaiTien")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("VND");
+
+                    b.Property<string>("MaGiamGiaId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SoTienCuoi")
                         .HasColumnType("int");
 
-                    b.Property<string>("RewardId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<int>("SoTienGiam")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
-                    b.Property<string>("UserId")
+                    b.Property<int>("SoTienGoc")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrangThai")
                         .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("COMPLETED");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "RewardId")
+                    b.HasIndex("MaGiamGiaId");
+
+                    b.HasIndex("KhoaHocId", "NgayTao");
+
+                    b.HasIndex("NguoiDungId", "KhoaHocId")
                         .IsUnique();
 
-                    b.ToTable("EventRewardRedemption", (string)null);
+                    b.HasIndex("NguoiDungId", "NgayTao");
+
+                    b.ToTable("DonMua", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.GhiDanh", b =>
@@ -487,93 +621,34 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CourseId")
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("NgayCapNhat")
                         .HasColumnType("datetime2");
 
-                    b.Property<double>("Progress")
+                    b.Property<DateTime?>("NgayHoanThanh")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<double>("TienDo")
                         .HasColumnType("float");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.HasIndex("UserId", "CourseId")
+                    b.HasIndex("NguoiDungId", "KhoaHocId")
                         .IsUnique();
 
-                    b.ToTable("Enrollment", (string)null);
-                });
-
-            modelBuilder.Entity("LMS.Api.Domain.Entities.GiaoDichMua", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CouponId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CourseId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Currency")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("VND");
-
-                    b.Property<int>("DiscountAmount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<int>("FinalAmount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("OriginalAmount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("COMPLETED");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CouponId");
-
-                    b.HasIndex("CourseId", "CreatedAt");
-
-                    b.HasIndex("UserId", "CourseId")
-                        .IsUnique();
-
-                    b.HasIndex("UserId", "CreatedAt");
-
-                    b.ToTable("Purchase", (string)null);
+                    b.ToTable("GhiDanh", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.GiaoDichVi", b =>
@@ -581,58 +656,58 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("Amount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("BalanceAfter")
-                        .HasColumnType("int");
-
-                    b.Property<string>("CourseId")
+                    b.Property<string>("DonMuaId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("KhoaHocId")
+                        .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("ExternalPaymentId")
+                    b.Property<string>("LoaiGiaoDich")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("Metadata")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
-                    b.Property<string>("Note")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("PurchaseId")
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("NoiDung")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("SoDuSauGiaoDich")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SoTien")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ThanhToanId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("COMPLETED");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("DonMuaId");
 
-                    b.HasIndex("ExternalPaymentId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.HasIndex("PurchaseId");
+                    b.HasIndex("ThanhToanId");
 
-                    b.HasIndex("Type", "CreatedAt");
+                    b.HasIndex("LoaiGiaoDich", "NgayTao");
 
-                    b.HasIndex("UserId", "CreatedAt");
+                    b.HasIndex("NguoiDungId", "NgayTao");
 
-                    b.ToTable("WalletTransaction", (string)null);
+                    b.ToTable("GiaoDichVi", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.KhoaHoc", b =>
@@ -640,92 +715,101 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<double>("AverageRating")
-                        .HasColumnType("float");
+                    b.Property<string>("AnhDaiDien")
+                        .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Category")
+                    b.Property<string>("ChuyenMuc")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("Lập trình");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<bool>("DaXuatBan")
+                        .HasColumnType("bit");
 
-                    b.Property<string>("Description")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<string>("DanhMucId")
+                        .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("DetailedDescription")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<double>("DiemDanhGiaTrungBinh")
+                        .HasColumnType("float");
+
+                    b.Property<string>("DuongDanThanThien")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("InstructorId")
+                    b.Property<int>("Gia")
+                        .HasColumnType("int");
+
+                    b.Property<string>("GiangVienId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<bool>("IsPublished")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Level")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(max)")
-                        .HasDefaultValue("BEGINNER");
-
-                    b.Property<string>("MinimumMemberTier")
+                    b.Property<string>("HangThanhVienToiThieu")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("BRONZE");
 
-                    b.Property<int>("Price")
-                        .HasColumnType("int");
+                    b.Property<string>("LyDoTuChoi")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
-                    b.Property<DateTime?>("PublishedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("ReviewCount")
-                        .HasColumnType("int");
-
-                    b.Property<string>("ShortDescription")
+                    b.Property<string>("MoTa")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
+                    b.Property<string>("MoTaChiTiet")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("MoTaNgan")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NgayXuatBan")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SoLuongDanhGia")
+                        .HasColumnType("int");
 
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("TieuDe")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TongThoiLuongGiay")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("DRAFT");
 
-                    b.Property<string>("Thumbnail")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Title")
+                    b.Property<string>("TrinhDo")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("TotalDurationSeconds")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("BEGINNER");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InstructorId");
+                    b.HasIndex("DanhMucId");
 
-                    b.HasIndex("Slug")
+                    b.HasIndex("DuongDanThanThien")
                         .IsUnique();
 
-                    b.ToTable("Course", (string)null);
+                    b.HasIndex("GiangVienId");
+
+                    b.ToTable("KhoaHoc", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.KhoaHocDaLuu", b =>
@@ -733,27 +817,27 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CourseId")
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserId")
+                    b.Property<string>("NguoiDungId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.HasIndex("UserId", "CourseId")
+                    b.HasIndex("NguoiDungId", "KhoaHocId")
                         .IsUnique();
 
-                    b.HasIndex("UserId", "CreatedAt");
+                    b.HasIndex("NguoiDungId", "NgayTao");
 
-                    b.ToTable("SavedCourse", (string)null);
+                    b.ToTable("KhoaHocDaLuu", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.LichSuDungMaGiamGia", b =>
@@ -761,54 +845,44 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CouponId")
+                    b.Property<string>("DonMuaId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CourseId")
+                    b.Property<string>("KhoaHocId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("MaGiamGiaId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("PurchaseId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("UserId")
+                    b.Property<string>("NguoiDungId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CourseId");
-
-                    b.HasIndex("PurchaseId")
+                    b.HasIndex("DonMuaId")
                         .IsUnique();
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("KhoaHocId");
 
-                    b.HasIndex("CouponId", "UserId")
+                    b.HasIndex("NguoiDungId");
+
+                    b.HasIndex("MaGiamGiaId", "NguoiDungId")
                         .IsUnique();
 
-                    b.ToTable("CouponUsage", (string)null);
+                    b.ToTable("LichSuDungMaGiamGia", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.MaGiamGia", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Code")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("CourseId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<string>("DiscountType")
                         .IsRequired()
@@ -822,7 +896,10 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("EndDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<bool>("IsActive")
+                    b.Property<string>("GiangVienId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("HoatDong")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
@@ -832,6 +909,13 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("KhoaHocId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Ma")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<int?>("MaxDiscountAmount")
                         .HasColumnType("int");
 
@@ -840,20 +924,20 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("StartDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("ACTIVE");
-
-                    b.Property<string>("TeacherId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
 
                     b.Property<int>("UsageCount")
                         .ValueGeneratedOnAdd()
@@ -865,14 +949,14 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("GiangVienId");
+
+                    b.HasIndex("KhoaHocId");
+
+                    b.HasIndex("Ma")
                         .IsUnique();
 
-                    b.HasIndex("CourseId");
-
-                    b.HasIndex("TeacherId");
-
-                    b.ToTable("Coupon", (string)null);
+                    b.ToTable("MaGiamGia", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NguoiDung", b =>
@@ -880,87 +964,87 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Avatar")
+                    b.Property<string>("AnhDaiDien")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Bio")
+                    b.Property<string>("CaiDat")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<int>("ChuoiDangNhap")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("DiemThuong")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime?>("LastLessonRewardDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LastPurchaseRewardWeek")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<DateTime?>("LastRewardLoginDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("LastSeenAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("LoginStreak")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<string>("MemberTier")
+                    b.Property<string>("HangThanhVien")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("BRONZE");
 
-                    b.Property<string>("Name")
+                    b.Property<DateTime?>("LanCuoiHoatDong")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MatKhau")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Password")
-                        .IsRequired()
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NgayNhanThuongBaiHocCuoi")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("NgayNhanThuongDangNhapCuoi")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SoDienThoai")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Phone")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("RewardPoints")
+                    b.Property<int>("SoDuVi")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
 
-                    b.Property<string>("Role")
+                    b.Property<string>("Ten")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TieuSu")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TongChiTieu")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("TuanNhanThuongMuaCuoi")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("VaiTro")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("STUDENT");
-
-                    b.Property<string>("Settings")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("TotalSpent")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("WalletBalance")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
 
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("User", (string)null);
+                    b.ToTable("NguoiDung", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NguoiNhanMaGiamGia", b =>
@@ -968,57 +1052,57 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("CouponId")
+                    b.Property<string>("GiangVienId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("MaGiamGiaId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("SourceCourseId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("TeacherId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("GiangVienId");
+
+                    b.HasIndex("NguoiDungId");
 
                     b.HasIndex("SourceCourseId");
 
-                    b.HasIndex("TeacherId");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("CouponId", "UserId")
+                    b.HasIndex("MaGiamGiaId", "NguoiDungId")
                         .IsUnique();
 
-                    b.ToTable("CouponRecipient", (string)null);
+                    b.ToTable("NguoiNhanMaGiamGia", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NguoiThamGiaTroChuyen", b =>
                 {
-                    b.Property<Guid>("ConversationId")
+                    b.Property<Guid>("CuocTroChuyenId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("UserId")
+                    b.Property<string>("NguoiDungId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("JoinedAt")
+                    b.Property<DateTime?>("DocCuoiLuc")
                         .HasColumnType("datetime2");
 
-                    b.Property<DateTime?>("LastReadAt")
+                    b.Property<DateTime>("NgayThamGia")
                         .HasColumnType("datetime2");
 
-                    b.HasKey("ConversationId", "UserId");
+                    b.HasKey("CuocTroChuyenId", "NguoiDungId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("NguoiDungId");
 
-                    b.ToTable("ConversationParticipant", (string)null);
+                    b.ToTable("NguoiThamGiaTroChuyen", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NhatKyHeThong", b =>
@@ -1026,81 +1110,45 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Action")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("ActorEmail")
+                    b.Property<string>("EmailNguoiThucHien")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("ActorId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EntityId")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("EntityType")
+                    b.Property<string>("HanhDong")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("IpAddress")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("LoaiThucTe")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("Metadata")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiThucHienId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ThucTheId")
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("UserAgent")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Action", "CreatedAt");
+                    b.HasIndex("HanhDong", "NgayTao");
 
-                    b.HasIndex("ActorId", "CreatedAt");
+                    b.HasIndex("LoaiThucTe", "ThucTheId");
 
-                    b.HasIndex("EntityType", "EntityId");
+                    b.HasIndex("NguoiThucHienId", "NgayTao");
 
-                    b.ToTable("AuditLog", (string)null);
-                });
-
-            modelBuilder.Entity("LMS.Api.Domain.Entities.NopBaiKiemTra", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Answers")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("Passed")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("QuizId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<double>("Score")
-                        .HasColumnType("float");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("QuizId");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("QuizSubmission", (string)null);
+                    b.ToTable("NhatKyHeThong", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.RutTienGiangVien", b =>
@@ -1108,36 +1156,36 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("AccountHolder")
+                    b.Property<string>("ChuTaiKhoan")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
-                    b.Property<string>("AccountNumber")
+                    b.Property<string>("GiangVienId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NoiDung")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("SoTaiKhoan")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<int>("Amount")
+                    b.Property<int>("SoTien")
                         .HasColumnType("int");
 
-                    b.Property<string>("BankName")
+                    b.Property<string>("TenNganHang")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("InstructorId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Status")
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
@@ -1145,9 +1193,9 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InstructorId", "CreatedAt");
+                    b.HasIndex("GiangVienId", "NgayTao");
 
-                    b.ToTable("InstructorWithdrawal", (string)null);
+                    b.ToTable("RutTienGiangVien", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.SuKien", b =>
@@ -1155,20 +1203,16 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("Capacity")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(50);
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
+                    b.Property<string>("AnhUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<DateTime>("EndAt")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("DiaDiem")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DiemYeuCau")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
 
                     b.Property<string>("Format")
                         .IsRequired()
@@ -1176,53 +1220,57 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("OFFLINE");
 
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("InstructorId")
+                    b.Property<string>("GiangVienId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("LinkThamGia")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Location")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("PointCost")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<DateTime>("StartAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("nvarchar(450)")
-                        .HasDefaultValue("DRAFT");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Type")
+                    b.Property<string>("LoaiSuKien")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("WORKSHOP");
 
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<string>("MoTa")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("NgayCapNhat")
                         .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("SucChua")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(50);
+
+                    b.Property<DateTime>("ThoiGianBatDau")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ThoiGianKetThuc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TieuDe")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TrangThai")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(450)")
+                        .HasDefaultValue("DRAFT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("InstructorId");
+                    b.HasIndex("GiangVienId");
 
-                    b.HasIndex("Status", "StartAt");
+                    b.HasIndex("TrangThai", "ThoiGianBatDau");
 
-                    b.ToTable("Event", (string)null);
+                    b.ToTable("SuKien", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.SuKienAnh", b =>
@@ -1230,15 +1278,15 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<bool>("AnhBia")
+                        .HasColumnType("bit");
 
-                    b.Property<string>("ImageUrl")
+                    b.Property<string>("AnhUrl")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("IsCover")
-                        .HasColumnType("bit");
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("SuKienId")
                         .IsRequired()
@@ -1248,66 +1296,66 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SuKienId");
 
-                    b.ToTable("EventImage", (string)null);
+                    b.ToTable("SuKienAnh", (string)null);
                 });
 
-            modelBuilder.Entity("LMS.Api.Domain.Entities.ThanhToanNgoai", b =>
+            modelBuilder.Entity("LMS.Api.Domain.Entities.ThanhToan", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("Amount")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Currency")
+                    b.Property<string>("LoaiTien")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("VND");
 
-                    b.Property<string>("Note")
+                    b.Property<string>("MaThanhToanNhaCungCap")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Provider")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime>("NgayCapNhat")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("ProviderPaymentIntentId")
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<DateTime?>("NgayHoanThanh")
+                        .HasColumnType("datetime2");
 
-                    b.Property<string>("ProviderSessionId")
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Status")
+                    b.Property<string>("NhaCungCap")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NoiDung")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhienNhaCungCapId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("SoTien")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrangThai")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(450)")
                         .HasDefaultValue("PENDING");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ProviderSessionId")
+                    b.HasIndex("PhienNhaCungCapId")
                         .IsUnique();
 
-                    b.HasIndex("Status", "CreatedAt");
+                    b.HasIndex("NguoiDungId", "NgayTao");
 
-                    b.HasIndex("UserId", "CreatedAt");
+                    b.HasIndex("TrangThai", "NgayTao");
 
-                    b.ToTable("ExternalPayment", (string)null);
+                    b.ToTable("ThanhToan", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ThongBao", b =>
@@ -1315,43 +1363,43 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("Body")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsRead")
+                    b.Property<bool>("DaDoc")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Link")
+                    b.Property<DateTime?>("DocLuc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DuongDan")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LoaiThongBao")
+                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Metadata")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
 
-                    b.Property<DateTime?>("ReadAt")
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("UserId")
+                    b.Property<string>("NguoiDungId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("NoiDung")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TieuDe")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("UserId", "IsRead", "CreatedAt");
+                    b.HasIndex("NguoiDungId", "DaDoc", "NgayTao");
 
-                    b.ToTable("Notification", (string)null);
+                    b.ToTable("ThongBao", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TienDoBaiHoc", b =>
@@ -1359,47 +1407,47 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<DateTime?>("CompletedAt")
-                        .HasColumnType("datetime2");
+                    b.Property<string>("BaiHocId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
 
-                    b.Property<double>("CompletionRate")
-                        .HasColumnType("float");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsCompleted")
+                    b.Property<bool>("DaHoanThanh")
                         .HasColumnType("bit");
 
-                    b.Property<int>("LastPositionSeconds")
+                    b.Property<int>("GiayDaXem")
                         .HasColumnType("int");
 
-                    b.Property<string>("LessonId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("UpdatedAt")
+                    b.Property<DateTime>("NgayCapNhat")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("UserId")
+                    b.Property<DateTime?>("NgayHoanThanh")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NgayTao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiDungId")
                         .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<int>("WatchedSeconds")
+                    b.Property<double>("TyLeHoanThanh")
+                        .HasColumnType("float");
+
+                    b.Property<int>("ViTriXemCuoiGiay")
                         .HasColumnType("int");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("LessonId");
+                    b.HasIndex("BaiHocId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("NguoiDungId");
 
-                    b.HasIndex("UserId", "IsCompleted");
-
-                    b.HasIndex("UserId", "LessonId")
+                    b.HasIndex("NguoiDungId", "BaiHocId")
                         .IsUnique();
 
-                    b.ToTable("LessonProgress", (string)null);
+                    b.HasIndex("NguoiDungId", "DaHoanThanh");
+
+                    b.ToTable("TienDoBaiHoc", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TinNhan", b =>
@@ -1408,31 +1456,31 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("Content")
+                    b.Property<Guid>("CuocTroChuyenId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("GuiLuc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NguoiGuiId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("NoiDung")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("nvarchar(max)")
                         .HasDefaultValue("");
 
-                    b.Property<Guid>("ConversationId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("SenderId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<DateTime>("SentAt")
-                        .HasColumnType("datetime2");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ConversationId");
+                    b.HasIndex("CuocTroChuyenId");
 
-                    b.HasIndex("SenderId");
+                    b.HasIndex("GuiLuc");
 
-                    b.HasIndex("SentAt");
+                    b.HasIndex("NguoiGuiId");
 
-                    b.ToTable("Message", (string)null);
+                    b.ToTable("TinNhan", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TinNhanDinhKem", b =>
@@ -1441,374 +1489,412 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("ContentType")
+                    b.Property<long>("KichThuoc")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("LoaiNoiDung")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("NgayTao")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("FileName")
+                    b.Property<string>("TenFile")
                         .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<Guid>("MessageId")
+                    b.Property<string>("TenFileGoc")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("TinNhanId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("OriginalFileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<long>("Size")
-                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("MessageId");
+                    b.HasIndex("TinNhanId");
 
-                    b.ToTable("MessageAttachment", (string)null);
+                    b.ToTable("TinNhanDinhKem", (string)null);
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiHoc", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Lessons")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.ChuongHoc", "ChuongHoc")
+                        .WithMany("CacBaiHoc")
+                        .HasForeignKey("ChuongHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.ChuongHoc", "Section")
-                        .WithMany("Lessons")
-                        .HasForeignKey("SectionId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacBaiHoc")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("ChuongHoc");
 
-                    b.Navigation("Section");
+                    b.Navigation("KhoaHoc");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiKiemTra", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "Lesson")
-                        .WithOne("Quiz")
-                        .HasForeignKey("LMS.Api.Domain.Entities.BaiKiemTra", "LessonId")
+                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "BaiHoc")
+                        .WithOne("BaiKiemTra")
+                        .HasForeignKey("LMS.Api.Domain.Entities.BaiKiemTra", "BaiHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Lesson");
+                    b.Navigation("BaiHoc");
+                });
+
+            modelBuilder.Entity("LMS.Api.Domain.Entities.BaiNopKiemTra", b =>
+                {
+                    b.HasOne("LMS.Api.Domain.Entities.BaiKiemTra", "BaiKiemTra")
+                        .WithMany("CacBaiNop")
+                        .HasForeignKey("BaiKiemTraId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacBaiNopKiemTra")
+                        .HasForeignKey("NguoiDungId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("BaiKiemTra");
+
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiTap", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Assignments")
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "Lesson")
-                        .WithMany("Assignments")
-                        .HasForeignKey("LessonId")
+                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "BaiHoc")
+                        .WithMany("CacBaiTap")
+                        .HasForeignKey("BaiHocId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Teacher")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "GiangVien")
                         .WithMany()
-                        .HasForeignKey("TeacherId")
+                        .HasForeignKey("GiangVienId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacBaiTap")
+                        .HasForeignKey("KhoaHocId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
 
-                    b.Navigation("Lesson");
+                    b.Navigation("BaiHoc");
 
-                    b.Navigation("Teacher");
+                    b.Navigation("GiangVien");
+
+                    b.Navigation("KhoaHoc");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BinhLuan", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "Lesson")
-                        .WithMany("Comments")
-                        .HasForeignKey("LessonId")
+                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "BaiHoc")
+                        .WithMany("CacBinhLuan")
+                        .HasForeignKey("BaiHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.BinhLuan", "Parent")
-                        .WithMany("Replies")
-                        .HasForeignKey("ParentId")
+                    b.HasOne("LMS.Api.Domain.Entities.BinhLuan", "BinhLuanCha")
+                        .WithMany("CacPhanHoi")
+                        .HasForeignKey("BinhLuanChaId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("Comments")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacBinhLuan")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Lesson");
+                    b.Navigation("BaiHoc");
 
-                    b.Navigation("Parent");
+                    b.Navigation("BinhLuanCha");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.CauHoiKiemTra", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.BaiKiemTra", "Quiz")
-                        .WithMany("Questions")
-                        .HasForeignKey("QuizId")
+                    b.HasOne("LMS.Api.Domain.Entities.BaiKiemTra", "BaiKiemTra")
+                        .WithMany("CacCauHoi")
+                        .HasForeignKey("BaiKiemTraId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Quiz");
+                    b.Navigation("BaiKiemTra");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ChungChi", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Certificates")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacChungChi")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("Certificates")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacChungChi")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("KhoaHoc");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ChuongHoc", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Sections")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacChuongHoc")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("KhoaHoc");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.DangKySuKien", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.SuKien", "Event")
-                        .WithMany("Registrations")
-                        .HasForeignKey("EventId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacDangKySuKien")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("EventRegistrations")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.SuKien", "Event")
+                        .WithMany("CacDangKy")
+                        .HasForeignKey("SuKienId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Event");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.DanhGiaKhoaHoc", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Reviews")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacDanhGia")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("CourseReviews")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacDanhGia")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("KhoaHoc");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.DoiThuongSuKien", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("EventRewardRedemptions")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacDoiThuongSuKien")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
+                });
+
+            modelBuilder.Entity("LMS.Api.Domain.Entities.DonMua", b =>
+                {
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacDonMua")
+                        .HasForeignKey("KhoaHocId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Domain.Entities.MaGiamGia", "MaGiamGia")
+                        .WithMany()
+                        .HasForeignKey("MaGiamGiaId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacDonMua")
+                        .HasForeignKey("NguoiDungId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("KhoaHoc");
+
+                    b.Navigation("MaGiamGia");
+
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.GhiDanh", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Enrollments")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacGhiDanh")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("Enrollments")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacGhiDanh")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("KhoaHoc");
 
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("LMS.Api.Domain.Entities.GiaoDichMua", b =>
-                {
-                    b.HasOne("LMS.Api.Domain.Entities.MaGiamGia", "Coupon")
-                        .WithMany()
-                        .HasForeignKey("CouponId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Purchases")
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("Purchases")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Coupon");
-
-                    b.Navigation("Course");
-
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.GiaoDichVi", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("WalletTransactions")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.DonMua", "DonMua")
+                        .WithMany("CacGiaoDichVi")
+                        .HasForeignKey("DonMuaId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("LMS.Api.Domain.Entities.ThanhToanNgoai", "ExternalPayment")
-                        .WithMany("WalletTransactions")
-                        .HasForeignKey("ExternalPaymentId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacGiaoDichVi")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("LMS.Api.Domain.Entities.GiaoDichMua", "Purchase")
-                        .WithMany("WalletTransactions")
-                        .HasForeignKey("PurchaseId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("WalletTransactions")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacGiaoDichVi")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.HasOne("LMS.Api.Domain.Entities.ThanhToan", "ThanhToan")
+                        .WithMany("CacGiaoDichVi")
+                        .HasForeignKey("ThanhToanId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("ExternalPayment");
+                    b.Navigation("DonMua");
 
-                    b.Navigation("Purchase");
+                    b.Navigation("KhoaHoc");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
+
+                    b.Navigation("ThanhToan");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.KhoaHoc", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Instructor")
-                        .WithMany("Courses")
-                        .HasForeignKey("InstructorId")
+                    b.HasOne("LMS.Api.Domain.Entities.DanhMuc", "DanhMuc")
+                        .WithMany("CacKhoaHoc")
+                        .HasForeignKey("DanhMucId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "GiangVien")
+                        .WithMany("CacKhoaHoc")
+                        .HasForeignKey("GiangVienId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Instructor");
+                    b.Navigation("DanhMuc");
+
+                    b.Navigation("GiangVien");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.KhoaHocDaLuu", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("SavedByUsers")
-                        .HasForeignKey("CourseId")
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacNguoiDungDaLuu")
+                        .HasForeignKey("KhoaHocId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("SavedCourses")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacKhoaHocDaLuu")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Course");
+                    b.Navigation("KhoaHoc");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.LichSuDungMaGiamGia", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.MaGiamGia", "Coupon")
-                        .WithMany("Usages")
-                        .HasForeignKey("CouponId")
+                    b.HasOne("LMS.Api.Domain.Entities.DonMua", "DonMua")
+                        .WithOne()
+                        .HasForeignKey("LMS.Api.Domain.Entities.LichSuDungMaGiamGia", "DonMuaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany()
+                        .HasForeignKey("KhoaHocId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Domain.Entities.MaGiamGia", "MaGiamGia")
+                        .WithMany("CacLuotSuDung")
+                        .HasForeignKey("MaGiamGiaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
                         .WithMany()
-                        .HasForeignKey("CourseId")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.GiaoDichMua", "Purchase")
-                        .WithOne()
-                        .HasForeignKey("LMS.Api.Domain.Entities.LichSuDungMaGiamGia", "PurchaseId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                    b.Navigation("DonMua");
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                    b.Navigation("KhoaHoc");
 
-                    b.Navigation("Coupon");
+                    b.Navigation("MaGiamGia");
 
-                    b.Navigation("Course");
-
-                    b.Navigation("Purchase");
-
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.MaGiamGia", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "Course")
-                        .WithMany("Coupons")
-                        .HasForeignKey("CourseId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Teacher")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "GiangVien")
                         .WithMany()
-                        .HasForeignKey("TeacherId")
+                        .HasForeignKey("GiangVienId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("Course");
+                    b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "KhoaHoc")
+                        .WithMany("CacMaGiamGia")
+                        .HasForeignKey("KhoaHocId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
-                    b.Navigation("Teacher");
+                    b.Navigation("GiangVien");
+
+                    b.Navigation("KhoaHoc");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NguoiNhanMaGiamGia", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.MaGiamGia", "Coupon")
-                        .WithMany("Recipients")
-                        .HasForeignKey("CouponId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "GiangVien")
+                        .WithMany()
+                        .HasForeignKey("GiangVienId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Domain.Entities.MaGiamGia", "MaGiamGia")
+                        .WithMany("CacNguoiNhan")
+                        .HasForeignKey("MaGiamGiaId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany()
+                        .HasForeignKey("NguoiDungId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("LMS.Api.Domain.Entities.KhoaHoc", "SourceCourse")
@@ -1816,91 +1902,60 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                         .HasForeignKey("SourceCourseId")
                         .OnDelete(DeleteBehavior.NoAction);
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Teacher")
-                        .WithMany()
-                        .HasForeignKey("TeacherId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                    b.Navigation("GiangVien");
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                    b.Navigation("MaGiamGia");
 
-                    b.Navigation("Coupon");
+                    b.Navigation("NguoiDung");
 
                     b.Navigation("SourceCourse");
-
-                    b.Navigation("Teacher");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NguoiThamGiaTroChuyen", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.CuocTroChuyen", "Conversation")
-                        .WithMany("Participants")
-                        .HasForeignKey("ConversationId")
+                    b.HasOne("LMS.Api.Domain.Entities.CuocTroChuyen", "CuocTroChuyen")
+                        .WithMany("CacNguoiThamGia")
+                        .HasForeignKey("CuocTroChuyenId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
                         .WithMany("Conversations")
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Conversation");
+                    b.Navigation("CuocTroChuyen");
 
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("LMS.Api.Domain.Entities.NopBaiKiemTra", b =>
-                {
-                    b.HasOne("LMS.Api.Domain.Entities.BaiKiemTra", "Quiz")
-                        .WithMany("Submissions")
-                        .HasForeignKey("QuizId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("QuizSubmissions")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Quiz");
-
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.RutTienGiangVien", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Instructor")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "GiangVien")
                         .WithMany("InstructorWithdrawals")
-                        .HasForeignKey("InstructorId")
+                        .HasForeignKey("GiangVienId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Instructor");
+                    b.Navigation("GiangVien");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.SuKien", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Instructor")
-                        .WithMany("OrganizedEvents")
-                        .HasForeignKey("InstructorId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "GiangVien")
+                        .WithMany("CacSuKienToChuc")
+                        .HasForeignKey("GiangVienId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Instructor");
+                    b.Navigation("GiangVien");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.SuKienAnh", b =>
                 {
                     b.HasOne("LMS.Api.Domain.Entities.SuKien", "SuKien")
-                        .WithMany("Images")
+                        .WithMany("CacHinhAnh")
                         .HasForeignKey("SuKienId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1908,201 +1963,206 @@ namespace LMS.Api.Infrastructure.Persistence.Migrations
                     b.Navigation("SuKien");
                 });
 
-            modelBuilder.Entity("LMS.Api.Domain.Entities.ThanhToanNgoai", b =>
+            modelBuilder.Entity("LMS.Api.Domain.Entities.ThanhToan", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
                         .WithMany("ExternalPayments")
-                        .HasForeignKey("UserId")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ThongBao", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("Notifications")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacThongBao")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TienDoBaiHoc", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "Lesson")
-                        .WithMany("Progresses")
-                        .HasForeignKey("LessonId")
+                    b.HasOne("LMS.Api.Domain.Entities.BaiHoc", "BaiHoc")
+                        .WithMany("CacTienDoBaiHoc")
+                        .HasForeignKey("BaiHocId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "User")
-                        .WithMany("LessonProgresses")
-                        .HasForeignKey("UserId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiDung")
+                        .WithMany("CacTienDoBaiHoc")
+                        .HasForeignKey("NguoiDungId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Lesson");
+                    b.Navigation("BaiHoc");
 
-                    b.Navigation("User");
+                    b.Navigation("NguoiDung");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TinNhan", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.CuocTroChuyen", "Conversation")
-                        .WithMany("Messages")
-                        .HasForeignKey("ConversationId")
+                    b.HasOne("LMS.Api.Domain.Entities.CuocTroChuyen", "CuocTroChuyen")
+                        .WithMany("CacTinNhan")
+                        .HasForeignKey("CuocTroChuyenId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "Sender")
-                        .WithMany("SentMessages")
-                        .HasForeignKey("SenderId")
+                    b.HasOne("LMS.Api.Domain.Entities.NguoiDung", "NguoiGui")
+                        .WithMany("CacTinNhanDaGui")
+                        .HasForeignKey("NguoiGuiId")
                         .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
-                    b.Navigation("Conversation");
+                    b.Navigation("CuocTroChuyen");
 
-                    b.Navigation("Sender");
+                    b.Navigation("NguoiGui");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TinNhanDinhKem", b =>
                 {
-                    b.HasOne("LMS.Api.Domain.Entities.TinNhan", "Message")
-                        .WithMany("Attachments")
-                        .HasForeignKey("MessageId")
+                    b.HasOne("LMS.Api.Domain.Entities.TinNhan", "TinNhan")
+                        .WithMany("CacFileDinhKem")
+                        .HasForeignKey("TinNhanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Message");
+                    b.Navigation("TinNhan");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiHoc", b =>
                 {
-                    b.Navigation("Assignments");
+                    b.Navigation("BaiKiemTra");
 
-                    b.Navigation("Comments");
+                    b.Navigation("CacBaiTap");
 
-                    b.Navigation("Progresses");
+                    b.Navigation("CacBinhLuan");
 
-                    b.Navigation("Quiz");
+                    b.Navigation("CacTienDoBaiHoc");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BaiKiemTra", b =>
                 {
-                    b.Navigation("Questions");
+                    b.Navigation("CacBaiNop");
 
-                    b.Navigation("Submissions");
+                    b.Navigation("CacCauHoi");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.BinhLuan", b =>
                 {
-                    b.Navigation("Replies");
+                    b.Navigation("CacPhanHoi");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.ChuongHoc", b =>
                 {
-                    b.Navigation("Lessons");
+                    b.Navigation("CacBaiHoc");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.CuocTroChuyen", b =>
                 {
-                    b.Navigation("Messages");
+                    b.Navigation("CacNguoiThamGia");
 
-                    b.Navigation("Participants");
+                    b.Navigation("CacTinNhan");
                 });
 
-            modelBuilder.Entity("LMS.Api.Domain.Entities.GiaoDichMua", b =>
+            modelBuilder.Entity("LMS.Api.Domain.Entities.DanhMuc", b =>
                 {
-                    b.Navigation("WalletTransactions");
+                    b.Navigation("CacKhoaHoc");
+                });
+
+            modelBuilder.Entity("LMS.Api.Domain.Entities.DonMua", b =>
+                {
+                    b.Navigation("CacGiaoDichVi");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.KhoaHoc", b =>
                 {
-                    b.Navigation("Assignments");
+                    b.Navigation("CacBaiHoc");
 
-                    b.Navigation("Certificates");
+                    b.Navigation("CacBaiTap");
 
-                    b.Navigation("Coupons");
+                    b.Navigation("CacChungChi");
 
-                    b.Navigation("Enrollments");
+                    b.Navigation("CacChuongHoc");
 
-                    b.Navigation("Lessons");
+                    b.Navigation("CacDanhGia");
 
-                    b.Navigation("Purchases");
+                    b.Navigation("CacDonMua");
 
-                    b.Navigation("Reviews");
+                    b.Navigation("CacGhiDanh");
 
-                    b.Navigation("SavedByUsers");
+                    b.Navigation("CacGiaoDichVi");
 
-                    b.Navigation("Sections");
+                    b.Navigation("CacMaGiamGia");
 
-                    b.Navigation("WalletTransactions");
+                    b.Navigation("CacNguoiDungDaLuu");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.MaGiamGia", b =>
                 {
-                    b.Navigation("Recipients");
+                    b.Navigation("CacLuotSuDung");
 
-                    b.Navigation("Usages");
+                    b.Navigation("CacNguoiNhan");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.NguoiDung", b =>
                 {
-                    b.Navigation("Certificates");
+                    b.Navigation("CacBaiNopKiemTra");
 
-                    b.Navigation("Comments");
+                    b.Navigation("CacBinhLuan");
+
+                    b.Navigation("CacChungChi");
+
+                    b.Navigation("CacDangKySuKien");
+
+                    b.Navigation("CacDanhGia");
+
+                    b.Navigation("CacDoiThuongSuKien");
+
+                    b.Navigation("CacDonMua");
+
+                    b.Navigation("CacGhiDanh");
+
+                    b.Navigation("CacGiaoDichVi");
+
+                    b.Navigation("CacKhoaHoc");
+
+                    b.Navigation("CacKhoaHocDaLuu");
+
+                    b.Navigation("CacSuKienToChuc");
+
+                    b.Navigation("CacThongBao");
+
+                    b.Navigation("CacTienDoBaiHoc");
+
+                    b.Navigation("CacTinNhanDaGui");
 
                     b.Navigation("Conversations");
-
-                    b.Navigation("CourseReviews");
-
-                    b.Navigation("Courses");
-
-                    b.Navigation("Enrollments");
-
-                    b.Navigation("EventRegistrations");
-
-                    b.Navigation("EventRewardRedemptions");
 
                     b.Navigation("ExternalPayments");
 
                     b.Navigation("InstructorWithdrawals");
-
-                    b.Navigation("LessonProgresses");
-
-                    b.Navigation("Notifications");
-
-                    b.Navigation("OrganizedEvents");
-
-                    b.Navigation("Purchases");
-
-                    b.Navigation("QuizSubmissions");
-
-                    b.Navigation("SavedCourses");
-
-                    b.Navigation("SentMessages");
-
-                    b.Navigation("WalletTransactions");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.SuKien", b =>
                 {
-                    b.Navigation("Images");
+                    b.Navigation("CacDangKy");
 
-                    b.Navigation("Registrations");
+                    b.Navigation("CacHinhAnh");
                 });
 
-            modelBuilder.Entity("LMS.Api.Domain.Entities.ThanhToanNgoai", b =>
+            modelBuilder.Entity("LMS.Api.Domain.Entities.ThanhToan", b =>
                 {
-                    b.Navigation("WalletTransactions");
+                    b.Navigation("CacGiaoDichVi");
                 });
 
             modelBuilder.Entity("LMS.Api.Domain.Entities.TinNhan", b =>
                 {
-                    b.Navigation("Attachments");
+                    b.Navigation("CacFileDinhKem");
                 });
 #pragma warning restore 612, 618
         }

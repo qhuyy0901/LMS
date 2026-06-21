@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Student.Controllers;
+namespace LMS.Api.Areas.HocVien.Controllers;
 
 [ApiController]
 [Authorize]
@@ -26,25 +26,25 @@ public class DiemThuongController(ApplicationDbContext db) : ControllerBase
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
-        var nguoiDung = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        var nguoiDung = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (nguoiDung is null) return Results.Unauthorized();
 
-        var daDoi = await db.EventRewardRedemptions.AsNoTracking()
-            .Where(item => item.UserId == userId)
-            .Select(item => item.RewardId)
+        var daDoi = await db.DoiThuongSuKien.AsNoTracking()
+            .Where(item => item.NguoiDungId == userId)
+            .Select(item => item.PhanThuongId)
             .ToListAsync();
 
         return Results.Ok(new
         {
-            points = nguoiDung.RewardPoints,
+            points = nguoiDung.DiemThuong,
             maxPoints = 100,
-            loginStreak = nguoiDung.LoginStreak,
+            loginStreak = nguoiDung.ChuoiDangNhap,
             events = DanhSach.Select(item => new
             {
                 item.Id,
-                item.Title,
-                item.Type,
-                item.PointCost,
+                item.TieuDe,
+                item.LoaiSuKien,
+                item.DiemYeuCau,
                 item.Format,
                 item.Duration,
                 redeemed = daDoi.Contains(item.Id)
@@ -61,40 +61,40 @@ public class DiemThuongController(ApplicationDbContext db) : ControllerBase
         var phanThuong = DanhSach.FirstOrDefault(item => item.Id == rewardId);
         if (phanThuong is null) return Results.NotFound(new { message = "Không tìm thấy sự kiện." });
 
-        if (await db.EventRewardRedemptions.AnyAsync(item => item.UserId == userId && item.RewardId == rewardId))
+        if (await db.DoiThuongSuKien.AnyAsync(item => item.NguoiDungId == userId && item.PhanThuongId == rewardId))
             return Results.BadRequest(new { message = "Bạn đã đổi vé sự kiện này rồi." });
 
-        var nguoiDung = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var nguoiDung = await db.NguoiDung.FirstOrDefaultAsync(u => u.Id == userId);
         if (nguoiDung is null) return Results.Unauthorized();
-        if (nguoiDung.RewardPoints < phanThuong.PointCost)
-            return Results.BadRequest(new { message = $"Bạn cần thêm {phanThuong.PointCost - nguoiDung.RewardPoints} điểm để đổi vé." });
+        if (nguoiDung.DiemThuong < phanThuong.DiemYeuCau)
+            return Results.BadRequest(new { message = $"Bạn cần thêm {phanThuong.DiemYeuCau - nguoiDung.DiemThuong} điểm để đổi vé." });
 
-        nguoiDung.RewardPoints -= phanThuong.PointCost;
-        nguoiDung.UpdatedAt = DateTime.UtcNow;
-        db.EventRewardRedemptions.Add(new DoiThuongSuKien
+        nguoiDung.DiemThuong -= phanThuong.DiemYeuCau;
+        nguoiDung.NgayCapNhat = DateTime.UtcNow;
+        db.DoiThuongSuKien.Add(new DoiThuongSuKien
         {
             Id = TaoId.Moi(),
-            RewardId = phanThuong.Id,
-            EventTitle = phanThuong.Title,
-            PointCost = phanThuong.PointCost,
-            UserId = userId,
-            CreatedAt = DateTime.UtcNow
+            PhanThuongId = phanThuong.Id,
+            TieuDeSuKien = phanThuong.TieuDe,
+            DiemYeuCau = phanThuong.DiemYeuCau,
+            NguoiDungId = userId,
+            NgayTao = DateTime.UtcNow
         });
         await db.SaveChangesAsync();
 
         return Results.Ok(new
         {
             message = "Đổi vé tham gia thành công.",
-            points = nguoiDung.RewardPoints,
+            points = nguoiDung.DiemThuong,
             rewardId
         });
     }
 
     private sealed record PhanThuongSuKien(
         string Id,
-        string Title,
-        string Type,
-        int PointCost,
+        string TieuDe,
+        string LoaiSuKien,
+        int DiemYeuCau,
         string Format,
         string Duration);
 }

@@ -157,11 +157,53 @@
                 <span class="brand-mark">S</span>
                 <span>Skillio</span>
             </a>
-            <div class="nav-label">Tổng quan</div>
-            <a class="nav-item" href="http://localhost:5173/">Bảng điều khiển</a>
-            <a class="nav-item" href="http://localhost:5173/explore">Khám phá</a>
-            <div class="nav-label">Tài khoản</div>
-            <a class="nav-item" href="http://localhost:5173/settings">Cài đặt</a>
+
+            @{
+                var path = Context.Request.Path.Value ?? "";
+                if (path.StartsWith("/Admin", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="nav-label">Tổng quan</div>
+                    <a class="nav-item" href="http://localhost:5173/admin">Dashboard Admin</a>
+
+                    <div class="nav-label">Quản trị hệ thống</div>
+                    <a class="nav-item" href="http://localhost:5173/admin/users">Quản lý người dùng</a>
+                    <a class="nav-item" href="http://localhost:5173/admin/instructor-applications">Đăng ký giảng viên</a>
+                    <a class="nav-item" href="http://localhost:5173/admin/courses">Duyệt khóa học</a>
+                    <a class="nav-item active" href="/Admin/DanhMuc">Quản lý danh mục</a>
+                    <a class="nav-item" href="http://localhost:5173/admin/transactions">Quản lý giao dịch</a>
+                    <a class="nav-item" href="http://localhost:5173/admin/events">Sự kiện</a>
+                }
+                else if (path.StartsWith("/Instructor", StringComparison.OrdinalIgnoreCase))
+                {
+                    <div class="nav-label">Tổng quan</div>
+                    <a class="nav-item" href="http://localhost:5173/instructor/dashboard">Dashboard giảng viên</a>
+
+                    <div class="nav-label">Quản lý nội dung</div>
+                    <a class="nav-item" href="http://localhost:5173/instructor/courses">Khóa học của tôi</a>
+                    <a class="nav-item @(path.EndsWith("/Create", StringComparison.OrdinalIgnoreCase) ? "active" : "")" href="/Instructor/KhoaHoc/Create">Tạo khóa học mới</a>
+                    <a class="nav-item" href="http://localhost:5173/instructor/vouchers">Mã giảm giá</a>
+                    <a class="nav-item" href="http://localhost:5173/instructor/events">Quản lý sự kiện</a>
+
+                    <div class="nav-label">Doanh thu</div>
+                    <a class="nav-item" href="http://localhost:5173/instructor/wallet">Ví doanh thu</a>
+                }
+                else
+                {
+                    <div class="nav-label">Tổng quan</div>
+                    <a class="nav-item" href="http://localhost:5173/">Bảng điều khiển</a>
+                    <a class="nav-item active" href="/KhamPha">Khám phá</a>
+                    <a class="nav-item" href="http://localhost:5173/events">Sự kiện</a>
+
+                    <div class="nav-label">Học tập</div>
+                    <a class="nav-item" href="http://localhost:5173/my-learning">Học tập của tôi</a>
+                    <a class="nav-item" href="http://localhost:5173/reports">Tiến trình</a>
+
+                    <div class="nav-label">Tài khoản</div>
+                    <a class="nav-item" href="http://localhost:5173/messages">Tin nhắn</a>
+                    <a class="nav-item" href="http://localhost:5173/instructors">Giảng viên</a>
+                    <a class="nav-item" href="http://localhost:5173/settings">Cài đặt</a>
+                }
+            }
         </aside>
         <main class="content">
             <div class="topbar">

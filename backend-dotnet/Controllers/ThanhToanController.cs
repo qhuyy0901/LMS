@@ -73,16 +73,16 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
             return Results.BadRequest(new { valid = false, error = ketQua.Loi });
         }
 
-        var coursePrice = await db.Courses
+        var coursePrice = await db.KhoaHoc
             .Where(course => course.Id == yeuCau.CourseId)
-            .Select(course => course.Price)
+            .Select(course => course.Gia)
             .FirstOrDefaultAsync();
         var finalPrice = Math.Max(0, coursePrice - ketQua.SoTienGiam);
 
         return Results.Ok(new
         {
             valid = true,
-            couponCode = ketQua.MaGiam!.Code,
+            couponCode = ketQua.MaGiam!.Ma,
             discountType = ketQua.MaGiam.DiscountType,
             discountValue = ketQua.MaGiam.DiscountValue,
             discountAmount = ketQua.SoTienGiam,

@@ -810,7 +810,7 @@ export default function LearningWorkspace() {
                               <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900">
                                 <p className="font-bold">Bạn đã đủ điều kiện nhận chứng nhận khóa học.</p>
                                 <p className="mt-1 text-xs">
-                                  Mã chứng nhận: {quizResult.certificate.certificateNo}. Bạn có thể xem lại trong mục Chứng chỉ.
+                                  Mã chứng nhận: {quizResult.certificate.soChungChi || quizResult.certificate.certificateNo}. Bạn có thể xem lại trong mục Học tập của tôi.
                                 </p>
                               </div>
                             )}

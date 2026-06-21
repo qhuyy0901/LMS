@@ -5,14 +5,14 @@ namespace LMS.Api.Domain.Entities;
 
 public class NguoiThamGiaTroChuyen
 {
-    public Guid ConversationId { get; set; }
-    public CuocTroChuyen Conversation { get; set; } = null!;
+    public Guid CuocTroChuyenId { get; set; }
+    public CuocTroChuyen CuocTroChuyen { get; set; } = null!;
 
-    public string UserId { get; set; } = string.Empty;
-    public NguoiDung User { get; set; } = null!;
+    public string NguoiDungId { get; set; } = string.Empty;
+    public NguoiDung NguoiDung { get; set; } = null!;
 
-    public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
+    public DateTime NgayThamGia { get; set; } = DateTime.UtcNow;
     
     // To track unread messages
-    public DateTime? LastReadAt { get; set; }
+    public DateTime? DocCuoiLuc { get; set; }
 }

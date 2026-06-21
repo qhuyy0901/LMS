@@ -12,12 +12,12 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
     [HttpGet("/api/instructors/{id}")]
     public async Task<IResult> ChiTietGiangVien(string id)
     {
-        var user = await db.Users.AsNoTracking()
-            .Where(item => item.Id == id && (item.Role == "INSTRUCTOR" || item.Role == "TEACHER" || item.Role == "GIANGVIEN"))
-            .Include(item => item.Courses)
-                .ThenInclude(course => course.Enrollments)
-            .Include(item => item.Courses)
-                .ThenInclude(course => course.Reviews)
+        var user = await db.NguoiDung.AsNoTracking()
+            .Where(item => item.Id == id && (item.VaiTro == "INSTRUCTOR" || item.VaiTro == "TEACHER" || item.VaiTro == "GIANGVIEN"))
+            .Include(item => item.CacKhoaHoc)
+                .ThenInclude(course => course.CacGhiDanh)
+            .Include(item => item.CacKhoaHoc)
+                .ThenInclude(course => course.CacDanhGia)
             .FirstOrDefaultAsync();
 
         if (user is null) return Results.NotFound(new { message = "Không tìm thấy giảng viên" });
@@ -28,13 +28,13 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
     [HttpGet("/api/instructors")]
     public async Task<IResult> DanhSachGiangVien()
     {
-        var users = await db.Users.AsNoTracking()
-            .Where(user => user.Role == "INSTRUCTOR" || user.Role == "TEACHER" || user.Role == "GIANGVIEN")
-            .Include(user => user.Courses)
-                .ThenInclude(course => course.Enrollments)
-            .Include(user => user.Courses)
-                .ThenInclude(course => course.Reviews)
-            .OrderBy(user => user.Name)
+        var users = await db.NguoiDung.AsNoTracking()
+            .Where(user => user.VaiTro == "INSTRUCTOR" || user.VaiTro == "TEACHER" || user.VaiTro == "GIANGVIEN")
+            .Include(user => user.CacKhoaHoc)
+                .ThenInclude(course => course.CacGhiDanh)
+            .Include(user => user.CacKhoaHoc)
+                .ThenInclude(course => course.CacDanhGia)
+            .OrderBy(user => user.Ten)
             .ToListAsync();
 
         var instructors = users.Select(TaoThongTinGiangVien)
@@ -49,16 +49,16 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
             : Math.Round(instructors.Sum(item => item.averageRating * item.reviewCount) / totalReviewWeight, 1);
 
         var categories = instructors
-            .SelectMany(item => item.categories.Select(category => new { category.name, category.courseCount, InstructorId = item.id }))
+            .SelectMany(item => item.categories.Select(category => new { category.name, category.courseCount, GiangVienId = item.id }))
             .GroupBy(item => item.name)
             .Select(group => new
             {
                 name = group.Key,
-                instructorCount = group.Select(item => item.InstructorId).Distinct().Count(),
+                instructorCount = group.Select(item => item.GiangVienId).Distinct().Count(),
                 courseCount = group.Sum(item => item.courseCount),
                 percentage = instructors.Count == 0
                     ? 0
-                    : Math.Round(group.Select(item => item.InstructorId).Distinct().Count() * 100.0 / instructors.Count, 1)
+                    : Math.Round(group.Select(item => item.GiangVienId).Distinct().Count() * 100.0 / instructors.Count, 1)
             })
             .OrderByDescending(item => item.courseCount)
             .ThenBy(item => item.name)
@@ -87,23 +87,23 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
 
     private static InstructorSummary TaoThongTinGiangVien(NguoiDung user)
     {
-        var publishedCourses = user.Courses
+        var publishedCourses = user.CacKhoaHoc
             .Where(IsPublished)
-            .OrderByDescending(course => course.Enrollments.Count)
-            .ThenByDescending(course => course.AverageRating)
+            .OrderByDescending(course => course.CacGhiDanh.Count)
+            .ThenByDescending(course => course.DiemDanhGiaTrungBinh)
             .ToList();
 
-        var studentCount = publishedCourses.Sum(course => course.Enrollments.Count);
-        var reviewCount = publishedCourses.Sum(course => Math.Max(course.ReviewCount, course.Reviews.Count));
+        var studentCount = publishedCourses.Sum(course => course.CacGhiDanh.Count);
+        var reviewCount = publishedCourses.Sum(course => Math.Max(course.SoLuongDanhGia, course.CacDanhGia.Count));
         var ratingWeight = publishedCourses.Sum(course =>
         {
-            var weight = Math.Max(course.ReviewCount, course.Reviews.Count);
-            return course.AverageRating > 0 ? course.AverageRating * weight : 0;
+            var weight = Math.Max(course.SoLuongDanhGia, course.CacDanhGia.Count);
+            return course.DiemDanhGiaTrungBinh > 0 ? course.DiemDanhGiaTrungBinh * weight : 0;
         });
         var averageRating = reviewCount == 0 ? 0 : Math.Round(ratingWeight / reviewCount, 1);
 
         var categories = publishedCourses
-            .GroupBy(course => string.IsNullOrWhiteSpace(course.Category) ? "Khác" : course.Category)
+            .GroupBy(course => string.IsNullOrWhiteSpace(course.ChuyenMuc) ? "Khác" : course.ChuyenMuc)
             .Select(group => new CategorySummary(group.Key, group.Count()))
             .OrderByDescending(item => item.courseCount)
             .ThenBy(item => item.name)
@@ -113,13 +113,13 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
 
         return new InstructorSummary(
             id: user.Id,
-            name: string.IsNullOrWhiteSpace(user.Name) ? user.Email : user.Name,
+            name: string.IsNullOrWhiteSpace(user.Ten) ? user.Email : user.Ten,
             email: null,
-            avatar: user.Avatar,
-            bio: user.Bio,
-            headline: string.IsNullOrWhiteSpace(user.Bio)
+            avatar: user.AnhDaiDien,
+            bio: user.TieuSu,
+            headline: string.IsNullOrWhiteSpace(user.TieuSu)
                 ? $"{mainCategory} · {publishedCourses.Count} khóa học"
-                : user.Bio,
+                : user.TieuSu,
             specialty: mainCategory,
             verified: publishedCourses.Count > 0 || studentCount > 0 || reviewCount > 0,
             averageRating: averageRating,
@@ -129,35 +129,35 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
             categories: categories,
             courses: publishedCourses.Take(4).Select(course => new CourseSummary(
                 id: course.Id,
-                title: course.Title,
-                thumbnail: course.Thumbnail,
-                category: course.Category,
-                level: course.Level,
-                students: course.Enrollments.Count,
-                averageRating: course.AverageRating,
-                reviewCount: Math.Max(course.ReviewCount, course.Reviews.Count)
+                title: course.TieuDe,
+                thumbnail: course.AnhDaiDien,
+                category: course.ChuyenMuc,
+                level: course.TrinhDo,
+                students: course.CacGhiDanh.Count,
+                averageRating: course.DiemDanhGiaTrungBinh,
+                reviewCount: Math.Max(course.SoLuongDanhGia, course.CacDanhGia.Count)
             )).ToList()
         );
     }
 
     private static object TaoChiTietGiangVien(NguoiDung user)
     {
-        var publishedCourses = user.Courses
+        var publishedCourses = user.CacKhoaHoc
             .Where(IsPublished)
-            .OrderByDescending(course => course.Enrollments.Count)
-            .ThenByDescending(course => course.AverageRating)
+            .OrderByDescending(course => course.CacGhiDanh.Count)
+            .ThenByDescending(course => course.DiemDanhGiaTrungBinh)
             .ToList();
 
         var studentCount = publishedCourses
-            .SelectMany(course => course.Enrollments.Select(enrollment => enrollment.UserId))
+            .SelectMany(course => course.CacGhiDanh.Select(enrollment => enrollment.NguoiDungId))
             .Distinct()
             .Count();
-        var reviewCount = publishedCourses.Sum(course => Math.Max(course.ReviewCount, course.Reviews.Count));
+        var reviewCount = publishedCourses.Sum(course => Math.Max(course.SoLuongDanhGia, course.CacDanhGia.Count));
         var averageRating = reviewCount == 0
             ? 0
-            : Math.Round(publishedCourses.Sum(course => course.AverageRating * Math.Max(course.ReviewCount, course.Reviews.Count)) / reviewCount, 1);
+            : Math.Round(publishedCourses.Sum(course => course.DiemDanhGiaTrungBinh * Math.Max(course.SoLuongDanhGia, course.CacDanhGia.Count)) / reviewCount, 1);
         var categories = publishedCourses
-            .GroupBy(course => string.IsNullOrWhiteSpace(course.Category) ? "Khác" : course.Category)
+            .GroupBy(course => string.IsNullOrWhiteSpace(course.ChuyenMuc) ? "Khác" : course.ChuyenMuc)
             .Select(group => new { name = group.Key, courseCount = group.Count() })
             .OrderByDescending(item => item.courseCount)
             .ThenBy(item => item.name)
@@ -167,9 +167,9 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
         return new
         {
             id = user.Id,
-            name = string.IsNullOrWhiteSpace(user.Name) ? "Giảng viên Skillio" : user.Name,
-            avatar = user.Avatar,
-            bio = user.Bio,
+            name = string.IsNullOrWhiteSpace(user.Ten) ? "Giảng viên Skillio" : user.Ten,
+            avatar = user.AnhDaiDien,
+            bio = user.TieuSu,
             specialty,
             courseCount = publishedCourses.Count,
             studentCount,
@@ -179,21 +179,21 @@ public class GiangVienCongKhaiController(ApplicationDbContext db) : ControllerBa
             courses = publishedCourses.Select(course => new
             {
                 id = course.Id,
-                title = course.Title,
-                thumbnail = course.Thumbnail,
-                category = course.Category,
-                level = course.Level,
-                price = course.Price,
-                students = course.Enrollments.Count,
-                averageRating = course.AverageRating,
-                reviewCount = Math.Max(course.ReviewCount, course.Reviews.Count)
+                title = course.TieuDe,
+                thumbnail = course.AnhDaiDien,
+                category = course.ChuyenMuc,
+                level = course.TrinhDo,
+                price = course.Gia,
+                students = course.CacGhiDanh.Count,
+                averageRating = course.DiemDanhGiaTrungBinh,
+                reviewCount = Math.Max(course.SoLuongDanhGia, course.CacDanhGia.Count)
             }).ToList()
         };
     }
 
     private static bool IsPublished(KhoaHoc course)
-        => course.IsPublished || course.Status.Equals("PUBLIC", StringComparison.OrdinalIgnoreCase)
-                              || course.Status.Equals("PUBLISHED", StringComparison.OrdinalIgnoreCase);
+        => course.DaXuatBan || course.TrangThai.Equals("PUBLIC", StringComparison.OrdinalIgnoreCase)
+                              || course.TrangThai.Equals("PUBLISHED", StringComparison.OrdinalIgnoreCase);
 
     private sealed record InstructorSummary(
         string id,

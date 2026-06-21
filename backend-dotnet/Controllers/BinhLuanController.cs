@@ -22,11 +22,11 @@ public class BinhLuanController(ApplicationDbContext db) : ControllerBase
         if (!await KiemTraQuyenTruyCap(userId, courseId))
             return Results.Json(new { message = "Bạn không có quyền truy cập bài học này" }, statusCode: 403);
 
-        var ds = await db.Comments.AsNoTracking()
-            .Where(bl => bl.LessonId == lessonId && bl.ParentId == null)
-            .Include(bl => bl.User)
-            .Include(bl => bl.Replies.OrderBy(r => r.CreatedAt)).ThenInclude(r => r.User)
-            .OrderByDescending(bl => bl.CreatedAt).ToListAsync();
+        var ds = await db.BinhLuan.AsNoTracking()
+            .Where(bl => bl.BaiHocId == lessonId && bl.BinhLuanChaId == null)
+            .Include(bl => bl.NguoiDung)
+            .Include(bl => bl.CacPhanHoi.OrderBy(r => r.NgayTao)).ThenInclude(r => r.NguoiDung)
+            .OrderByDescending(bl => bl.NgayTao).ToListAsync();
 
         return Results.Ok(ds.Select(BinhLuanDto.TuBinhLuan));
     }
@@ -46,35 +46,35 @@ public class BinhLuanController(ApplicationDbContext db) : ControllerBase
         var now = DateTime.UtcNow;
         var bl = new BinhLuan
         {
-            Id = TaoId.Moi(), Content = yeuCau.Content.Trim(), LessonId = lessonId, UserId = userId,
-            ParentId = string.IsNullOrWhiteSpace(yeuCau.ParentId) ? null : yeuCau.ParentId,
-            CreatedAt = now, UpdatedAt = now
+            Id = TaoId.Moi(), NoiDung = yeuCau.Content.Trim(), BaiHocId = lessonId, NguoiDungId = userId,
+            BinhLuanChaId = string.IsNullOrWhiteSpace(yeuCau.ParentId) ? null : yeuCau.ParentId,
+            NgayTao = now, NgayCapNhat = now
         };
-        db.Comments.Add(bl);
+        db.BinhLuan.Add(bl);
 
-        var course = await db.Courses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == courseId);
-        if (course is not null && course.InstructorId != userId)
+        var course = await db.KhoaHoc.AsNoTracking().FirstOrDefaultAsync(c => c.Id == courseId);
+        if (course is not null && course.GiangVienId != userId)
         {
-            var studentName = await db.Users.AsNoTracking()
+            var studentName = await db.NguoiDung.AsNoTracking()
                 .Where(user => user.Id == userId)
-                .Select(user => user.Name)
+                .Select(user => user.Ten)
                 .FirstOrDefaultAsync() ?? "Một học viên";
-            db.Notifications.Add(new ThongBao
+            db.ThongBao.Add(new ThongBao
             {
                 Id = TaoId.Moi(),
-                UserId = course.InstructorId,
-                Type = "INSTRUCTOR_COURSE_COMMENT",
-                Title = "Khóa học có bình luận mới",
-                Body = $"{studentName} vừa bình luận trong khóa học {course.Title}.",
-                Link = $"/course/{courseId}",
+                NguoiDungId = course.GiangVienId,
+                LoaiThongBao = "INSTRUCTOR_COURSE_COMMENT",
+                TieuDe = "Khóa học có bình luận mới",
+                NoiDung = $"{studentName} vừa bình luận trong khóa học {course.TieuDe}.",
+                DuongDan = $"/course/{courseId}",
                 Metadata = System.Text.Json.JsonSerializer.Serialize(new { courseId, lessonId, commentId = bl.Id, studentId = userId }),
-                CreatedAt = now
+                NgayTao = now
             });
         }
 
         await db.SaveChangesAsync();
 
-        var daLuu = await db.Comments.AsNoTracking().Include(c => c.User).Include(c => c.Replies).FirstAsync(c => c.Id == bl.Id);
+        var daLuu = await db.BinhLuan.AsNoTracking().Include(c => c.NguoiDung).Include(c => c.CacPhanHoi).FirstAsync(c => c.Id == bl.Id);
         return Results.Created($"/api/courses/{courseId}/lessons/{lessonId}/comments/{bl.Id}", BinhLuanDto.TuBinhLuan(daLuu));
     }
 
@@ -82,9 +82,9 @@ public class BinhLuanController(ApplicationDbContext db) : ControllerBase
     {
         if (userId is null) return false;
         if (LaXemThuSinhVien())
-            return await db.Courses.AnyAsync(c => c.Id == khoaHocId && c.IsPublished && c.InstructorId == userId);
-        return await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == khoaHocId) ||
-               await db.Courses.AnyAsync(c => c.Id == khoaHocId && c.InstructorId == userId);
+            return await db.KhoaHoc.AnyAsync(c => c.Id == khoaHocId && c.DaXuatBan && c.GiangVienId == userId);
+        return await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId) ||
+               await db.KhoaHoc.AnyAsync(c => c.Id == khoaHocId && c.GiangVienId == userId);
     }
 
     private bool LaXemThuSinhVien() =>

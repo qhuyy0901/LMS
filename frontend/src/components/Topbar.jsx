@@ -1,25 +1,10 @@
 import axios from 'axios';
-import { ArrowLeft, BadgeCheck, Bell, ChevronDown, Eye, EyeOff, KeyRound, Loader2, LogOut, Search, Settings, User, Wallet } from 'lucide-react';
+import { ArrowLeft, Bell, ChevronDown, Eye, KeyRound, Loader2, LogOut, Search, Settings, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import UserAvatar from './UserAvatar';
-
-const TIER_LABELS = {
-  BRONZE: 'Đồng',
-  SILVER: 'Bạc',
-  GOLD: 'Vàng',
-  PLATINUM: 'Bạch kim',
-  DIAMOND: 'Kim cương',
-};
-
-const formatCurrency = (amount = 0) =>
-  new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(amount);
 
 const formatNotificationTime = (value) => {
   if (!value) {
@@ -37,7 +22,6 @@ const formatNotificationTime = (value) => {
 const Topbar = () => {
   const { user, logout } = useAuth();
   const { activeView, canImpersonate, isImpersonating, enterStudentView, exitImpersonation, realRole } = useDashboardView();
-  const tierLabel = isImpersonating ? 'Đồng' : TIER_LABELS[user?.memberTier] || 'Đồng';
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,10 +34,10 @@ const Topbar = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [showBalance, setShowBalance] = useState(false);
   const notificationPanelRef = useRef(null);
   const accountPanelRef = useRef(null);
   const isInstructorArea = location.pathname.startsWith('/instructor');
+  const isAdminArea = location.pathname.startsWith('/admin') || activeView === 'ADMIN';
   const hideCourseSearch =
     location.pathname === '/certificates' || 
     location.pathname === '/student/certificates' || 
@@ -63,12 +47,13 @@ const Topbar = () => {
     location.pathname === '/settings' ||
     location.pathname === '/instructor/settings' ||
     location.pathname === '/upgrade' ||
-    isInstructorArea;
+    isInstructorArea ||
+    isAdminArea;
 
   const unreadCount = notifications.filter((notification) => !notification.isRead).length;
 
   const fetchNotifications = useCallback(async () => {
-    if (!user || isImpersonating) {
+    if (!user || isImpersonating || isAdminArea) {
       setNotifications([]);
       return;
     }
@@ -83,7 +68,7 @@ const Topbar = () => {
     } finally {
       setNotificationsLoading(false);
     }
-  }, [user, isImpersonating]);
+  }, [user, isImpersonating, isAdminArea]);
 
   useEffect(() => {
     if (location.pathname === '/explore') {
@@ -234,7 +219,7 @@ const Topbar = () => {
         </div>
       )}
 
-      {canImpersonate && !isImpersonating && (
+      {canImpersonate && !isImpersonating && activeView !== 'ADMIN' && (
         <button
           onClick={handleEnterStudentPreview}
           title={'Xem th\u1eed giao di\u1ec7n h\u1ecdc vi\u00ean'}
@@ -254,176 +239,156 @@ const Topbar = () => {
           className="ml-auto inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white px-4 py-2 text-sm font-semibold text-purple-700 shadow-sm transition hover:border-purple-300 hover:bg-purple-50"
         >
           <ArrowLeft className="h-4 w-4" />
-          Trở về Dashboard giáo viên
+          {realRole === 'ADMIN' ? 'Trở về Dashboard Admin' : 'Trở về Dashboard giáo viên'}
         </button>
       )}
 
-      {activeView !== 'INSTRUCTOR' && !isInstructorArea && (
-        <div className="hidden items-center gap-3 rounded-full border border-slate-200 bg-white px-4 py-2 shadow-sm xl:flex">
-          <div className="flex items-center gap-2 text-amber-700">
-            <BadgeCheck className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase tracking-wide">{tierLabel}</span>
-          </div>
-          <div className="h-5 w-px bg-slate-200" />
-          <div className="flex items-center gap-2 text-slate-700">
-            <Wallet className="h-4 w-4" />
-            <span className="text-sm font-semibold">
-              {showBalance ? formatCurrency(isImpersonating ? 0 : user?.walletBalance || 0) : '••••••'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setShowBalance(!showBalance)}
-              className="ml-1 flex items-center justify-center text-slate-400 transition-colors hover:text-slate-600 focus:outline-none"
-              title={showBalance ? 'Ẩn số dư' : 'Hiện số dư'}
-            >
-              {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
-          </div>
+      {activeView !== 'ADMIN' && (
+        <div className="relative" ref={notificationPanelRef}>
+          <button
+            type="button"
+            onClick={handleToggleNotifications}
+            className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
+            aria-label="Thông báo"
+            aria-expanded={notificationsOpen}
+          >
+            <Bell className="h-4 w-4 text-slate-600 transition-transform group-hover:rotate-12" />
+            {unreadCount > 0 ? (
+              <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            ) : null}
+          </button>
+
+          {notificationsOpen ? (
+            <div className="absolute right-0 top-14 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
+              <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Thông báo</p>
+                  <p className="text-xs text-slate-500">{unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Tất cả đã đọc'}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchNotifications}
+                  className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-50"
+                >
+                  Tải lại
+                </button>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {notificationsLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-slate-500">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Đang tải thông báo...
+                  </div>
+                ) : notificationsError ? (
+                  <div className="px-4 py-8 text-center text-sm text-rose-600">{notificationsError}</div>
+                ) : notifications.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-slate-500">Chưa có thông báo nào.</div>
+                ) : (
+                  notifications.map((notification) => (
+                    <button
+                      key={notification.id}
+                      type="button"
+                      onClick={() => handleNotificationClick(notification)}
+                      className="flex w-full gap-3 border-b border-slate-50 px-4 py-3 text-left transition last:border-b-0 hover:bg-slate-50"
+                    >
+                      <span
+                        className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${
+                          notification.isRead ? 'bg-slate-200' : 'bg-purple-600'
+                        }`}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-900">{notification.title}</span>
+                        <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">{notification.body}</span>
+                        <span className="mt-2 block text-[11px] font-medium text-slate-400">
+                          {formatNotificationTime(notification.createdAt)}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 
-      <div className="relative" ref={notificationPanelRef}>
-        <button
-          type="button"
-          onClick={handleToggleNotifications}
-          className="group relative flex h-11 w-11 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
-          aria-label="Thông báo"
-          aria-expanded={notificationsOpen}
-        >
-          <Bell className="h-4 w-4 text-slate-600 transition-transform group-hover:rotate-12" />
-          {unreadCount > 0 ? (
-            <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-              {unreadCount > 9 ? '9+' : unreadCount}
-            </span>
-          ) : null}
-        </button>
-
-        {notificationsOpen ? (
-          <div className="absolute right-0 top-14 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70">
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Thông báo</p>
-                <p className="text-xs text-slate-500">{unreadCount > 0 ? `${unreadCount} chưa đọc` : 'Tất cả đã đọc'}</p>
-              </div>
-              <button
-                type="button"
-                onClick={fetchNotifications}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-purple-700 transition hover:bg-purple-50"
-              >
-                Tải lại
-              </button>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto">
-              {notificationsLoading ? (
-                <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm text-slate-500">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Đang tải thông báo...
-                </div>
-              ) : notificationsError ? (
-                <div className="px-4 py-8 text-center text-sm text-rose-600">{notificationsError}</div>
-              ) : notifications.length === 0 ? (
-                <div className="px-4 py-8 text-center text-sm text-slate-500">Chưa có thông báo nào.</div>
-              ) : (
-                notifications.map((notification) => (
-                  <button
-                    key={notification.id}
-                    type="button"
-                    onClick={() => handleNotificationClick(notification)}
-                    className="flex w-full gap-3 border-b border-slate-50 px-4 py-3 text-left transition last:border-b-0 hover:bg-slate-50"
-                  >
-                    <span
-                      className={`mt-1 h-2.5 w-2.5 flex-shrink-0 rounded-full ${
-                        notification.isRead ? 'bg-slate-200' : 'bg-purple-600'
-                      }`}
-                    />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-slate-900">{notification.title}</span>
-                      <span className="mt-1 line-clamp-2 block text-xs leading-5 text-slate-500">{notification.body}</span>
-                      <span className="mt-2 block text-[11px] font-medium text-slate-400">
-                        {formatNotificationTime(notification.createdAt)}
-                      </span>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="relative" ref={accountPanelRef}>
-        <button
-          type="button"
-          onClick={handleToggleAccountMenu}
-          title="Mở menu tài khoản"
-          aria-label="Mở menu tài khoản"
-          aria-haspopup="menu"
-          aria-expanded={accountMenuOpen}
-          className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
-        >
-          <UserAvatar src={user?.avatar} name={user?.name || user?.email} className="h-8 w-8 rounded-full" />
-          <span className="hidden max-w-32 truncate text-sm font-semibold text-slate-700 sm:inline">
-            {user?.name || 'Tài khoản'}
-          </span>
-          <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${accountMenuOpen ? 'rotate-180' : ''}`} />
-        </button>
-
-        {accountMenuOpen ? (
-          <div
-            role="menu"
-            className="absolute right-0 top-14 z-50 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70"
+      {activeView !== 'ADMIN' && (
+        <div className="relative" ref={accountPanelRef}>
+          <button
+            type="button"
+            onClick={handleToggleAccountMenu}
+            title="Mở menu tài khoản"
+            aria-label="Mở menu tài khoản"
+            aria-haspopup="menu"
+            aria-expanded={accountMenuOpen}
+            className="flex items-center gap-2 rounded-full border border-slate-200 bg-white p-1 pr-2 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-50 hover:shadow-md"
           >
-            <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-              <UserAvatar src={user?.avatar} name={user?.name || user?.email} className="h-10 w-10 rounded-full" />
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-slate-900">{user?.name || 'Thành viên Skillio'}</p>
-                <p className="truncate text-xs text-slate-500">{user?.email}</p>
+            <UserAvatar src={user?.avatar} name={user?.name || user?.email} className="h-8 w-8 rounded-full" />
+            <span className="hidden max-w-32 truncate text-sm font-semibold text-slate-700 sm:inline">
+              {user?.name || 'Tài khoản'}
+            </span>
+            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${accountMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {accountMenuOpen ? (
+            <div
+              role="menu"
+              className="absolute right-0 top-14 z-50 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-200/70"
+            >
+              <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
+                <UserAvatar src={user?.avatar} name={user?.name || user?.email} className="h-10 w-10 rounded-full" />
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-slate-900">{user?.name || 'Thành viên Skillio'}</p>
+                  <p className="truncate text-xs text-slate-500">{user?.email}</p>
+                </div>
+              </div>
+
+              <div className="p-2">
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleAccountNavigate('/profile?tab=profile')}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-purple-50 hover:text-purple-700"
+                >
+                  <User className="h-4 w-4" />
+                  Hồ sơ cá nhân
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleAccountNavigate('/profile?tab=notifications')}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-purple-50 hover:text-purple-700"
+                >
+                  <Settings className="h-4 w-4" />
+                  Cài đặt tài khoản
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => handleAccountNavigate('/profile?tab=security')}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-purple-50 hover:text-purple-700"
+                >
+                  <KeyRound className="h-4 w-4" />
+                  Đổi mật khẩu
+                </button>
+                <div className="my-2 h-px bg-slate-100" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleAccountLogout}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Đăng xuất
+                </button>
               </div>
             </div>
-
-            <div className="p-2">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => handleAccountNavigate('/profile?tab=profile')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-purple-50 hover:text-purple-700"
-              >
-                <User className="h-4 w-4" />
-                Hồ sơ cá nhân
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => handleAccountNavigate('/profile?tab=notifications')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-purple-50 hover:text-purple-700"
-              >
-                <Settings className="h-4 w-4" />
-                Cài đặt tài khoản
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => handleAccountNavigate('/profile?tab=security')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition hover:bg-purple-50 hover:text-purple-700"
-              >
-                <KeyRound className="h-4 w-4" />
-                Đổi mật khẩu
-              </button>
-              <div className="my-2 h-px bg-slate-100" />
-              <button
-                type="button"
-                role="menuitem"
-                onClick={handleAccountLogout}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
-              >
-                <LogOut className="h-4 w-4" />
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 };

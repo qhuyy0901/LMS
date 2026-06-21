@@ -8,18 +8,18 @@ public class CuocTroChuyen
     [Key]
     public Guid Id { get; set; }
 
-    public string? Title { get; set; }
+    public string? TieuDe { get; set; }
     
-    public bool IsGroup { get; set; }
+    public bool LaNhom { get; set; }
     
-    public string? CourseId { get; set; }
+    public string? KhoaHocId { get; set; }
     public string? ClassId { get; set; }
     public string? SubjectId { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime NgayTao { get; set; } = DateTime.UtcNow;
+    public DateTime NgayCapNhat { get; set; } = DateTime.UtcNow;
 
     // Navigation
-    public ICollection<NguoiThamGiaTroChuyen> Participants { get; set; } = [];
-    public ICollection<TinNhan> Messages { get; set; } = [];
+    public ICollection<NguoiThamGiaTroChuyen> CacNguoiThamGia { get; set; } = [];
+    public ICollection<TinNhan> CacTinNhan { get; set; } = [];
 }

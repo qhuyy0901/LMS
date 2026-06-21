@@ -18,12 +18,33 @@ public static class TroGiup
 
     public static bool DongBoHangThanhVien(NguoiDung nguoiDung)
     {
-        var hangMoi = TinhHangThanhVien(nguoiDung.WalletBalance).Hang;
-        if (nguoiDung.MemberTier == hangMoi) return false;
+        var hangMoi = TinhHangThanhVien(nguoiDung.SoDuVi).Hang;
+        if (nguoiDung.HangThanhVien == hangMoi) return false;
 
-        nguoiDung.MemberTier = hangMoi;
-        nguoiDung.UpdatedAt = DateTime.UtcNow;
+        nguoiDung.HangThanhVien = hangMoi;
+        nguoiDung.NgayCapNhat = DateTime.UtcNow;
         return true;
+    }
+
+    public static bool CoCoCaiDat(NguoiDung nguoiDung, string key)
+    {
+        if (string.IsNullOrWhiteSpace(nguoiDung.CaiDat)) return false;
+        try
+        {
+            var node = System.Text.Json.Nodes.JsonNode.Parse(nguoiDung.CaiDat);
+            if (node is System.Text.Json.Nodes.JsonObject obj && obj.TryGetPropertyValue(key, out var val))
+            {
+                if (val is System.Text.Json.Nodes.JsonValue jsonVal && jsonVal.TryGetValue<bool>(out var boolVal))
+                {
+                    return boolVal;
+                }
+            }
+            return false;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public static int TrongSoHang(string hang) => hang switch
@@ -82,5 +103,36 @@ public static class TroGiup
         var nam = ISOWeek.GetYear(ngay);
         var tuan = ISOWeek.GetWeekOfYear(ngay);
         return $"{nam}-W{tuan:00}";
+    }
+
+    public static string TaoSlug(string phanTho)
+    {
+        if (string.IsNullOrWhiteSpace(phanTho)) return string.Empty;
+        string str = phanTho.ToLowerInvariant();
+        
+        string[] accents = {
+            "aàảãáạăằẳẵắặâầẩẫấậ",
+            "dđ",
+            "eèẻẽéẹêềểễếệ",
+            "iìỉĩíị",
+            "oòỏõóọôồổỗốộơờởỡớợ",
+            "uùủũúụưừửữứự",
+            "yỳỷỹýỵ"
+        };
+        string[] replacements = { "a", "d", "e", "i", "o", "u", "y" };
+        for (int i = 0; i < accents.Length; i++)
+        {
+            foreach (char c in accents[i])
+            {
+                str = str.Replace(c.ToString(), replacements[i]);
+            }
+        }
+
+        str = System.Text.RegularExpressions.Regex.Replace(str, @"[^a-z0-9\s-]", "");
+        str = System.Text.RegularExpressions.Regex.Replace(str, @"\s+", " ").Trim();
+        str = str.Replace(" ", "-");
+        str = System.Text.RegularExpressions.Regex.Replace(str, @"-+", "-");
+        
+        return str;
     }
 }

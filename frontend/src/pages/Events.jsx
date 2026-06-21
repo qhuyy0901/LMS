@@ -156,35 +156,39 @@ export default function Events() {
                     {item.isRegistered && online && !ended && (
                       <p className="mt-3 text-xs text-amber-600">Sự kiện chưa bắt đầu, bạn có thể vào phòng trước nếu giảng viên đã mở phòng.</p>
                     )}
-                    <div className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-5">
-                      <Link to={`/student/events/${item.id}`} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700">
-                        Xem chi tiết
-                      </Link>
-                      <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-                        {item.isRegistered && online && (
-                          <button type="button" onClick={() => joinOnlineEvent(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100">
-                            Vào phòng <ExternalLink className="h-4 w-4" />
-                          </button>
-                        )}
-                        {item.isRegistered ? (
-                          <div className="text-right">
+                    <div className="mt-auto border-t border-slate-100 pt-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Link to={`/student/events/${item.id}`} className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-purple-300 hover:bg-purple-50 hover:text-purple-700">
+                          Xem chi tiết
+                        </Link>
+                        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                          {item.isRegistered && online && (
+                            <button type="button" onClick={() => joinOnlineEvent(item)} className="inline-flex items-center gap-1.5 rounded-xl border border-purple-200 bg-purple-50 px-4 py-2.5 text-sm font-semibold text-purple-700 transition hover:bg-purple-100">
+                              Vào phòng <ExternalLink className="h-4 w-4" />
+                            </button>
+                          )}
+                          {item.isRegistered ? (
                             <span className="inline-flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700">
                               <Check className="h-4 w-4" /> Đã đăng ký
                             </span>
-                            {pointsUsed > 0 && <p className="mt-1 text-xs font-medium text-slate-500">Đã sử dụng {pointsUsed} điểm</p>}
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busyId === item.id || ended || full}
-                            onClick={() => registerEvent(item)}
-                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${ended || full ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
-                          >
-                            <Check className="h-4 w-4" />
-                            {busyId === item.id ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : pointCost > 0 ? `Đổi ${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}
-                          </button>
-                        )}
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={busyId === item.id || ended || full}
+                              onClick={() => registerEvent(item)}
+                              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${ended || full ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+                            >
+                              <Check className="h-4 w-4" />
+                              {busyId === item.id ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : pointCost > 0 ? `Đổi ${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}
+                            </button>
+                          )}
+                        </div>
                       </div>
+                      {item.isRegistered && pointsUsed > 0 && (
+                        <p className="mt-2 text-right text-xs font-medium text-slate-500">
+                          Đã sử dụng {pointsUsed} điểm
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

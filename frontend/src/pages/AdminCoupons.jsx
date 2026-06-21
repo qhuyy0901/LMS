@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { BookOpen, Calendar, DollarSign, Hash, Percent, Plus, Search, Tag, ToggleLeft, ToggleRight, Trash2, X } from 'lucide-react';
+import DataTable from '../components/DataTable';
+import DataTableToolbar from '../components/DataTableToolbar';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -230,6 +232,7 @@ export default function AdminCoupons() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [pageSize, setPageSize] = useState(5);
 
   const fetchCoupons = useCallback(async () => {
     setLoading(true);
@@ -279,20 +282,97 @@ export default function AdminCoupons() {
   const activeCoupons = coupons.filter((coupon) => coupon.isActive).length;
   const totalUsage = coupons.reduce((sum, coupon) => sum + (coupon.usageCount || 0), 0);
 
+  const columns = [
+    { title: 'Mã', data: 'code', className: 'px-5 py-4' },
+    { title: 'Loại và giá trị', data: 'discountValue', className: 'px-5 py-4' },
+    { title: 'Khóa học', data: 'course.title', className: 'px-5 py-4' },
+    { title: 'Lượt dùng', data: 'usageCount', className: 'px-5 py-4' },
+    { title: 'Thời hạn', data: 'endDate', className: 'px-5 py-4' },
+    { title: 'Trạng thái', data: 'isActive', className: 'px-5 py-4' },
+    { title: 'Thao tác', data: 'id', className: 'px-5 py-4 text-right', orderable: false }
+  ];
+
+  const slots = {
+    0: (data, row) => (
+      <div className="flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
+          <Tag className="h-4 w-4" />
+        </div>
+        <span className="font-mono text-sm font-bold tracking-wider text-slate-900">{row.code}</span>
+      </div>
+    ),
+    1: (data, row) => (
+      <div>
+        {row.discountType === 'PERCENTAGE' ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+            <Percent className="h-3 w-3" />
+            {row.discountValue}%
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+            <DollarSign className="h-3 w-3" />
+            {formatCurrency(row.discountValue)}
+          </span>
+        )}
+        {row.minPurchaseAmount > 0 && <p className="mt-1 text-xs text-slate-400">Tối thiểu: {formatCurrency(row.minPurchaseAmount)}</p>}
+      </div>
+    ),
+    2: (data, row) => (
+      row.course ? (
+        <span className="block max-w-[160px] truncate text-sm text-slate-700" title={row.course.title}>{row.course.title}</span>
+      ) : (
+        <span className="text-xs italic text-slate-400">Tất cả khóa học</span>
+      )
+    ),
+    3: (data, row) => (
+      <div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-slate-900">{row.usageCount}</span>
+          {row.usageLimit != null && <span className="text-xs text-slate-400">/ {row.usageLimit}</span>}
+        </div>
+        {row.usageLimit != null && (
+          <div className="mt-1.5 h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
+            <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${Math.min(100, (row.usageCount / row.usageLimit) * 100)}%` }} />
+          </div>
+        )}
+      </div>
+    ),
+    4: (data, row) => (
+      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+        <Calendar className="h-3.5 w-3.5" />
+        <span>
+          {formatDate(row.startDate)} → {formatDate(row.endDate)}
+        </span>
+      </div>
+    ),
+    5: (data, row) => (
+      <button
+        onClick={() => toggleActive(row.id)}
+        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
+          row.isActive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+        }`}
+      >
+        {row.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
+        {row.isActive ? 'Hoạt động' : 'Vô hiệu'}
+      </button>
+    ),
+    6: (data, row) => (
+      <button
+        onClick={() => deleteCoupon(row.id, row.code)}
+        className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+        title="Xóa mã giảm giá"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
+    )
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quản lý mã giảm giá</h1>
-          <p className="mt-1 text-sm text-slate-500">Tạo, quản lý và theo dõi hiệu quả các mã khuyến mãi.</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-purple-200 transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-md"
-        >
-          <Plus className="h-4 w-4" />
-          Tạo mã mới
-        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -313,136 +393,48 @@ export default function AdminCoupons() {
         ))}
       </div>
 
-      <div className="grid gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_200px_auto]">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-200 px-3">
-          <Search className="h-4 w-4 text-slate-400" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => event.key === 'Enter' && fetchCoupons()}
-            placeholder="Tìm theo mã giảm giá..."
-            className="flex-1 bg-transparent py-2.5 text-sm outline-none"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-          className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
-        >
-          <option value="">Tất cả trạng thái</option>
-          <option value="active">Đang hoạt động</option>
-          <option value="inactive">Đã vô hiệu hóa</option>
-        </select>
-        <button onClick={fetchCoupons} className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800">
-          Tìm kiếm
-        </button>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-        {error && <div className="p-6 text-sm text-rose-600">{error}</div>}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-5 py-4">Mã</th>
-                <th className="px-5 py-4">Loại và giá trị</th>
-                <th className="px-5 py-4">Khóa học</th>
-                <th className="px-5 py-4">Lượt dùng</th>
-                <th className="px-5 py-4">Thời hạn</th>
-                <th className="px-5 py-4">Trạng thái</th>
-                <th className="px-5 py-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {loading ? (
-                <tr>
-                  <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                    <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-purple-600 border-t-transparent" />
-                  </td>
-                </tr>
-              ) : coupons.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                    Chưa có mã giảm giá nào. Nhấn "Tạo mã mới" để bắt đầu.
-                  </td>
-                </tr>
-              ) : (
-                coupons.map((coupon) => (
-                  <tr key={coupon.id} className="transition-colors hover:bg-slate-50/70">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 text-white">
-                          <Tag className="h-4 w-4" />
-                        </div>
-                        <span className="font-mono text-sm font-bold tracking-wider text-slate-900">{coupon.code}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      {coupon.discountType === 'PERCENTAGE' ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
-                          <Percent className="h-3 w-3" />
-                          {coupon.discountValue}%
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                          <DollarSign className="h-3 w-3" />
-                          {formatCurrency(coupon.discountValue)}
-                        </span>
-                      )}
-                      {coupon.minPurchaseAmount > 0 && <p className="mt-1 text-xs text-slate-400">Tối thiểu: {formatCurrency(coupon.minPurchaseAmount)}</p>}
-                    </td>
-                    <td className="px-5 py-4">
-                      {coupon.course ? (
-                        <span className="block max-w-[160px] truncate text-sm text-slate-700">{coupon.course.title}</span>
-                      ) : (
-                        <span className="text-xs italic text-slate-400">Tất cả khóa học</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900">{coupon.usageCount}</span>
-                        {coupon.usageLimit != null && <span className="text-xs text-slate-400">/ {coupon.usageLimit}</span>}
-                      </div>
-                      {coupon.usageLimit != null && (
-                        <div className="mt-1.5 h-1.5 w-20 overflow-hidden rounded-full bg-slate-100">
-                          <div className="h-full rounded-full bg-purple-500 transition-all" style={{ width: `${Math.min(100, (coupon.usageCount / coupon.usageLimit) * 100)}%` }} />
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                        <Calendar className="h-3.5 w-3.5" />
-                        <span>
-                          {formatDate(coupon.startDate)} → {formatDate(coupon.endDate)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <button
-                        onClick={() => toggleActive(coupon.id)}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold transition-all ${
-                          coupon.isActive ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                        }`}
-                      >
-                        {coupon.isActive ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                        {coupon.isActive ? 'Hoạt động' : 'Vô hiệu'}
-                      </button>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => deleteCoupon(coupon.id, coupon.code)}
-                        className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
-                        title="Xóa mã giảm giá"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <DataTableToolbar
+          searchValue={query}
+          onSearchChange={setQuery}
+          onSearchKeyDown={(event) => event.key === 'Enter' && fetchCoupons()}
+          placeholder="Tìm theo mã giảm giá..."
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          filters={
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="active">Đang hoạt động</option>
+              <option value="inactive">Đã vô hiệu hóa</option>
+            </select>
+          }
+          actions={
+            <div className="flex items-center gap-2">
+              <button onClick={fetchCoupons} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition">
+                Tìm kiếm
+              </button>
+              <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-xs font-semibold text-white hover:bg-purple-700 transition"
+              >
+                <Plus className="h-4 w-4" />
+                Tạo mã mới
+              </button>
+            </div>
+          }
+        />
+        <DataTable
+          data={coupons}
+          columns={columns}
+          slots={slots}
+          loading={loading}
+          error={error}
+          pageSize={pageSize}
+        />
       </div>
 
       {showModal && <CreateCouponModal onClose={() => setShowModal(false)} onCreated={handleCouponCreated} />}

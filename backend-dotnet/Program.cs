@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text.Json.Serialization;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,6 +23,82 @@ var jwtSecret = builder.Configuration["JWT_SECRET"] ?? "change-me-to-a-long-rand
 var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
 static string? FirstConfigured(params string?[] values) =>
     values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+static async Task EnsureLocalDbStartedAsync(string connectionString, ILogger logger)
+{
+    if (!connectionString.Contains("(localdb)", StringComparison.OrdinalIgnoreCase))
+    {
+        return;
+    }
+
+    var instanceName = "MSSQLLocalDB";
+    var serverPart = connectionString
+        .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .FirstOrDefault(part =>
+            part.StartsWith("Server=", StringComparison.OrdinalIgnoreCase) ||
+            part.StartsWith("Data Source=", StringComparison.OrdinalIgnoreCase));
+
+    if (!string.IsNullOrWhiteSpace(serverPart))
+    {
+        var serverValue = serverPart[(serverPart.IndexOf('=') + 1)..].Trim();
+        var marker = @"(localdb)\";
+        var markerIndex = serverValue.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+        if (markerIndex >= 0)
+        {
+            instanceName = serverValue[(markerIndex + marker.Length)..].Trim();
+        }
+    }
+
+    static async Task<(int ExitCode, string Output, string Error)> RunLocalDbAsync(params string[] arguments)
+    {
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo
+        {
+            FileName = "sqllocaldb",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
+        foreach (var argument in arguments)
+        {
+            process.StartInfo.ArgumentList.Add(argument);
+        }
+
+        process.Start();
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        await process.WaitForExitAsync();
+        return (process.ExitCode, await outputTask, await errorTask);
+    }
+
+    try
+    {
+        var info = await RunLocalDbAsync("info", instanceName);
+        if (info.ExitCode == 0 && info.Output.Contains("State:              Running", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        logger.LogInformation("Starting SQL Server LocalDB instance {InstanceName} before applying migrations.", instanceName);
+        var start = await RunLocalDbAsync("start", instanceName);
+        if (start.ExitCode == 0)
+        {
+            return;
+        }
+
+        logger.LogWarning(
+            "Could not start SQL Server LocalDB instance {InstanceName}. sqllocaldb output: {Output} {Error}",
+            instanceName,
+            start.Output.Trim(),
+            start.Error.Trim());
+    }
+    catch (Exception ex)
+    {
+        logger.LogWarning(ex, "Could not run sqllocaldb preflight for LocalDB instance {InstanceName}.", instanceName);
+    }
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString, sqlOptions =>
@@ -139,6 +216,9 @@ var app = builder.Build();
 
 await using (var scope = app.Services.CreateAsyncScope())
 {
+    var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("LocalDbStartup");
+    await EnsureLocalDbStartedAsync(connectionString, logger);
+
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
 

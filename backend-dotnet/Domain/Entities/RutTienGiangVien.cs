@@ -3,13 +3,13 @@ namespace LMS.Api.Domain.Entities;
 public class RutTienGiangVien
 {
     public string Id { get; set; } = string.Empty;
-    public string InstructorId { get; set; } = string.Empty;
-    public NguoiDung? Instructor { get; set; }
-    public int Amount { get; set; }
-    public string Status { get; set; } = "COMPLETED";
-    public string BankName { get; set; } = string.Empty;
-    public string AccountNumber { get; set; } = string.Empty;
-    public string AccountHolder { get; set; } = string.Empty;
-    public string? Note { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public string GiangVienId { get; set; } = string.Empty;
+    public NguoiDung? GiangVien { get; set; }
+    public int SoTien { get; set; }
+    public string TrangThai { get; set; } = "COMPLETED";
+    public string TenNganHang { get; set; } = string.Empty;
+    public string SoTaiKhoan { get; set; } = string.Empty;
+    public string ChuTaiKhoan { get; set; } = string.Empty;
+    public string? NoiDung { get; set; }
+    public DateTime NgayTao { get; set; }
 }

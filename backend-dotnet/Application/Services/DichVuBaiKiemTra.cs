@@ -21,26 +21,26 @@ public class DichVuBaiKiemTra(ApplicationDbContext db, IDichVuGhiDanh dichVuGhiD
 {
     public async Task<IResult> LayBaiKiemTraAsync(string lessonId, string userId, bool laAdmin)
     {
-        var baiHoc = await db.Lessons.AsNoTracking().Include(l => l.Course).FirstOrDefaultAsync(l => l.Id == lessonId);
+        var baiHoc = await db.BaiHoc.AsNoTracking().Include(l => l.KhoaHoc).FirstOrDefaultAsync(l => l.Id == lessonId);
         if (baiHoc is null) return Results.NotFound(new { message = "Không tìm thấy bài học này" });
 
-        if (!await KiemTraQuyenTruyCap(userId, baiHoc.CourseId))
+        if (!await KiemTraQuyenTruyCap(userId, baiHoc.KhoaHocId))
             return Results.Json(new { message = "Bạn không có quyền truy cập bài học này" }, statusCode: 403);
 
-        var quiz = await db.Quizzes.AsNoTracking().Include(q => q.Questions.OrderBy(c => c.Position)).FirstOrDefaultAsync(q => q.LessonId == lessonId);
+        var quiz = await db.BaiKiemTra.AsNoTracking().Include(q => q.CacCauHoi.OrderBy(c => c.ThuTu)).FirstOrDefaultAsync(q => q.BaiHocId == lessonId);
         if (quiz is null) return Results.Ok(null);
 
-        var baiNop = await db.QuizSubmissions.AsNoTracking().Where(s => s.UserId == userId && s.QuizId == quiz.Id).OrderByDescending(s => s.CreatedAt).Take(5).ToListAsync();
-        var laChuSoHuu = baiHoc.Course?.InstructorId == userId || laAdmin;
+        var baiNop = await db.BaiNopKiemTra.AsNoTracking().Where(s => s.NguoiDungId == userId && s.BaiKiemTraId == quiz.Id).OrderByDescending(s => s.NgayTao).Take(5).ToListAsync();
+        var laChuSoHuu = baiHoc.KhoaHoc?.GiangVienId == userId || laAdmin;
 
         return Results.Ok(BaiKiemTraDto.TuQuiz(quiz, baiNop, hienDapAn: laChuSoHuu));
     }
 
     public async Task<IResult> LuuBaiKiemTraAsync(string lessonId, string userId, bool laAdmin, string tieuDe, string? moTa, int? diemDat, List<DTOs.YeuCau.CauHoiRequest> cauHoi)
     {
-        var baiHoc = await db.Lessons.AsNoTracking().Include(l => l.Course).FirstOrDefaultAsync(l => l.Id == lessonId);
+        var baiHoc = await db.BaiHoc.AsNoTracking().Include(l => l.KhoaHoc).FirstOrDefaultAsync(l => l.Id == lessonId);
         if (baiHoc is null) return Results.NotFound(new { message = "Không tìm thấy bài học này" });
-        if (!laAdmin && baiHoc.Course?.InstructorId != userId) return Results.Json(new { message = "Bạn không có quyền quản lý bài trắc nghiệm cho bài học này" }, statusCode: 403);
+        if (!laAdmin && baiHoc.KhoaHoc?.GiangVienId != userId) return Results.Json(new { message = "Bạn không có quyền quản lý bài trắc nghiệm cho bài học này" }, statusCode: 403);
         if (string.IsNullOrWhiteSpace(tieuDe)) return Results.BadRequest(new { message = "Tiêu đề quiz không được để trống" });
         if (cauHoi.Count == 0) return Results.BadRequest(new { message = "Quiz phải có ít nhất 1 câu hỏi" });
 
@@ -54,58 +54,58 @@ public class DichVuBaiKiemTra(ApplicationDbContext db, IDichVuGhiDanh dichVuGhiD
         }
 
         var now = DateTime.UtcNow;
-        var quiz = await db.Quizzes.Include(q => q.Questions).FirstOrDefaultAsync(q => q.LessonId == lessonId);
-        if (quiz is null) { quiz = new BaiKiemTra { Id = TaoId.Moi(), LessonId = lessonId, CreatedAt = now }; db.Quizzes.Add(quiz); }
+        var quiz = await db.BaiKiemTra.Include(q => q.CacCauHoi).FirstOrDefaultAsync(q => q.BaiHocId == lessonId);
+        if (quiz is null) { quiz = new BaiKiemTra { Id = TaoId.Moi(), BaiHocId = lessonId, NgayTao = now }; db.BaiKiemTra.Add(quiz); }
 
-        quiz.Title = tieuDe.Trim();
-        quiz.Description = moTa;
-        quiz.PassingScore = Math.Clamp(diemDat ?? 50, 1, 100);
-        quiz.UpdatedAt = now;
+        quiz.TieuDe = tieuDe.Trim();
+        quiz.MoTa = moTa;
+        quiz.DiemDat = Math.Clamp(diemDat ?? 50, 1, 100);
+        quiz.NgayCapNhat = now;
 
-        db.QuizQuestions.RemoveRange(quiz.Questions);
+        db.CauHoiKiemTra.RemoveRange(quiz.CacCauHoi);
         for (var i = 0; i < cauHoi.Count; i++)
         {
             var ch = cauHoi[i];
-            db.QuizQuestions.Add(new CauHoiKiemTra { Id = TaoId.Moi(), QuizId = quiz.Id, QuestionText = ch.QuestionText!.Trim(), Options = JsonSerializer.Serialize(ch.Options), CorrectOptionIndex = ch.CorrectOptionIndex, Explanation = string.IsNullOrWhiteSpace(ch.Explanation) ? null : ch.Explanation.Trim(), Position = i, CreatedAt = now, UpdatedAt = now });
+            db.CauHoiKiemTra.Add(new CauHoiKiemTra { Id = TaoId.Moi(), BaiKiemTraId = quiz.Id, NoiDungCauHoi = ch.QuestionText!.Trim(), CacLuaChon = JsonSerializer.Serialize(ch.Options), DapAnDungIndex = ch.CorrectOptionIndex, GiaiThich = string.IsNullOrWhiteSpace(ch.Explanation) ? null : ch.Explanation.Trim(), ThuTu = i, NgayTao = now, NgayCapNhat = now });
         }
 
         await db.SaveChangesAsync();
 
-        var daLuu = await db.Quizzes.AsNoTracking().Include(q => q.Questions.OrderBy(c => c.Position)).FirstAsync(q => q.Id == quiz.Id);
+        var daLuu = await db.BaiKiemTra.AsNoTracking().Include(q => q.CacCauHoi.OrderBy(c => c.ThuTu)).FirstAsync(q => q.Id == quiz.Id);
         return Results.Ok(BaiKiemTraDto.TuQuiz(daLuu, [], hienDapAn: true));
     }
 
     public async Task<IResult> NopBaiAsync(string lessonId, string userId, Dictionary<string, int>? cauTraLoi)
     {
-        var baiHoc = await db.Lessons.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lessonId);
+        var baiHoc = await db.BaiHoc.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lessonId);
         if (baiHoc is null) return Results.NotFound(new { message = "Không tìm thấy bài học này" });
-        if (!await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == baiHoc.CourseId))
+        if (!await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == baiHoc.KhoaHocId))
             return Results.Json(new { message = "Bạn chưa đăng ký khóa học này" }, statusCode: 403);
 
-        var quiz = await db.Quizzes.Include(q => q.Questions.OrderBy(c => c.Position)).FirstOrDefaultAsync(q => q.LessonId == lessonId);
+        var quiz = await db.BaiKiemTra.Include(q => q.CacCauHoi.OrderBy(c => c.ThuTu)).FirstOrDefaultAsync(q => q.BaiHocId == lessonId);
         if (quiz is null) return Results.NotFound(new { message = "Bài học này chưa có bài trắc nghiệm" });
 
         var dapAn = cauTraLoi ?? new Dictionary<string, int>();
-        var tongCauHoi = quiz.Questions.Count;
+        var tongCauHoi = quiz.CacCauHoi.Count;
         var soDung = 0;
 
-        var chiTiet = quiz.Questions.OrderBy(c => c.Position).Select(ch =>
+        var chiTiet = quiz.CacCauHoi.OrderBy(c => c.ThuTu).Select(ch =>
         {
             var daChon = dapAn.TryGetValue(ch.Id, out var idx) ? idx : (int?)null;
-            var dung = daChon == ch.CorrectOptionIndex;
+            var dung = daChon == ch.DapAnDungIndex;
             if (dung) soDung += 1;
             List<string> luaChon;
-            try { luaChon = JsonSerializer.Deserialize<List<string>>(ch.Options) ?? []; } catch { luaChon = []; }
-            return new { questionId = ch.Id, questionText = ch.QuestionText, options = luaChon, selectedIndex = daChon, ch.CorrectOptionIndex, isCorrect = dung, ch.Explanation };
+            try { luaChon = JsonSerializer.Deserialize<List<string>>(ch.CacLuaChon) ?? []; } catch { luaChon = []; }
+            return new { questionId = ch.Id, questionText = ch.NoiDungCauHoi, options = luaChon, selectedIndex = daChon, ch.DapAnDungIndex, isCorrect = dung, ch.GiaiThich };
         }).ToList();
 
         var diem = tongCauHoi == 0 ? 0 : Math.Round((soDung / (double)tongCauHoi) * 100);
-        var dat = diem >= quiz.PassingScore;
-        var daDatTruocDo = await db.QuizSubmissions.AsNoTracking()
-            .AnyAsync(submission => submission.UserId == userId && submission.QuizId == quiz.Id && submission.Passed);
+        var dat = diem >= quiz.DiemDat;
+        var daDatTruocDo = await db.BaiNopKiemTra.AsNoTracking()
+            .AnyAsync(submission => submission.NguoiDungId == userId && submission.BaiKiemTraId == quiz.Id && submission.Dat);
 
-        var baiNop = new NopBaiKiemTra { Id = TaoId.Moi(), UserId = userId, QuizId = quiz.Id, Score = diem, Passed = dat, Answers = JsonSerializer.Serialize(dapAn), CreatedAt = DateTime.UtcNow };
-        db.QuizSubmissions.Add(baiNop);
+        var baiNop = new BaiNopKiemTra { Id = TaoId.Moi(), NguoiDungId = userId, BaiKiemTraId = quiz.Id, Diem = diem, Dat = dat, DapAn = JsonSerializer.Serialize(dapAn), NgayTao = DateTime.UtcNow };
+        db.BaiNopKiemTra.Add(baiNop);
         await db.SaveChangesAsync();
 
         double? tienDoKhoaHoc = null;
@@ -114,37 +114,37 @@ public class DichVuBaiKiemTra(ApplicationDbContext db, IDichVuGhiDanh dichVuGhiD
         {
             if (!daDatTruocDo)
             {
-                var nguoiDung = await db.Users.FirstOrDefaultAsync(user => user.Id == userId);
+                var nguoiDung = await db.NguoiDung.FirstOrDefaultAsync(user => user.Id == userId);
                 if (nguoiDung is not null)
                 {
-                    diemNhanDuoc = Math.Max(0, Math.Min(10, 100 - nguoiDung.RewardPoints));
-                    nguoiDung.RewardPoints += diemNhanDuoc;
-                    nguoiDung.UpdatedAt = DateTime.UtcNow;
+                    diemNhanDuoc = Math.Max(0, Math.Min(10, 100 - nguoiDung.DiemThuong));
+                    nguoiDung.DiemThuong += diemNhanDuoc;
+                    nguoiDung.NgayCapNhat = DateTime.UtcNow;
                     await db.SaveChangesAsync();
                 }
             }
-            await dichVuGhiDanh.HoanThanhBaiHocAsync(userId, baiHoc.CourseId, lessonId);
-            tienDoKhoaHoc = await db.Enrollments.Where(e => e.UserId == userId && e.CourseId == baiHoc.CourseId).Select(e => (double?)e.Progress).FirstOrDefaultAsync();
+            await dichVuGhiDanh.HoanThanhBaiHocAsync(userId, baiHoc.KhoaHocId, lessonId);
+            tienDoKhoaHoc = await db.GhiDanh.Where(e => e.NguoiDungId == userId && e.KhoaHocId == baiHoc.KhoaHocId).Select(e => (double?)e.TienDo).FirstOrDefaultAsync();
         }
-        var chungChi = await dichVuGhiDanh.KiemTraVaCapChungChiAsync(userId, baiHoc.CourseId);
+        var chungChi = await dichVuGhiDanh.KiemTraVaCapChungChiAsync(userId, baiHoc.KhoaHocId);
 
-        return Results.Ok(new { submissionId = baiNop.Id, score = diem, passed = dat, passingScore = quiz.PassingScore, correctCount = soDung, totalQuestions = tongCauHoi, detailedResults = chiTiet, progress = tienDoKhoaHoc, earnedPoints = diemNhanDuoc, certificate = chungChi });
+        return Results.Ok(new { submissionId = baiNop.Id, score = diem, passed = dat, passingScore = quiz.DiemDat, correctCount = soDung, totalQuestions = tongCauHoi, detailedResults = chiTiet, progress = tienDoKhoaHoc, earnedPoints = diemNhanDuoc, certificate = chungChi });
     }
 
     public async Task<IResult> XoaBaiKiemTraAsync(string quizId, string userId, bool laAdmin)
     {
-        var quiz = await db.Quizzes.Include(q => q.Lesson).ThenInclude(l => l!.Course).Include(q => q.Questions).Include(q => q.Submissions).FirstOrDefaultAsync(q => q.Id == quizId);
+        var quiz = await db.BaiKiemTra.Include(q => q.BaiHoc).ThenInclude(l => l!.KhoaHoc).Include(q => q.CacCauHoi).Include(q => q.CacBaiNop).FirstOrDefaultAsync(q => q.Id == quizId);
         if (quiz is null) return Results.NotFound(new { message = "Không tìm thấy bài trắc nghiệm" });
-        if (!laAdmin && quiz.Lesson?.Course?.InstructorId != userId) return Results.Json(new { message = "Bạn không có quyền xóa bài trắc nghiệm này" }, statusCode: 403);
+        if (!laAdmin && quiz.BaiHoc?.KhoaHoc?.GiangVienId != userId) return Results.Json(new { message = "Bạn không có quyền xóa bài trắc nghiệm này" }, statusCode: 403);
 
-        db.QuizSubmissions.RemoveRange(quiz.Submissions);
-        db.QuizQuestions.RemoveRange(quiz.Questions);
-        db.Quizzes.Remove(quiz);
+        db.BaiNopKiemTra.RemoveRange(quiz.CacBaiNop);
+        db.CauHoiKiemTra.RemoveRange(quiz.CacCauHoi);
+        db.BaiKiemTra.Remove(quiz);
         await db.SaveChangesAsync();
         return Results.Ok(new { message = "Xóa bài trắc nghiệm thành công" });
     }
 
     private async Task<bool> KiemTraQuyenTruyCap(string userId, string khoaHocId) =>
-        await db.Enrollments.AnyAsync(e => e.UserId == userId && e.CourseId == khoaHocId) ||
-        await db.Courses.AnyAsync(c => c.Id == khoaHocId && c.InstructorId == userId);
+        await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId) ||
+        await db.KhoaHoc.AnyAsync(c => c.Id == khoaHocId && c.GiangVienId == userId);
 }

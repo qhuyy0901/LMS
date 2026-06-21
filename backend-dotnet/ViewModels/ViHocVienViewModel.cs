@@ -1,6 +1,6 @@
 namespace LMS.Api.ViewModels;
 
-public class ViSinhVienViewModel
+public class ViHocVienViewModel
 {
     public int SoDuHienTai { get; set; }
     public string TenSinhVien { get; set; } = string.Empty;

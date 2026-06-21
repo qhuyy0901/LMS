@@ -134,16 +134,23 @@ export default function EventDetails() {
               <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">{event.title}</h1>
               <p className="mt-2 text-sm text-slate-500">Giảng viên {event.instructorName}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {online && ((isInstructor && event.linkThamGia) || (!isInstructor && event.isRegistered)) && <ActionButton icon={Video} onClick={openMeeting}>Vào phòng</ActionButton>}
-              {isInstructor && <>
-                <ActionButton icon={Edit3} secondary onClick={() => navigate(`/instructor/events?edit=${event.id}`)}>Sửa</ActionButton>
-                {event.status !== 'PUBLISHED' && <ActionButton icon={Check} onClick={() => runInstructorAction('publish')} disabled={busy}>Xuất bản</ActionButton>}
-                {event.status !== 'CANCELLED' && <ActionButton icon={XCircle} secondary onClick={() => runInstructorAction('cancel')} disabled={busy}>Hủy</ActionButton>}
-                <ActionButton icon={Trash2} danger onClick={() => runInstructorAction('delete')} disabled={busy}>Xóa</ActionButton>
-              </>}
-              {!isInstructor && !event.isRegistered && <ActionButton icon={Check} onClick={register} disabled={busy || ended || full}>{busy ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : pointCost > 0 ? `Đổi ${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}</ActionButton>}
-              {!isInstructor && event.isRegistered && <div className="text-right"><span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700"><Check className="h-4 w-4" /> Đã đăng ký</span>{pointsUsed > 0 && <p className="mt-1 text-xs font-medium text-slate-500">Đã sử dụng {pointsUsed} điểm</p>}</div>}
+            <div className="flex flex-col items-end gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
+                {online && ((isInstructor && event.linkThamGia) || (!isInstructor && event.isRegistered)) && <ActionButton icon={Video} onClick={openMeeting}>Vào phòng</ActionButton>}
+                {isInstructor && <>
+                  <ActionButton icon={Edit3} secondary onClick={() => navigate(`/instructor/events?edit=${event.id}`)}>Sửa</ActionButton>
+                  {event.status !== 'PUBLISHED' && <ActionButton icon={Check} onClick={() => runInstructorAction('publish')} disabled={busy}>Xuất bản</ActionButton>}
+                  {event.status !== 'CANCELLED' && <ActionButton icon={XCircle} secondary onClick={() => runInstructorAction('cancel')} disabled={busy}>Hủy</ActionButton>}
+                  <ActionButton icon={Trash2} danger onClick={() => runInstructorAction('delete')} disabled={busy}>Xóa</ActionButton>
+                </>}
+                {!isInstructor && !event.isRegistered && <ActionButton icon={Check} onClick={register} disabled={busy || ended || full}>{busy ? 'Đang đăng ký...' : ended ? 'Sự kiện đã kết thúc' : full ? 'Đã đủ chỗ' : pointCost > 0 ? `Đổi ${pointCost} điểm để tham gia` : 'Tham gia miễn phí'}</ActionButton>}
+                {!isInstructor && event.isRegistered && <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700"><Check className="h-4 w-4" /> Đã đăng ký</span>}
+              </div>
+              {!isInstructor && event.isRegistered && pointsUsed > 0 && (
+                <p className="text-xs font-medium text-slate-500">
+                  Đã sử dụng {pointsUsed} điểm
+                </p>
+              )}
             </div>
           </div>
 

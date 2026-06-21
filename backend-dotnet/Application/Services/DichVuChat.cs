@@ -55,12 +55,21 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
 
     public async Task<List<ChatScopeDto>> LayPhamViAsync(string userId)
     {
+        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user?.VaiTro == "ADMIN")
+        {
+            return new List<ChatScopeDto>
+            {
+                new() { CourseId = "all", CourseTitle = "Tất cả người dùng", ClassId = "all", SubjectId = null }
+            };
+        }
+
         var courses = await KhoaHocNguoiDungCoQuyen(userId)
-            .OrderBy(course => course.Title)
+            .OrderBy(course => course.TieuDe)
             .Select(course => new ChatScopeDto
             {
                 CourseId = course.Id,
-                CourseTitle = course.Title,
+                CourseTitle = course.TieuDe,
                 ClassId = course.Id,
                 SubjectId = null
             })
@@ -84,9 +93,41 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         if (onlyUserIds is { Count: 0 }) return [];
         var onlineFilter = onlyUserIds is not null ? new HashSet<string>(onlyUserIds) : null;
 
+        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user?.VaiTro == "ADMIN")
+        {
+            var userQuery = db.NguoiDung.AsNoTracking()
+                .Where(u => u.Id != userId && (u.VaiTro == "STUDENT" || u.VaiTro == "INSTRUCTOR"));
+
+            if (normalizedQuery is not null)
+            {
+                userQuery = userQuery.Where(u => u.Ten.ToLower().Contains(normalizedQuery) || u.Email.ToLower().Contains(normalizedQuery));
+            }
+
+            if (onlineFilter is not null)
+            {
+                userQuery = userQuery.Where(u => onlineFilter.Contains(u.Id));
+            }
+
+            var matchingUsers = await userQuery.Take(100).ToListAsync();
+            return matchingUsers.Select(u => new ChatContactDto
+            {
+                Id = u.Id,
+                Name = u.Ten,
+                Email = u.Email,
+                Avatar = u.AnhDaiDien,
+                Role = u.VaiTro,
+                CourseId = "ADMIN_SUPPORT",
+                CourseTitle = "Hỗ trợ trực tuyến",
+                ClassId = "ADMIN_SUPPORT",
+                SubjectId = null
+            }).ToList();
+        }
+
         var courseQuery = KhoaHocNguoiDungCoQuyen(userId);
         if (normalizedCourseId is not null)
         {
+            query = null; // reset to avoid conflict in parameters
             courseQuery = courseQuery.Where(course => course.Id == normalizedCourseId);
         }
         if (normalizedClassId is not null)
@@ -95,26 +136,26 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         }
 
         var courses = await courseQuery
-            .OrderBy(course => course.Title)
+            .OrderBy(course => course.TieuDe)
             .Select(course => new
             {
                 course.Id,
-                course.Title,
-                Instructor = new
+                course.TieuDe,
+                GiangVien = new
                 {
-                    Id = course.Instructor!.Id,
-                    course.Instructor.Name,
-                    course.Instructor.Email,
-                    course.Instructor.Avatar,
-                    course.Instructor.Role
+                    Id = course.GiangVien!.Id,
+                    course.GiangVien.Ten,
+                    course.GiangVien.Email,
+                    course.GiangVien.AnhDaiDien,
+                    course.GiangVien.VaiTro
                 },
-                Students = course.Enrollments.Select(enrollment => new
+                Students = course.CacGhiDanh.Select(enrollment => new
                 {
-                    Id = enrollment.User!.Id,
-                    enrollment.User.Name,
-                    enrollment.User.Email,
-                    enrollment.User.Avatar,
-                    enrollment.User.Role
+                    Id = enrollment.NguoiDung!.Id,
+                    enrollment.NguoiDung.Ten,
+                    enrollment.NguoiDung.Email,
+                    enrollment.NguoiDung.AnhDaiDien,
+                    enrollment.NguoiDung.VaiTro
                 }).ToList()
             })
             .ToListAsync();
@@ -124,11 +165,11 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
 
         foreach (var course in courses)
         {
-            AddContact(course.Instructor.Id, course.Instructor.Name, course.Instructor.Email, course.Instructor.Avatar, course.Instructor.Role, course.Id, course.Title);
+            AddContact(course.GiangVien.Id, course.GiangVien.Ten, course.GiangVien.Email, course.GiangVien.AnhDaiDien, course.GiangVien.VaiTro, course.Id, course.TieuDe);
 
             foreach (var student in course.Students)
             {
-                AddContact(student.Id, student.Name, student.Email, student.Avatar, student.Role, course.Id, course.Title);
+                AddContact(student.Id, student.Ten, student.Email, student.AnhDaiDien, student.VaiTro, course.Id, course.TieuDe);
             }
         }
 
@@ -168,23 +209,23 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         if (string.Equals(userId, otherUserId, StringComparison.Ordinal))
             return KetQuaChat<Guid>.BadRequest("Không thể tự nhắn tin cho chính mình.");
 
-        var otherExists = await db.Users.AsNoTracking().AnyAsync(user => user.Id == otherUserId);
+        var otherExists = await db.NguoiDung.AsNoTracking().AnyAsync(user => user.Id == otherUserId);
         if (!otherExists) return KetQuaChat<Guid>.NotFound("Không tìm thấy người dùng.");
 
         var scope = await TimPhamViHopLeAsync(userId, otherUserId, courseId, classId, subjectId);
         if (scope is null)
             return KetQuaChat<Guid>.Forbidden("Bạn chỉ có thể nhắn tin với giáo viên hoặc học viên trong cùng lớp/khóa học.");
 
-        var existing = await db.Conversations
-            .Where(conversation => !conversation.IsGroup)
+        var existing = await db.CuocTroChuyen
+            .Where(conversation => !conversation.LaNhom)
             .Where(conversation =>
-                conversation.CourseId == scope.CourseId &&
+                conversation.KhoaHocId == scope.CourseId &&
                 conversation.ClassId == scope.ClassId &&
                 conversation.SubjectId == scope.SubjectId &&
-                conversation.Participants.Count == 2 &&
-                conversation.Participants.Any(participant => participant.UserId == userId) &&
-                conversation.Participants.Any(participant => participant.UserId == otherUserId))
-            .OrderByDescending(conversation => conversation.UpdatedAt)
+                conversation.CacNguoiThamGia.Count == 2 &&
+                conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId) &&
+                conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == otherUserId))
+            .OrderByDescending(conversation => conversation.NgayCapNhat)
             .FirstOrDefaultAsync();
 
         if (existing is not null) return KetQuaChat<Guid>.Ok(existing.Id);
@@ -193,21 +234,20 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         var conversation = new CuocTroChuyen
         {
             Id = Guid.NewGuid(),
-            IsGroup = false,
-            Title = null,
-            CourseId = scope.CourseId,
+            LaNhom = false,
+            TieuDe = null,
+            KhoaHocId = scope.CourseId,
             ClassId = scope.ClassId,
             SubjectId = scope.SubjectId,
-            CreatedAt = now,
-            UpdatedAt = now,
-            Participants =
-            [
-                new() { UserId = userId, JoinedAt = now },
-                new() { UserId = otherUserId, JoinedAt = now }
+            NgayTao = now,
+            NgayCapNhat = now,
+            CacNguoiThamGia = [
+                new() { NguoiDungId = userId, NgayThamGia = now },
+                new() { NguoiDungId = otherUserId, NgayThamGia = now }
             ]
         };
 
-        db.Conversations.Add(conversation);
+        db.CuocTroChuyen.Add(conversation);
         await db.SaveChangesAsync();
 
         return KetQuaChat<Guid>.Ok(conversation.Id);
@@ -240,13 +280,13 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         var message = new TinNhan
         {
             Id = Guid.NewGuid(),
-            ConversationId = conversation.Id,
-            SenderId = userId,
-            Content = normalizedContent,
-            SentAt = now
+            CuocTroChuyenId = conversation.Id,
+            NguoiGuiId = userId,
+            NoiDung = normalizedContent,
+            GuiLuc = now
         };
 
-        db.Messages.Add(message);
+        db.TinNhan.Add(message);
 
         var savedFiles = new List<string>();
         try
@@ -265,19 +305,19 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
                 }
                 savedFiles.Add(fullPath);
 
-                message.Attachments.Add(new TinNhanDinhKem
+                message.CacFileDinhKem.Add(new TinNhanDinhKem
                 {
                     Id = attachmentId,
-                    MessageId = message.Id,
-                    FileName = fileName,
-                    OriginalFileName = Path.GetFileName(image.FileName),
-                    ContentType = image.ContentType,
-                    Size = image.Length,
-                    CreatedAt = now
+                    TinNhanId = message.Id,
+                    TenFile = fileName,
+                    TenFileGoc = Path.GetFileName(image.FileName),
+                    LoaiNoiDung = image.ContentType,
+                    KichThuoc = image.Length,
+                    NgayTao = now
                 });
             }
 
-            conversation.UpdatedAt = now;
+            conversation.NgayCapNhat = now;
             await db.SaveChangesAsync();
         }
         catch
@@ -289,24 +329,32 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
             throw;
         }
 
-        var sender = await db.Users.AsNoTracking().FirstOrDefaultAsync(user => user.Id == userId);
-        var participantIds = conversation.Participants.Select(participant => participant.UserId).ToList();
+        var sender = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(user => user.Id == userId);
+        var participantIds = conversation.CacNguoiThamGia.Select(participant => participant.NguoiDungId).ToList();
 
         return KetQuaChat<TinNhanDaGui>.Ok(new TinNhanDaGui(TaoTinNhanDto(message, sender), participantIds));
     }
 
     public async Task<bool> CoQuyenTruyCapCuocTroChuyenAsync(string userId, Guid conversationId)
     {
-        var conversation = await db.Conversations
+        var conversation = await db.CuocTroChuyen
             .AsNoTracking()
-            .Include(item => item.Participants)
+            .Include(item => item.CacNguoiThamGia)
             .FirstOrDefaultAsync(item => item.Id == conversationId);
 
         if (conversation is null) return false;
-        if (!conversation.Participants.Any(participant => participant.UserId == userId)) return false;
-        if (string.IsNullOrWhiteSpace(conversation.CourseId)) return false;
+        if (!conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId)) return false;
 
-        return await NguoiDungCoQuyenKhoaHocAsync(userId, conversation.CourseId);
+        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user?.VaiTro == "ADMIN") return true;
+
+        var hasAdminParticipant = await db.NguoiThamGiaTroChuyen
+            .AnyAsync(p => p.CuocTroChuyenId == conversationId && p.NguoiDung!.VaiTro == "ADMIN");
+        if (hasAdminParticipant) return true;
+
+        if (string.IsNullOrWhiteSpace(conversation.KhoaHocId)) return false;
+
+        return await NguoiDungCoQuyenKhoaHocAsync(userId, conversation.KhoaHocId);
     }
 
     public async Task<bool> CoQuyenGuiTinNhanAsync(string userId, Guid conversationId)
@@ -317,24 +365,44 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
 
     public async Task<KetQuaChat<AnhChat>> LayAnhAsync(string userId, Guid attachmentId)
     {
-        var attachment = await db.MessageAttachments
-            .Include(item => item.Message)
-                .ThenInclude(message => message.Conversation)
-                    .ThenInclude(conversation => conversation.Participants)
+        var attachment = await db.TinNhanDinhKem
+            .Include(item => item.TinNhan)
+                .ThenInclude(message => message.CuocTroChuyen)
+                    .ThenInclude(conversation => conversation.CacNguoiThamGia)
             .FirstOrDefaultAsync(item => item.Id == attachmentId);
 
         if (attachment is null) return KetQuaChat<AnhChat>.NotFound("Không tìm thấy ảnh.");
 
-        var conversation = attachment.Message.Conversation;
-        if (!conversation.Participants.Any(participant => participant.UserId == userId))
-            return KetQuaChat<AnhChat>.Forbidden("Bạn không có quyền xem ảnh này.");
-        if (string.IsNullOrWhiteSpace(conversation.CourseId) || !await NguoiDungCoQuyenKhoaHocAsync(userId, conversation.CourseId))
+        var conversation = attachment.TinNhan.CuocTroChuyen;
+        if (!conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId))
             return KetQuaChat<AnhChat>.Forbidden("Bạn không có quyền xem ảnh này.");
 
-        var fullPath = Path.Combine(ThuMucAnhChat, attachment.FileName);
+        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        bool hasAccess = false;
+        if (user?.VaiTro == "ADMIN")
+        {
+            hasAccess = true;
+        }
+        else
+        {
+            var hasAdminParticipant = conversation.CacNguoiThamGia.Any(p => p.NguoiDung?.VaiTro == "ADMIN" || db.NguoiDung.Any(u => u.Id == p.NguoiDungId && u.VaiTro == "ADMIN"));
+            if (hasAdminParticipant)
+            {
+                hasAccess = true;
+            }
+            else if (!string.IsNullOrWhiteSpace(conversation.KhoaHocId) && await NguoiDungCoQuyenKhoaHocAsync(userId, conversation.KhoaHocId))
+            {
+                hasAccess = true;
+            }
+        }
+
+        if (!hasAccess)
+            return KetQuaChat<AnhChat>.Forbidden("Bạn không có quyền xem ảnh này.");
+
+        var fullPath = Path.Combine(ThuMucAnhChat, attachment.TenFile);
         if (!File.Exists(fullPath)) return KetQuaChat<AnhChat>.NotFound("Không tìm thấy file ảnh.");
 
-        return KetQuaChat<AnhChat>.Ok(new AnhChat(fullPath, attachment.ContentType, attachment.OriginalFileName));
+        return KetQuaChat<AnhChat>.Ok(new AnhChat(fullPath, attachment.LoaiNoiDung, attachment.TenFileGoc));
     }
 
     public TinNhanDto TaoTinNhanDto(TinNhan message, NguoiDung? sender = null)
@@ -342,20 +410,20 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         return new TinNhanDto
         {
             Id = message.Id,
-            ConversationId = message.ConversationId,
-            SenderId = message.SenderId,
-            SenderName = sender?.Name ?? message.Sender?.Name ?? "Unknown",
-            SenderAvatar = sender?.Avatar ?? message.Sender?.Avatar,
-            Content = message.Content,
-            SentAt = message.SentAt,
-            Attachments = message.Attachments
-                .OrderBy(attachment => attachment.CreatedAt)
+            ConversationId = message.CuocTroChuyenId,
+            SenderId = message.NguoiGuiId,
+            SenderName = sender?.Ten ?? message.NguoiGui?.Ten ?? "Unknown",
+            SenderAvatar = sender?.AnhDaiDien ?? message.NguoiGui?.AnhDaiDien,
+            Content = message.NoiDung,
+            SentAt = message.GuiLuc,
+            Attachments = message.CacFileDinhKem
+                .OrderBy(attachment => attachment.NgayTao)
                 .Select(attachment => new TinNhanAnhDto
                 {
                     Id = attachment.Id,
-                    FileName = attachment.OriginalFileName,
-                    ContentType = attachment.ContentType,
-                    Size = attachment.Size,
+                    FileName = attachment.TenFileGoc,
+                    ContentType = attachment.LoaiNoiDung,
+                    Size = attachment.KichThuoc,
                     Url = $"/api/chat/images/{attachment.Id}"
                 })
                 .ToList()
@@ -364,27 +432,36 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
 
     private IQueryable<KhoaHoc> KhoaHocNguoiDungCoQuyen(string userId)
     {
-        return db.Courses.AsNoTracking()
-            .Where(course => course.InstructorId == userId || course.Enrollments.Any(enrollment => enrollment.UserId == userId));
+        return db.KhoaHoc.AsNoTracking()
+            .Where(course => course.GiangVienId == userId || course.CacGhiDanh.Any(enrollment => enrollment.NguoiDungId == userId));
     }
 
     private async Task<bool> NguoiDungCoQuyenKhoaHocAsync(string userId, string courseId)
     {
-        return await db.Courses.AsNoTracking()
+        return await db.KhoaHoc.AsNoTracking()
             .AnyAsync(course => course.Id == courseId &&
-                (course.InstructorId == userId || course.Enrollments.Any(enrollment => enrollment.UserId == userId)));
+                (course.GiangVienId == userId || course.CacGhiDanh.Any(enrollment => enrollment.NguoiDungId == userId)));
     }
 
     private async Task<PhamViChat?> TimPhamViHopLeAsync(string userId, string otherUserId, string? courseId, string? classId, string? subjectId)
     {
+        var user1 = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        var user2 = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == otherUserId);
+
+        var isSupportChat = user1?.VaiTro == "ADMIN" || user2?.VaiTro == "ADMIN";
+        if (isSupportChat)
+        {
+            return new PhamViChat("ADMIN_SUPPORT", "Hỗ trợ trực tuyến", "ADMIN_SUPPORT", null);
+        }
+
         var normalizedCourseId = ChuanHoaTuyChon(courseId);
         var normalizedClassId = ChuanHoaTuyChon(classId);
         var normalizedSubjectId = ChuanHoaTuyChon(subjectId);
 
-        var query = db.Courses.AsNoTracking()
+        var query = db.KhoaHoc.AsNoTracking()
             .Where(course =>
-                (course.InstructorId == userId || course.Enrollments.Any(enrollment => enrollment.UserId == userId)) &&
-                (course.InstructorId == otherUserId || course.Enrollments.Any(enrollment => enrollment.UserId == otherUserId)));
+                (course.GiangVienId == userId || course.CacGhiDanh.Any(enrollment => enrollment.NguoiDungId == userId)) &&
+                (course.GiangVienId == otherUserId || course.CacGhiDanh.Any(enrollment => enrollment.NguoiDungId == otherUserId)));
 
         if (normalizedCourseId is not null)
         {
@@ -396,29 +473,37 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
             query = query.Where(course => course.Id == normalizedClassId);
         }
 
-        var course = await query.OrderBy(course => course.Title).FirstOrDefaultAsync();
+        var course = await query.OrderBy(course => course.TieuDe).FirstOrDefaultAsync();
         if (course is null) return null;
 
-        return new PhamViChat(course.Id, course.Title, course.Id, normalizedSubjectId);
+        return new PhamViChat(course.Id, course.TieuDe, course.Id, normalizedSubjectId);
     }
 
     private async Task<KetQuaChat<CuocTroChuyen>> LayCuocTroChuyenDuocGuiAsync(string userId, Guid conversationId)
     {
-        var conversation = await db.Conversations
-            .Include(item => item.Participants)
+        var conversation = await db.CuocTroChuyen
+            .Include(item => item.CacNguoiThamGia)
             .FirstOrDefaultAsync(item => item.Id == conversationId);
 
         if (conversation is null) return KetQuaChat<CuocTroChuyen>.NotFound("Không tìm thấy cuộc trò chuyện.");
-        if (!conversation.Participants.Any(participant => participant.UserId == userId))
+        if (!conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId))
             return KetQuaChat<CuocTroChuyen>.Forbidden("Bạn không thuộc cuộc trò chuyện này.");
-        if (string.IsNullOrWhiteSpace(conversation.CourseId))
+
+        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        if (user?.VaiTro == "ADMIN") return KetQuaChat<CuocTroChuyen>.Ok(conversation);
+
+        var hasAdminParticipant = await db.NguoiThamGiaTroChuyen
+            .AnyAsync(p => p.CuocTroChuyenId == conversationId && p.NguoiDung!.VaiTro == "ADMIN");
+        if (hasAdminParticipant) return KetQuaChat<CuocTroChuyen>.Ok(conversation);
+
+        if (string.IsNullOrWhiteSpace(conversation.KhoaHocId))
             return KetQuaChat<CuocTroChuyen>.Forbidden("Cuộc trò chuyện chưa gắn với lớp/khóa học hợp lệ.");
 
-        var participantIds = conversation.Participants.Select(participant => participant.UserId).ToList();
-        var eligibleCount = await db.Users.AsNoTracking()
+        var participantIds = conversation.CacNguoiThamGia.Select(participant => participant.NguoiDungId).ToList();
+        var eligibleCount = await db.NguoiDung.AsNoTracking()
             .Where(user => participantIds.Contains(user.Id))
-            .CountAsync(user => user.Courses.Any(course => course.Id == conversation.CourseId) ||
-                                user.Enrollments.Any(enrollment => enrollment.CourseId == conversation.CourseId));
+            .CountAsync(user => user.CacKhoaHoc.Any(course => course.Id == conversation.KhoaHocId) ||
+                                user.CacGhiDanh.Any(enrollment => enrollment.KhoaHocId == conversation.KhoaHocId));
 
         if (eligibleCount != participantIds.Count)
             return KetQuaChat<CuocTroChuyen>.Forbidden("Người gửi và người nhận không còn cùng lớp/khóa học.");

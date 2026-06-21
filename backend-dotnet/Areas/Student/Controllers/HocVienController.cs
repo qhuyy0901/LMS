@@ -8,10 +8,10 @@ using LMS.Api.Application.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
-namespace LMS.Api.Areas.Student.Controllers;
+namespace LMS.Api.Areas.HocVien.Controllers;
 
 [Area("Student")]
-public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh) : Controller
+public class HocVienController(ApplicationDbContext db, IConfiguration cauHinh) : Controller
 {
     private const string TrangThaiDangXuLy = "PENDING";
     private const string TrangThaiThanhCong = "COMPLETED";
@@ -58,7 +58,7 @@ public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh)
             return View("Vi", viewModelLoi);
         }
 
-        var sinhVien = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var sinhVien = await db.NguoiDung.FirstOrDefaultAsync(u => u.Id == userId);
         if (sinhVien is null)
         {
             return NotFound("Không tìm thấy người dùng");
@@ -67,15 +67,15 @@ public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh)
         var now = DateTime.UtcNow;
         var giaoDichId = TaoId.Moi();
         var maGiaoDich = TaoMaGiaoDich(giaoDichId);
-        var noiDungChuyenKhoan = TaoNoiDungChuyenKhoan(maGiaoDich, sinhVien.Name);
+        var noiDungChuyenKhoan = TaoNoiDungChuyenKhoan(maGiaoDich, sinhVien.Ten);
 
-        db.WalletTransactions.Add(new GiaoDichVi
+        db.GiaoDichVi.Add(new GiaoDichVi
         {
             Id = giaoDichId,
             NguoiDungId = sinhVien.Id,
             LoaiGiaoDich = GiaoDichVi.NapTien,
             SoTien = soTienHopLe,
-            BalanceAfter = sinhVien.SoDuVi,
+            SoDuSauGiaoDich = sinhVien.SoDuVi,
             NoiDung = noiDungChuyenKhoan,
             TrangThai = TrangThaiDangXuLy,
             Metadata = JsonSerializer.Serialize(new
@@ -103,11 +103,11 @@ public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh)
         if (ketQuaKiemTra is not null) return ketQuaKiemTra;
 
         var userId = TroGiup.LayUserId(User)!;
-        var sinhVien = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+        var sinhVien = await db.NguoiDung.FirstOrDefaultAsync(u => u.Id == userId);
         if (sinhVien is null) return NotFound("Không tìm thấy người dùng");
 
-        var giaoDich = await db.WalletTransactions
-            .FirstOrDefaultAsync(g => g.Id == id && g.UserId == userId && g.Type == GiaoDichVi.NapTien);
+        var giaoDich = await db.GiaoDichVi
+            .FirstOrDefaultAsync(g => g.Id == id && g.NguoiDungId == userId && g.LoaiGiaoDich == GiaoDichVi.NapTien);
 
         if (giaoDich is null)
         {
@@ -122,8 +122,8 @@ public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh)
         }
 
         sinhVien.SoDuVi += giaoDich.SoTien;
-        sinhVien.UpdatedAt = DateTime.UtcNow;
-        giaoDich.BalanceAfter = sinhVien.SoDuVi;
+        sinhVien.NgayCapNhat = DateTime.UtcNow;
+        giaoDich.SoDuSauGiaoDich = sinhVien.SoDuVi;
         giaoDich.TrangThai = TrangThaiThanhCong;
 
         await db.SaveChangesAsync();
@@ -148,21 +148,21 @@ public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh)
         return null;
     }
 
-    private async Task<ViSinhVienViewModel> TaoViewModelAsync(string userId)
+    private async Task<ViHocVienViewModel> TaoViewModelAsync(string userId)
     {
-        var sinhVien = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        var lichSu = await db.WalletTransactions.AsNoTracking()
-            .Where(g => g.UserId == userId && g.Type == GiaoDichVi.NapTien)
-            .OrderByDescending(g => g.CreatedAt)
+        var sinhVien = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
+        var lichSu = await db.GiaoDichVi.AsNoTracking()
+            .Where(g => g.NguoiDungId == userId && g.LoaiGiaoDich == GiaoDichVi.NapTien)
+            .OrderByDescending(g => g.NgayTao)
             .Take(50)
             .ToListAsync();
 
         var lichSuViewModel = lichSu.Select(TaoGiaoDichViewModel).ToList();
 
-        return new ViSinhVienViewModel
+        return new ViHocVienViewModel
         {
             SoDuHienTai = sinhVien?.SoDuVi ?? 0,
-            TenSinhVien = sinhVien?.Name ?? string.Empty,
+            TenSinhVien = sinhVien?.Ten ?? string.Empty,
             MenhGiaNapNhanh = MenhGiaNapNhanh,
             LichSuGiaoDich = lichSuViewModel,
             GiaoDichDangXuLy = lichSuViewModel.FirstOrDefault(g => g.TrangThai == TrangThaiDangXuLy)
@@ -180,10 +180,10 @@ public class SinhVienController(ApplicationDbContext db, IConfiguration cauHinh)
             MaGiaoDich = maGiaoDich,
             NgayTao = giaoDich.NgayTao,
             PhuongThuc = metadata.PaymentMethod ?? "BANK_TRANSFER",
-            NoiDung = giaoDich.NoiDung ?? TaoNoiDungChuyenKhoan(maGiaoDich, giaoDich.User?.Name ?? string.Empty),
+            NoiDung = giaoDich.NoiDung ?? TaoNoiDungChuyenKhoan(maGiaoDich, giaoDich.NguoiDung?.Ten ?? string.Empty),
             SoTien = giaoDich.SoTien,
             TrangThai = giaoDich.TrangThai,
-            SoDuSauGiaoDich = giaoDich.BalanceAfter,
+            SoDuSauGiaoDich = giaoDich.SoDuSauGiaoDich,
             NganHang = metadata.BankName ?? "MB Bank",
             ChuTaiKhoan = metadata.AccountName ?? "LMS SKILLIO DEMO",
             SoTaiKhoan = metadata.AccountNumber ?? "0901000000"

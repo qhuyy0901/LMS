@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import { CreditCard, RefreshCw, Landmark, Check, X } from 'lucide-react';
+import { CreditCard, RefreshCw, Landmark, Check, X, Search } from 'lucide-react';
+import DataTable from '../components/DataTable';
+import DataTableToolbar from '../components/DataTableToolbar';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -26,6 +29,22 @@ const typeOptions = [
   ['ADJUSTMENT', 'Điều chỉnh'],
 ];
 
+const transactionStatusClasses = {
+  COMPLETED: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+  SUCCESS: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+  PENDING: 'bg-amber-50 text-amber-700 border border-amber-100',
+  FAILED: 'bg-rose-50 text-rose-700 border border-rose-100',
+  CANCELLED: 'bg-rose-50 text-rose-750 border border-rose-100',
+};
+
+const transactionStatusLabel = {
+  COMPLETED: 'Thành công',
+  SUCCESS: 'Thành công',
+  PENDING: 'Chờ xử lý',
+  FAILED: 'Thất bại',
+  CANCELLED: 'Đã hủy',
+};
+
 const withdrawStatusClasses = {
   PENDING: 'bg-amber-50 text-amber-700 border border-amber-100',
   COMPLETED: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
@@ -36,26 +55,39 @@ const withdrawStatusClasses = {
 
 const withdrawStatusLabel = {
   PENDING: 'Chờ duyệt',
-  COMPLETED: 'Đã hoàn tất',
-  SUCCESS: 'Đã hoàn tất',
-  PAID: 'Đã hoàn tất',
+  COMPLETED: 'Đã thanh toán',
+  SUCCESS: 'Đã thanh toán',
+  PAID: 'Đã thanh toán',
   REJECTED: 'Đã từ chối',
 };
 
-export default function AdminTransactions() {
-  const [activeTab, setActiveTab] = useState('transactions');
+export default function AdminTransactions({ initialTab = 'all' }) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || initialTab || 'all';
+
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
-  const [type, setType] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [pageSize, setPageSize] = useState(5);
 
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
+      let typeParam = '';
+      if (activeTab === 'deposit') typeParam = 'NAP_TIEN';
+      else if (activeTab === 'purchase') typeParam = 'MUA_KHOA_HOC';
+
       const response = await axios.get('/api/admin/transactions', {
-        params: { type: type || undefined, pageSize: 50 },
+        params: {
+          type: typeParam || undefined,
+          status: statusFilter || undefined,
+          q: query || undefined,
+          pageSize: 50,
+        },
       });
       setTransactions(response.data.items || []);
     } catch (err) {
@@ -63,7 +95,7 @@ export default function AdminTransactions() {
     } finally {
       setLoading(false);
     }
-  }, [type]);
+  }, [activeTab, statusFilter, query]);
 
   const fetchWithdrawals = useCallback(async () => {
     setLoading(true);
@@ -78,17 +110,14 @@ export default function AdminTransactions() {
     }
   }, []);
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    if (tab === 'transactions') {
-      fetchTransactions();
-    } else {
-      fetchWithdrawals();
-    }
+  const handleTabChange = (tabId) => {
+    setSearchParams({ tab: tabId });
+    setQuery('');
+    setStatusFilter('');
   };
 
   const handleRefresh = () => {
-    if (activeTab === 'transactions') {
+    if (activeTab !== 'withdrawals') {
       fetchTransactions();
     } else {
       fetchWithdrawals();
@@ -119,234 +148,254 @@ export default function AdminTransactions() {
   };
 
   useEffect(() => {
-    if (activeTab === 'transactions') {
+    if (activeTab !== 'withdrawals') {
       fetchTransactions();
     } else {
       fetchWithdrawals();
     }
   }, [activeTab, fetchTransactions, fetchWithdrawals]);
 
+  const filteredWithdrawals = withdrawals.filter((item) => {
+    if (statusFilter && item.status !== statusFilter) return false;
+    if (!query) return true;
+    const lowerQuery = query.toLowerCase();
+    return (
+      item.instructorName?.toLowerCase().includes(lowerQuery) ||
+      item.instructorEmail?.toLowerCase().includes(lowerQuery) ||
+      item.bankName?.toLowerCase().includes(lowerQuery) ||
+      item.accountNumber?.toLowerCase().includes(lowerQuery) ||
+      item.accountHolder?.toLowerCase().includes(lowerQuery)
+    );
+  });
+
+  const columnsTransactions = [
+    { title: 'Giao dịch', data: 'type', className: 'px-5 py-4' },
+    { title: 'Người dùng', data: 'user.name', className: 'px-5 py-4' },
+    { title: 'Khóa học', data: 'course.title', className: 'px-5 py-4' },
+    { title: 'Thanh toán ngoài', data: 'id', className: 'px-5 py-4' },
+    { title: 'Trạng thái', data: 'status', className: 'px-5 py-4' },
+    { title: 'Số tiền', data: 'amount', className: 'px-5 py-4 text-right' }
+  ];
+
+  const slotsTransactions = {
+    0: (data, row) => (
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
+          <CreditCard className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="font-medium text-slate-900">{transactionLabel[row.type] || row.type}</p>
+          <p className="text-xs text-slate-500">{new Date(row.createdAt).toLocaleString('vi-VN')}</p>
+          {row.note ? <p className="mt-0.5 text-xs text-slate-400 max-w-xs truncate">{row.note}</p> : null}
+        </div>
+      </div>
+    ),
+    1: (data, row) => (
+      <div>
+        <p className="text-slate-900">{row.user?.name || '-'}</p>
+        <p className="text-xs text-slate-500">{row.user?.email || ''}</p>
+      </div>
+    ),
+    2: (data, row) => (
+      <span className="text-slate-600">
+        {row.course?.title || '-'}
+      </span>
+    ),
+    3: (data, row) => (
+      row.externalPayment ? (
+        <div>
+          <p>
+            {row.externalPayment.provider} - {row.externalPayment.status}
+          </p>
+          <p className="text-xs text-slate-400">{formatCurrency(row.externalPayment.amount)}</p>
+        </div>
+      ) : (
+        '-'
+      )
+    ),
+    4: (data, row) => (
+      <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${transactionStatusClasses[row.status] || 'bg-slate-50 text-slate-700 border border-slate-100'}`}>
+        {transactionStatusLabel[row.status] || row.status}
+      </span>
+    ),
+    5: (data, row) => (
+      <div className="text-right">
+        <p className={row.amount >= 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-rose-600'}>
+          {row.amount >= 0 ? '+' : ''}{formatCurrency(row.amount)}
+        </p>
+        <p className="text-xs text-slate-400">Sau GD {formatCurrency(row.balanceAfter)}</p>
+      </div>
+    )
+  };
+
+  const columnsWithdrawals = [
+    { title: 'Giảng viên', data: 'instructorName', className: 'px-5 py-4' },
+    { title: 'Số tiền', data: 'amount', className: 'px-5 py-4 font-semibold text-slate-950' },
+    { title: 'Ngân hàng', data: 'bankName', className: 'px-5 py-4' },
+    { title: 'Ghi chú', data: 'note', className: 'px-5 py-4 max-w-[200px] truncate' },
+    { title: 'Thời gian', data: 'createdAt', className: 'px-5 py-4 text-slate-500' },
+    { title: 'Trạng thái', data: 'status', className: 'px-5 py-4 text-center' },
+    { title: 'Thao tác', data: 'id', className: 'px-5 py-4 text-right', orderable: false }
+  ];
+
+  const slotsWithdrawals = {
+    0: (data, row) => (
+      <div>
+        <p className="font-medium text-slate-900">{row.instructorName}</p>
+        <p className="text-xs text-slate-500">{row.instructorEmail}</p>
+      </div>
+    ),
+    1: (data, row) => (
+      <span>
+        {formatCurrency(row.amount)}
+      </span>
+    ),
+    2: (data, row) => (
+      <div className="flex items-center gap-2">
+        <Landmark className="h-4 w-4 text-slate-400 shrink-0" />
+        <div>
+          <p className="font-medium text-slate-900">{row.bankName}</p>
+          <p className="text-xs text-slate-600">{row.accountNumber}</p>
+          <p className="text-[11px] text-slate-500 uppercase">{row.accountHolder}</p>
+        </div>
+      </div>
+    ),
+    3: (data, row) => (
+      <span title={row.note}>
+        {row.note || '-'}
+      </span>
+    ),
+    4: (data, row) => (
+      <span>
+        {new Date(row.createdAt).toLocaleString('vi-VN')}
+      </span>
+    ),
+    5: (data, row) => {
+      const statusClass = withdrawStatusClasses[row.status] || 'bg-slate-50 text-slate-700';
+      const statusText = withdrawStatusLabel[row.status] || row.status;
+      return (
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium border ${statusClass}`}>
+          {statusText}
+        </span>
+      );
+    },
+    6: (data, row) => (
+      row.status === 'PENDING' ? (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => handleApprove(row.id)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
+            title="Phê duyệt"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => handleReject(row.id)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+            title="Từ chối"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <span className="text-xs text-slate-400">-</span>
+      )
+    )
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quản lý giao dịch & ví</h1>
-          <p className="mt-1 text-sm text-slate-500">Đối soát giao dịch nạp/mua của học viên và duyệt rút tiền cho giảng viên.</p>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">Quản lý giao dịch</h1>
         </div>
-        <button
-          onClick={handleRefresh}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
-        >
-          <RefreshCw className="h-4 w-4" />
-          Tải lại
-        </button>
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex gap-2 border-b border-slate-200">
-        <button
-          onClick={() => handleTabChange('transactions')}
-          className={`border-b-2 px-6 py-3 text-sm font-medium transition ${
-            activeTab === 'transactions'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
-          }`}
-        >
-          Đối soát giao dịch
-        </button>
-        <button
-          onClick={() => handleTabChange('withdrawals')}
-          className={`border-b-2 px-6 py-3 text-sm font-medium transition ${
-            activeTab === 'withdrawals'
-              ? 'border-purple-600 text-purple-600'
-              : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
-          }`}
-        >
-          Yêu cầu rút tiền
-        </button>
+      <div className="flex flex-wrap gap-2 border-b border-slate-200">
+        {[
+          { id: 'all', label: 'Tất cả giao dịch' },
+          { id: 'deposit', label: 'Nạp ví' },
+          { id: 'purchase', label: 'Mua khóa học' },
+          { id: 'withdrawals', label: 'Yêu cầu rút tiền' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => handleTabChange(tab.id)}
+            className={`border-b-2 px-6 py-3 text-sm font-semibold transition ${
+              activeTab === tab.id
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {activeTab === 'transactions' ? (
-        <>
-          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <DataTableToolbar
+          searchValue={query}
+          onSearchChange={setQuery}
+          placeholder={
+            activeTab === 'withdrawals'
+              ? "Tìm theo tên giảng viên, email hoặc ngân hàng"
+              : "Tìm theo email, mã GD hoặc nội dung"
+          }
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
+          filters={
             <select
-              value={type}
-              onChange={(event) => setType(event.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100 md:w-64"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold outline-none transition focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
             >
-              <option value="">Tất cả loại giao dịch</option>
-              {typeOptions.map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
+              <option value="">Tất cả trạng thái</option>
+              {activeTab === 'withdrawals' ? (
+                <>
+                  <option value="PENDING">Chờ duyệt (PENDING)</option>
+                  <option value="COMPLETED">Đã thanh toán (COMPLETED)</option>
+                  <option value="REJECTED">Đã từ chối (REJECTED)</option>
+                </>
+              ) : (
+                <>
+                  <option value="COMPLETED">Thành công (COMPLETED)</option>
+                  <option value="PENDING">Chờ xử lý (PENDING)</option>
+                  <option value="FAILED">Thất bại (FAILED)</option>
+                </>
+              )}
             </select>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-            {error ? <div className="p-6 text-sm text-rose-600">{error}</div> : null}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="px-5 py-4">Giao dịch</th>
-                    <th className="px-5 py-4">Người dùng</th>
-                    <th className="px-5 py-4">Khóa học</th>
-                    <th className="px-5 py-4">Thanh toán ngoài</th>
-                    <th className="px-5 py-4 text-right">Số tiền</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {loading ? (
-                    <tr>
-                      <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                        Đang tải giao dịch...
-                      </td>
-                    </tr>
-                  ) : transactions.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="px-5 py-10 text-center text-slate-500">
-                        Chưa có giao dịch.
-                      </td>
-                    </tr>
-                  ) : (
-                    transactions.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/70">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700">
-                              <CreditCard className="h-5 w-5" />
-                            </div>
-                            <div>
-                              <p className="font-medium text-slate-900">{transactionLabel[item.type] || item.type}</p>
-                              <p className="text-xs text-slate-500">{new Date(item.createdAt).toLocaleString('vi-VN')}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="text-slate-900">{item.user?.name || '-'}</p>
-                          <p className="text-xs text-slate-500">{item.user?.email || ''}</p>
-                        </td>
-                        <td className="px-5 py-4 text-slate-600">{item.course?.title || '-'}</td>
-                        <td className="px-5 py-4 text-slate-600">
-                          {item.externalPayment ? (
-                            <>
-                              <p>
-                                {item.externalPayment.provider} - {item.externalPayment.status}
-                              </p>
-                              <p className="text-xs text-slate-400">{formatCurrency(item.externalPayment.amount)}</p>
-                            </>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <p className={item.amount >= 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-slate-900'}>{formatCurrency(item.amount)}</p>
-                          <p className="text-xs text-slate-400">Sau GD {formatCurrency(item.balanceAfter)}</p>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
-          {error ? <div className="p-6 text-sm text-rose-600">{error}</div> : null}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-5 py-4">Giảng viên</th>
-                  <th className="px-5 py-4">Số tiền</th>
-                  <th className="px-5 py-4">Ngân hàng</th>
-                  <th className="px-5 py-4">Ghi chú</th>
-                  <th className="px-5 py-4">Thời gian</th>
-                  <th className="px-5 py-4 text-center">Trạng thái</th>
-                  <th className="px-5 py-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  <tr>
-                    <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                      Đang tải danh sách rút tiền...
-                    </td>
-                  </tr>
-                ) : withdrawals.length === 0 ? (
-                  <tr>
-                    <td colSpan="7" className="px-5 py-10 text-center text-slate-500">
-                      Không có yêu cầu rút tiền nào.
-                    </td>
-                  </tr>
-                ) : (
-                  withdrawals.map((item) => {
-                    const statusClass = withdrawStatusClasses[item.status] || 'bg-slate-50 text-slate-700';
-                    const statusText = withdrawStatusLabel[item.status] || item.status;
-
-                    return (
-                      <tr key={item.id} className="hover:bg-slate-50/70">
-                        <td className="px-5 py-4">
-                          <p className="font-medium text-slate-900">{item.instructorName}</p>
-                          <p className="text-xs text-slate-500">{item.instructorEmail}</p>
-                        </td>
-                        <td className="px-5 py-4 font-semibold text-slate-950">
-                          {formatCurrency(item.amount)}
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            <Landmark className="h-4 w-4 text-slate-400 shrink-0" />
-                            <div>
-                              <p className="font-medium text-slate-900">{item.bankName}</p>
-                              <p className="text-xs text-slate-600">{item.accountNumber}</p>
-                              <p className="text-[11px] text-slate-500 uppercase">{item.accountHolder}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-5 py-4 text-slate-600 max-w-[200px] truncate" title={item.note}>
-                          {item.note || '-'}
-                        </td>
-                        <td className="px-5 py-4 text-slate-500">
-                          {new Date(item.createdAt).toLocaleString('vi-VN')}
-                        </td>
-                        <td className="px-5 py-4 text-center">
-                          <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusClass}`}>
-                            {statusText}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          {item.status === 'PENDING' ? (
-                            <div className="flex justify-end gap-2">
-                              <button
-                                onClick={() => handleApprove(item.id)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
-                                title="Phê duyệt"
-                              >
-                                <Check className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleReject(item.id)}
-                                className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
-                                title="Từ chối"
-                              >
-                                <X className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-slate-400">-</span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+          }
+          actions={
+            <button
+              onClick={handleRefresh}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-800 transition"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Tải lại
+            </button>
+          }
+        />
+        {activeTab !== 'withdrawals' ? (
+          <DataTable
+            data={transactions}
+            columns={columnsTransactions}
+            slots={slotsTransactions}
+            loading={loading}
+            error={error}
+            pageSize={pageSize}
+          />
+        ) : (
+          <DataTable
+            data={filteredWithdrawals}
+            columns={columnsWithdrawals}
+            slots={slotsWithdrawals}
+            loading={loading}
+            error={error}
+            pageSize={pageSize}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -3,37 +3,40 @@ namespace LMS.Api.Domain.Entities;
 public class KhoaHoc
 {
     public string Id { get; set; } = string.Empty;
-    public string Title { get; set; } = string.Empty;
-    public string Slug { get; set; } = string.Empty;
-    public string? ShortDescription { get; set; }
-    public string? Description { get; set; }
-    public string? DetailedDescription { get; set; }
-    public string? Thumbnail { get; set; }
-    public string Category { get; set; } = "Lập trình";
-    public string Level { get; set; } = "BEGINNER";
-    public int Price { get; set; }
-    public double AverageRating { get; set; }
-    public int ReviewCount { get; set; }
-    public string MinimumMemberTier { get; set; } = "BRONZE";
-    public int TotalDurationSeconds { get; set; }
-    public bool IsPublished { get; set; }
-    public string Status { get; set; } = "DRAFT";
-    public DateTime? PublishedAt { get; set; }
+    public string TieuDe { get; set; } = string.Empty;
+    public string DuongDanThanThien { get; set; } = string.Empty;
+    public string? MoTaNgan { get; set; }
+    public string? MoTa { get; set; }
+    public string? MoTaChiTiet { get; set; }
+    public string? AnhDaiDien { get; set; }
+    public string ChuyenMuc { get; set; } = "Lập trình";
+    public string? DanhMucId { get; set; }
+    public DanhMuc? DanhMuc { get; set; }
+    public string TrinhDo { get; set; } = "BEGINNER";
+    public int Gia { get; set; }
+    public double DiemDanhGiaTrungBinh { get; set; }
+    public int SoLuongDanhGia { get; set; }
+    public string HangThanhVienToiThieu { get; set; } = "BRONZE";
+    public int TongThoiLuongGiay { get; set; }
+    public bool DaXuatBan { get; set; }
+    public string TrangThai { get; set; } = "DRAFT";
+    public string? LyDoTuChoi { get; set; }
+    public DateTime? NgayXuatBan { get; set; }
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
-    public string InstructorId { get; set; } = string.Empty;
-    public NguoiDung? Instructor { get; set; }
-    public DateTime CreatedAt { get; set; }
-    public DateTime UpdatedAt { get; set; }
+    public string GiangVienId { get; set; } = string.Empty;
+    public NguoiDung? GiangVien { get; set; }
+    public DateTime NgayTao { get; set; }
+    public DateTime NgayCapNhat { get; set; }
 
-    public ICollection<ChuongHoc> Sections { get; set; } = [];
-    public ICollection<BaiHoc> Lessons { get; set; } = [];
-    public ICollection<GhiDanh> Enrollments { get; set; } = [];
-    public ICollection<GiaoDichMua> Purchases { get; set; } = [];
-    public ICollection<GiaoDichVi> WalletTransactions { get; set; } = [];
-    public ICollection<DanhGiaKhoaHoc> Reviews { get; set; } = [];
-    public ICollection<ChungChi> Certificates { get; set; } = [];
-    public ICollection<MaGiamGia> Coupons { get; set; } = [];
-    public ICollection<BaiTap> Assignments { get; set; } = [];
-    public ICollection<KhoaHocDaLuu> SavedByUsers { get; set; } = [];
+    public ICollection<ChuongHoc> CacChuongHoc { get; set; } = [];
+    public ICollection<BaiHoc> CacBaiHoc { get; set; } = [];
+    public ICollection<GhiDanh> CacGhiDanh { get; set; } = [];
+    public ICollection<DonMua> CacDonMua { get; set; } = [];
+    public ICollection<GiaoDichVi> CacGiaoDichVi { get; set; } = [];
+    public ICollection<DanhGiaKhoaHoc> CacDanhGia { get; set; } = [];
+    public ICollection<ChungChi> CacChungChi { get; set; } = [];
+    public ICollection<MaGiamGia> CacMaGiamGia { get; set; } = [];
+    public ICollection<BaiTap> CacBaiTap { get; set; } = [];
+    public ICollection<KhoaHocDaLuu> CacNguoiDungDaLuu { get; set; } = [];
 }

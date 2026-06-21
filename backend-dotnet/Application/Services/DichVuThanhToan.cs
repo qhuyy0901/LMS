@@ -31,25 +31,25 @@ public class DichVuThanhToan(ApplicationDbContext db) : IDichVuThanhToan
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             try
             {
-                var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                var user = await db.NguoiDung.FirstOrDefaultAsync(u => u.Id == userId);
                 if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng" });
 
                 var now = DateTime.UtcNow;
                 var sessionId = $"mock_wallet_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
-                var thanhToanNgoai = new ThanhToanNgoai
+                var thanhToanNgoai = new ThanhToan
                 {
-                    Id = TaoId.Moi(), UserId = userId, Amount = soTien, Provider = "MOCK",
-                    ProviderSessionId = sessionId, Status = "COMPLETED",
-                    Note = $"Nạp ví test {TroGiup.DinhDangTienVND(soTien)}",
-                    CompletedAt = now, CreatedAt = now, UpdatedAt = now
+                    Id = TaoId.Moi(), NguoiDungId = userId, SoTien = soTien, NhaCungCap = "MOCK",
+                    PhienNhaCungCapId = sessionId, TrangThai = "COMPLETED",
+                    NoiDung = $"Nạp ví test {TroGiup.DinhDangTienVND(soTien)}",
+                    NgayHoanThanh = now, NgayTao = now, NgayCapNhat = now
                 };
-                user.WalletBalance += soTien;
+                user.SoDuVi += soTien;
                 TroGiup.DongBoHangThanhVien(user);
-                user.UpdatedAt = now;
+                user.NgayCapNhat = now;
 
-                db.ExternalPayments.Add(thanhToanNgoai);
-                db.WalletTransactions.Add(new GiaoDichVi { Id = TaoId.Moi(), UserId = userId, Type = "TOP_UP", Amount = soTien, BalanceAfter = user.WalletBalance, Note = $"Nạp ví test {TroGiup.DinhDangTienVND(soTien)}", ExternalPaymentId = thanhToanNgoai.Id, CreatedAt = now });
-                db.Notifications.Add(new ThongBao { Id = TaoId.Moi(), UserId = userId, Type = "PAYMENT_SUCCESS", Title = "Nạp ví thành công", Body = $"Bạn vừa nạp thành công {TroGiup.DinhDangTienVND(soTien)} vào ví nội bộ.", Link = "/pricing", Metadata = JsonSerializer.Serialize(new { amount = soTien, externalPaymentId = thanhToanNgoai.Id }), CreatedAt = now });
+                db.ThanhToan.Add(thanhToanNgoai);
+                db.GiaoDichVi.Add(new GiaoDichVi { Id = TaoId.Moi(), NguoiDungId = userId, LoaiGiaoDich = "TOP_UP", SoTien = soTien, SoDuSauGiaoDich = user.SoDuVi, NoiDung = $"Nạp ví test {TroGiup.DinhDangTienVND(soTien)}", ThanhToanId = thanhToanNgoai.Id, NgayTao = now });
+                db.ThongBao.Add(new ThongBao { Id = TaoId.Moi(), NguoiDungId = userId, LoaiThongBao = "PAYMENT_SUCCESS", TieuDe = "Nạp ví thành công", NoiDung = $"Bạn vừa nạp thành công {TroGiup.DinhDangTienVND(soTien)} vào ví nội bộ.", DuongDan = "/pricing", Metadata = JsonSerializer.Serialize(new { amount = soTien, externalPaymentId = thanhToanNgoai.Id }), NgayTao = now });
 
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();
@@ -71,79 +71,79 @@ public class DichVuThanhToan(ApplicationDbContext db) : IDichVuThanhToan
             await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
             try
             {
-                var kh = await db.Courses.FirstOrDefaultAsync(c => c.Id == khoaHocId);
+                var kh = await db.KhoaHoc.FirstOrDefaultAsync(c => c.Id == khoaHocId);
                 if (kh is null) return Results.NotFound(new { message = "Không tìm thấy khóa học" });
-                if (!kh.IsPublished) return Results.BadRequest(new { message = "Khóa học này đang ở chế độ bản nháp" });
-                if (kh.Price <= 0) return Results.BadRequest(new { message = "Khóa học này miễn phí, hãy đăng ký trực tiếp." });
+                if (!kh.DaXuatBan) return Results.BadRequest(new { message = "Khóa học này đang ở chế độ bản nháp" });
+                if (kh.Gia <= 0) return Results.BadRequest(new { message = "Khóa học này miễn phí, hãy đăng ký trực tiếp." });
 
-                var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                var user = await db.NguoiDung.FirstOrDefaultAsync(u => u.Id == userId);
                 if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng" });
                 
                 TroGiup.DongBoHangThanhVien(user);
-                if (!TroGiup.DuHangYeuCau(user.MemberTier, kh.MinimumMemberTier))
-                    return Results.Json(new { message = "Danh hiệu hội viên hiện tại chưa đủ để mua khóa học này", requiredTier = kh.MinimumMemberTier }, statusCode: 403);
+                if (!TroGiup.DuHangYeuCau(user.HangThanhVien, kh.HangThanhVienToiThieu))
+                    return Results.Json(new { message = "Danh hiệu hội viên hiện tại chưa đủ để mua khóa học này", requiredTier = kh.HangThanhVienToiThieu }, statusCode: 403);
 
-                if (await db.Purchases.AnyAsync(p => p.UserId == userId && p.CourseId == khoaHocId))
+                if (await db.DonMua.AnyAsync(p => p.NguoiDungId == userId && p.KhoaHocId == khoaHocId))
                     return Results.BadRequest(new { message = "Bạn đã mua khóa học này" });
 
                 var soTienGiam = 0;
                 MaGiamGia? coupon = null;
                 if (!string.IsNullOrWhiteSpace(maGiamGia))
                 {
-                    var ketQua = await KiemTraMaGiamGiaAsync(maGiamGia, khoaHocId, kh.Price, userId);
+                    var ketQua = await KiemTraMaGiamGiaAsync(maGiamGia, khoaHocId, kh.Gia, userId);
                     if (!ketQua.HopLe) return Results.BadRequest(new { message = ketQua.Loi });
                     coupon = ketQua.MaGiam;
                     soTienGiam = ketQua.SoTienGiam;
                 }
 
-                var giaCuoi = Math.Max(0, kh.Price - soTienGiam);
-                if (user.WalletBalance < giaCuoi)
-                    return Results.BadRequest(new { message = "Số dư ví không đủ để mua khóa học", requiredAmount = giaCuoi, walletBalance = user.WalletBalance, shortfall = giaCuoi - user.WalletBalance });
+                var giaCuoi = Math.Max(0, kh.Gia - soTienGiam);
+                if (user.SoDuVi < giaCuoi)
+                    return Results.BadRequest(new { message = "Số dư ví không đủ để mua khóa học", requiredAmount = giaCuoi, walletBalance = user.SoDuVi, shortfall = giaCuoi - user.SoDuVi });
 
                 var now = DateTime.UtcNow;
 
-                user.WalletBalance -= giaCuoi;
-                user.TotalSpent += giaCuoi;
+                user.SoDuVi -= giaCuoi;
+                user.TongChiTieu += giaCuoi;
                 TroGiup.DongBoHangThanhVien(user);
-                user.UpdatedAt = now;
+                user.NgayCapNhat = now;
 
-                var muaHang = new GiaoDichMua { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, OriginalAmount = kh.Price, DiscountAmount = soTienGiam, FinalAmount = giaCuoi, CouponId = coupon?.Id, Status = "COMPLETED", CreatedAt = now, UpdatedAt = now };
-                db.Purchases.Add(muaHang);
-                db.Enrollments.Add(new GhiDanh { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, Progress = 0, CreatedAt = now, UpdatedAt = now });
-                db.WalletTransactions.Add(new GiaoDichVi { Id = TaoId.Moi(), UserId = userId, CourseId = khoaHocId, PurchaseId = muaHang.Id, Type = "COURSE_PURCHASE", Amount = -giaCuoi, BalanceAfter = user.WalletBalance, Note = $"Mua khóa học: {kh.Title}", CreatedAt = now });
-                db.Notifications.Add(new ThongBao { Id = TaoId.Moi(), UserId = userId, Type = "COURSE_PURCHASED", Title = "Mua khóa học thành công", Body = $"Bạn đã mua khóa học {kh.Title}.", Link = $"/course/{khoaHocId}", Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, purchaseId = muaHang.Id }), CreatedAt = now });
-                db.Notifications.Add(new ThongBao
+                var muaHang = new DonMua { Id = TaoId.Moi(), NguoiDungId = userId, KhoaHocId = khoaHocId, SoTienGoc = kh.Gia, SoTienGiam = soTienGiam, SoTienCuoi = giaCuoi, MaGiamGiaId = coupon?.Id, TrangThai = "COMPLETED", NgayTao = now, NgayCapNhat = now };
+                db.DonMua.Add(muaHang);
+                db.GhiDanh.Add(new GhiDanh { Id = TaoId.Moi(), NguoiDungId = userId, KhoaHocId = khoaHocId, TienDo = 0, NgayTao = now, NgayCapNhat = now });
+                db.GiaoDichVi.Add(new GiaoDichVi { Id = TaoId.Moi(), NguoiDungId = userId, KhoaHocId = khoaHocId, DonMuaId = muaHang.Id, LoaiGiaoDich = "COURSE_PURCHASE", SoTien = -giaCuoi, SoDuSauGiaoDich = user.SoDuVi, NoiDung = $"Mua khóa học: {kh.TieuDe}", NgayTao = now });
+                db.ThongBao.Add(new ThongBao { Id = TaoId.Moi(), NguoiDungId = userId, LoaiThongBao = "COURSE_PURCHASED", TieuDe = "Mua khóa học thành công", NoiDung = $"Bạn đã mua khóa học {kh.TieuDe}.", DuongDan = $"/course/{khoaHocId}", Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, purchaseId = muaHang.Id }), NgayTao = now });
+                db.ThongBao.Add(new ThongBao
                 {
                     Id = TaoId.Moi(),
-                    UserId = kh.InstructorId,
-                    Type = "INSTRUCTOR_COURSE_PURCHASE",
-                    Title = "Có học viên mua khóa học",
-                    Body = $"{user.Name} vừa mua khóa học {kh.Title} với giá {TroGiup.DinhDangTienVND(giaCuoi)}.",
-                    Link = "/instructor/revenue",
+                    NguoiDungId = kh.GiangVienId,
+                    LoaiThongBao = "INSTRUCTOR_COURSE_PURCHASE",
+                    TieuDe = "Có học viên mua khóa học",
+                    NoiDung = $"{user.Ten} vừa mua khóa học {kh.TieuDe} với giá {TroGiup.DinhDangTienVND(giaCuoi)}.",
+                    DuongDan = "/instructor/revenue",
                     Metadata = JsonSerializer.Serialize(new { courseId = khoaHocId, purchaseId = muaHang.Id, studentId = userId }),
-                    CreatedAt = now
+                    NgayTao = now
                 });
 
                 if (coupon is not null)
                 {
                     coupon.UsageCount += 1;
-                    coupon.UpdatedAt = now;
-                    db.CouponUsages.Add(new LichSuDungMaGiamGia
+                    coupon.NgayCapNhat = now;
+                    db.LichSuDungMaGiamGia.Add(new LichSuDungMaGiamGia
                     {
                         Id = TaoId.Moi(),
-                        CouponId = coupon.Id,
-                        UserId = userId,
-                        CourseId = khoaHocId,
-                        PurchaseId = muaHang.Id,
-                        CreatedAt = now
+                        MaGiamGiaId = coupon.Id,
+                        NguoiDungId = userId,
+                        KhoaHocId = khoaHocId,
+                        DonMuaId = muaHang.Id,
+                        NgayTao = now
                     });
                 }
 
                 await db.SaveChangesAsync();
                 await transaction.CommitAsync();
 
-                var hang = TroGiup.TinhHangThanhVien(user.WalletBalance);
-                return Results.Ok(new { message = "Mua khóa học thành công", walletBalance = user.WalletBalance, totalSpent = user.TotalSpent, memberTier = user.MemberTier, memberTierLabel = hang.NhanHieu, discountAmount = soTienGiam, finalPrice = giaCuoi, earnedPoints = 0, rewardPoints = user.RewardPoints, successUrl = $"{frontendUrl}/course/{khoaHocId}?success=true" });
+                var hang = TroGiup.TinhHangThanhVien(user.SoDuVi);
+                return Results.Ok(new { message = "Mua khóa học thành công", walletBalance = user.SoDuVi, totalSpent = user.TongChiTieu, memberTier = user.HangThanhVien, memberTierLabel = hang.NhanHieu, discountAmount = soTienGiam, finalPrice = giaCuoi, earnedPoints = 0, rewardPoints = user.DiemThuong, successUrl = $"{frontendUrl}/course/{khoaHocId}?success=true" });
             }
             catch (Exception ex)
             {
@@ -157,35 +157,35 @@ public class DichVuThanhToan(ApplicationDbContext db) : IDichVuThanhToan
     {
         if (string.IsNullOrWhiteSpace(code)) return (false, null, 0, "Mã giảm giá không hợp lệ");
 
-        var course = await db.Courses.AsNoTracking().FirstOrDefaultAsync(c => c.Id == khoaHocId && c.IsPublished);
+        var course = await db.KhoaHoc.AsNoTracking().FirstOrDefaultAsync(c => c.Id == khoaHocId && c.DaXuatBan);
         if (course is null) return (false, null, 0, "Khóa học không tồn tại hoặc chưa được mở bán");
-        giaKhoaHoc = course.Price;
+        giaKhoaHoc = course.Gia;
 
         var maChuan = code.Trim().ToUpperInvariant();
-        var coupon = await db.Coupons
-            .Include(c => c.Course)
-            .Include(c => c.Recipients)
-            .FirstOrDefaultAsync(c => c.Code == maChuan);
+        var coupon = await db.MaGiamGia
+            .Include(c => c.KhoaHoc)
+            .Include(c => c.CacNguoiNhan)
+            .FirstOrDefaultAsync(c => c.Ma == maChuan);
         if (coupon is null) return (false, null, 0, "Mã giảm giá không tồn tại");
-        if (!coupon.IsActive || string.Equals(coupon.Status, "INACTIVE", StringComparison.OrdinalIgnoreCase))
+        if (!coupon.HoatDong || string.Equals(coupon.TrangThai, "INACTIVE", StringComparison.OrdinalIgnoreCase))
             return (false, coupon, 0, "Mã giảm giá đã bị vô hiệu hóa");
 
         var now = DateTime.UtcNow;
         if (coupon.StartDate is not null && now < coupon.StartDate.Value) return (false, coupon, 0, "Mã giảm giá chưa tới thời gian hiệu lực");
         if (coupon.EndDate is not null && now > coupon.EndDate.Value) return (false, coupon, 0, "Mã giảm giá đã hết hạn");
         if (coupon.UsageLimit is not null && coupon.UsageCount >= coupon.UsageLimit.Value) return (false, coupon, 0, "Mã giảm giá đã hết lượt sử dụng");
-        if (!string.IsNullOrWhiteSpace(coupon.CourseId) && coupon.CourseId != khoaHocId) return (false, coupon, 0, "Mã giảm giá không áp dụng cho khóa học này");
-        if (!string.IsNullOrWhiteSpace(coupon.TeacherId) && coupon.TeacherId != course.InstructorId)
+        if (!string.IsNullOrWhiteSpace(coupon.KhoaHocId) && coupon.KhoaHocId != khoaHocId) return (false, coupon, 0, "Mã giảm giá không áp dụng cho khóa học này");
+        if (!string.IsNullOrWhiteSpace(coupon.GiangVienId) && coupon.GiangVienId != course.GiangVienId)
             return (false, coupon, 0, "Mã giảm giá không thuộc giảng viên của khóa học này");
-        if (coupon.IsPrivate || coupon.Recipients.Count > 0)
+        if (coupon.IsPrivate || coupon.CacNguoiNhan.Count > 0)
         {
-            var recipient = coupon.Recipients.FirstOrDefault(item => item.UserId == userId);
+            var recipient = coupon.CacNguoiNhan.FirstOrDefault(item => item.NguoiDungId == userId);
             if (recipient is null) return (false, coupon, 0, "Bạn không nằm trong danh sách được nhận mã này");
             if (!string.IsNullOrWhiteSpace(recipient.SourceCourseId) && recipient.SourceCourseId == khoaHocId)
                 return (false, coupon, 0, "Mã này chỉ áp dụng cho khóa học khác của cùng giảng viên");
         }
-        if (!string.IsNullOrWhiteSpace(coupon.TeacherId) &&
-            await db.CouponUsages.AsNoTracking().AnyAsync(usage => usage.CouponId == coupon.Id && usage.UserId == userId))
+        if (!string.IsNullOrWhiteSpace(coupon.GiangVienId) &&
+            await db.LichSuDungMaGiamGia.AsNoTracking().AnyAsync(usage => usage.MaGiamGiaId == coupon.Id && usage.NguoiDungId == userId))
         {
             return (false, coupon, 0, "Bạn đã sử dụng mã giảm giá này trước đó");
         }

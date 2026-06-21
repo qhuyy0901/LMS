@@ -50,19 +50,19 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, ApplicationDbContext db) :
     {
         limit = Math.Clamp(limit, 1, 20);
 
-        var danhMuc = await db.Purchases
+        var danhMuc = await db.DonMua
             .AsNoTracking()
             .Where(mua =>
-                mua.Status == "COMPLETED" &&
-                mua.Course != null &&
-                mua.Course.IsPublished &&
-                mua.Course.Category != "")
-            .GroupBy(mua => mua.Course!.Category.Trim())
+                mua.TrangThai == "COMPLETED" &&
+                mua.KhoaHoc != null &&
+                mua.KhoaHoc.DaXuatBan &&
+                mua.KhoaHoc.ChuyenMuc != "")
+            .GroupBy(mua => mua.KhoaHoc!.ChuyenMuc.Trim())
             .Select(nhom => new
             {
                 category = nhom.Key,
                 purchaseCount = nhom.Count(),
-                courseCount = nhom.Select(mua => mua.CourseId).Distinct().Count()
+                courseCount = nhom.Select(mua => mua.KhoaHocId).Distinct().Count()
             })
             .OrderByDescending(item => item.purchaseCount)
             .ThenBy(item => item.category)
@@ -81,28 +81,28 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, ApplicationDbContext db) :
 
         limit = Math.Clamp(limit, 1, 20);
 
-        var danhMucDaMua = db.Purchases
+        var danhMucDaMua = db.DonMua
             .AsNoTracking()
-            .Where(mua => mua.UserId == userId && mua.Status == "COMPLETED" && mua.Course != null)
-            .Select(mua => mua.Course!.Category);
+            .Where(mua => mua.NguoiDungId == userId && mua.TrangThai == "COMPLETED" && mua.KhoaHoc != null)
+            .Select(mua => mua.KhoaHoc!.ChuyenMuc);
 
-        var khoaHoc = await db.Courses
+        var khoaHoc = await db.KhoaHoc
             .AsNoTracking()
             .Where(kh =>
-                kh.IsPublished &&
-                danhMucDaMua.Contains(kh.Category) &&
-                !kh.Purchases.Any(mua => mua.UserId == userId && mua.Status == "COMPLETED") &&
-                !kh.Enrollments.Any(ghiDanh => ghiDanh.UserId == userId))
+                kh.DaXuatBan &&
+                danhMucDaMua.Contains(kh.ChuyenMuc) &&
+                !kh.CacDonMua.Any(mua => mua.NguoiDungId == userId && mua.TrangThai == "COMPLETED") &&
+                !kh.CacGhiDanh.Any(ghiDanh => ghiDanh.NguoiDungId == userId))
             .Select(kh => new
             {
                 id = kh.Id,
-                title = kh.Title,
-                thumbnail = kh.Thumbnail,
-                category = kh.Category,
-                instructorName = kh.Instructor != null ? kh.Instructor.Name : "Giảng viên",
-                lessonCount = kh.Lessons.Count,
-                averageRating = kh.AverageRating,
-                purchaseCount = kh.Purchases.Count(mua => mua.Status == "COMPLETED")
+                title = kh.TieuDe,
+                thumbnail = kh.AnhDaiDien,
+                category = kh.ChuyenMuc,
+                instructorName = kh.GiangVien != null ? kh.GiangVien.Ten : "Giảng viên",
+                lessonCount = kh.CacBaiHoc.Count,
+                averageRating = kh.DiemDanhGiaTrungBinh,
+                purchaseCount = kh.CacDonMua.Count(mua => mua.TrangThai == "COMPLETED")
             })
             .OrderByDescending(kh => kh.purchaseCount)
             .ThenByDescending(kh => kh.averageRating)

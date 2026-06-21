@@ -139,18 +139,26 @@ const Settings = () => {
 
   const displayName = formData.name || user?.name || 'Học viên';
   const isInstructor = user?.role === 'INSTRUCTOR';
-  const visibleTabs = isInstructor ? tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications') : tabs;
+  const isAdmin = user?.role === 'ADMIN';
+  const visibleTabs = isAdmin
+    ? tabs.filter((item) => item.id === 'profile' || item.id === 'security' || item.id === 'notifications')
+    : isInstructor
+      ? tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications')
+      : tabs;
 
   useEffect(() => {
     setActiveTab(normalizeTab(searchParams.get('tab')));
   }, [searchParams]);
 
   useEffect(() => {
-    if (isInstructor && (activeTab === 'billing' || activeTab === 'notifications')) {
+    if (isAdmin && activeTab !== 'profile' && activeTab !== 'security' && activeTab !== 'notifications') {
+      setActiveTab('profile');
+      setSearchParams({}, { replace: true });
+    } else if (isInstructor && (activeTab === 'billing' || activeTab === 'notifications')) {
       setActiveTab('profile');
       setSearchParams({}, { replace: true });
     }
-  }, [activeTab, isInstructor, setSearchParams]);
+  }, [activeTab, isAdmin, isInstructor, setSearchParams]);
 
   const selectTab = (tabId) => {
     setActiveTab(tabId);

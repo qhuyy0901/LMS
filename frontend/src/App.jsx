@@ -7,6 +7,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
 import { DashboardViewProvider } from './context/DashboardViewContext';
 import { SavedCoursesProvider } from './context/SavedCoursesContext';
+import { buildBackendUrl } from './utils/backendUrl';
 
 const ExternalRedirect = ({ to }) => {
   useEffect(() => {
@@ -22,7 +23,7 @@ const ExternalRedirect = ({ to }) => {
 const ExternalCourseEditRedirect = () => {
   const { id } = useParams();
   useEffect(() => {
-    window.location.replace(`/Instructor/KhoaHoc/Edit/${id}`);
+    window.location.replace(buildBackendUrl(`/Instructor/KhoaHoc/Edit/${id}`));
   }, [id]);
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -50,7 +51,6 @@ const InstructorDashboard = lazy(() => import('./pages/InstructorDashboard'));
 const InstructorEvents = lazy(() => import('./pages/InstructorEvents'));
 const InstructorRevenue = lazy(() => import('./pages/InstructorRevenue'));
 const InstructorVouchers = lazy(() => import('./pages/InstructorVouchers'));
-const Instructors = lazy(() => import('./pages/Instructors'));
 const InstructorRegister = lazy(() => import('./pages/InstructorRegister'));
 const LearningWorkspace = lazy(() => import('./pages/LearningWorkspace'));
 const Login = lazy(() => import('./pages/Login'));
@@ -103,9 +103,10 @@ function App() {
                     <Route path="my-courses" element={<Navigate to="/my-learning" replace />} />
                     <Route path="my-classes" element={<Navigate to="/my-learning" replace />} />
 
-                    <Route path="explore" element={<ExternalRedirect to="/KhamPha" />} />
+                    <Route path="explore" element={<Explore />} />
                     <Route path="course/:id" element={<CourseDetails />} />
-                    <Route path="instructors" element={<Instructors />} />
+                    <Route path="instructors" element={<Navigate to="/" replace />} />
+                    <Route path="giang-vien" element={<Navigate to="/" replace />} />
                     <Route path="messages" element={<Messages />} />
                     <Route path="reports" element={<Reports />} />
                     <Route path="certificates" element={<Navigate to="/my-learning" replace />} />
@@ -187,7 +188,7 @@ function App() {
                       path="instructor/courses/new"
                       element={
                         <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
-                          <ExternalRedirect to="/Instructor/KhoaHoc/Create" />
+                          <ExternalRedirect to={buildBackendUrl('/Instructor/KhoaHoc/Create')} />
                         </RoleRoute>
                       }
                     />

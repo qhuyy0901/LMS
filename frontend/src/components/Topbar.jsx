@@ -47,6 +47,7 @@ const Topbar = () => {
     location.pathname === '/settings' ||
     location.pathname === '/instructor/settings' ||
     location.pathname === '/upgrade' ||
+    location.pathname.startsWith('/course/') ||
     isInstructorArea ||
     isAdminArea;
 
@@ -243,7 +244,7 @@ const Topbar = () => {
         </button>
       )}
 
-      {activeView !== 'ADMIN' && (
+      {activeView !== 'ADMIN' && location.pathname !== '/upgrade' && location.pathname !== '/reports' && (
         <div className="relative" ref={notificationPanelRef}>
           <button
             type="button"
@@ -315,7 +316,7 @@ const Topbar = () => {
         </div>
       )}
 
-      {activeView !== 'ADMIN' && (
+      {activeView !== 'ADMIN' && location.pathname !== '/upgrade' && location.pathname !== '/reports' && (
         <div className="relative" ref={accountPanelRef}>
           <button
             type="button"

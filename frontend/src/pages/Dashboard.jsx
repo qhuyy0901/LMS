@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
 import axios from 'axios';
 import {
   ArrowUpRight,
@@ -21,6 +23,9 @@ import {
 import { useDashboardView } from '../context/DashboardViewContext';
 import { StatCard } from '../components/StatCard';
 import { getFileUrl } from '../utils/fileUtils';
+import CourseProgressCard from '../components/CourseProgressCard';
+import CertificateModal from '../components/CertificateModal';
+
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -121,9 +126,15 @@ const normalizeDashboardData = (view, payload = {}) => {
   };
 };
 
-const StudentDashboard = ({ data, loading }) => {
+const StudentDashboard = ({ data, loading, certificates = [] }) => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [selectedCertificate, setSelectedCertificate] = useState(null);
   const stats = data?.stats;
-  const recentCourses = data?.recentCourses || [];
+  const recentCourses = (data?.recentCourses || [])
+    .filter((course) => (course.progress ?? 0) < 100)
+    .sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0))
+    .slice(0, 2);
   const [showWalletAmounts, setShowWalletAmounts] = useState(() => {
     if (typeof window === 'undefined') {
       return true;
@@ -167,182 +178,180 @@ const StudentDashboard = ({ data, loading }) => {
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-      <div className="space-y-6 xl:col-span-2">
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-100 via-purple-50 to-pink-50 p-8">
-          <div className="relative z-10 max-w-xl">
-            <h2 className="mb-3 text-2xl font-semibold tracking-tight text-purple-950 md:text-3xl">
-              Mở khóa hơn 1.000 khóa học cao cấp ngay hôm nay
-            </h2>
+    <>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-100 via-purple-50 to-pink-50 p-8">
+            <div className="relative z-10 max-w-xl">
+              <h2 className="mb-3 text-2xl font-semibold tracking-tight text-purple-950 md:text-3xl">
+                Mở khóa hơn 1.000 khóa học cao cấp ngay hôm nay
+              </h2>
 
-            <Link
-              to="/upgrade"
-              className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
-            >
-              Nâng cấp Premium
-              <ArrowUpRight className="h-4 w-4" />
-            </Link>
-          </div>
-          <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 gap-3 md:grid">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70 text-purple-600 shadow-sm">
-              <GraduationCap className="h-8 w-8" />
-            </div>
-            <div className="ml-16 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70 text-pink-500 shadow-sm">
-              <BookOpen className="h-7 w-7" />
-            </div>
-          </div>
-        </section>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <StatCard
-            icon={Check}
-            label="Khóa học"
-            value={loading ? '...' : `${stats?.completedCourses ?? 0} / ${stats?.totalEnrolled ?? 0}`}
-            subtitle="Hoàn thành"
-            color="bg-green-100 text-green-600"
-            loading={loading}
-          />
-          <StatCard
-            icon={Award}
-            label="Chứng chỉ"
-            value={loading ? '...' : stats?.certificates ?? 0}
-            subtitle="Đã đạt được"
-            color="bg-amber-100 text-amber-600"
-            loading={loading}
-          />
-          <StatCard
-            icon={CalendarDays}
-            label="Sự kiện"
-            value={loading ? '...' : stats?.participatedEvents ?? 0}
-            subtitle="Đã tham gia"
-            color="bg-purple-100 text-purple-600"
-            loading={loading}
-          />
-        </div>
-
-        <section className="rounded-2xl border border-slate-100 bg-white p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Tiếp tục học</h3>
-            <Link to="/my-courses" className="text-sm font-medium text-purple-600 hover:underline">
-              Xem tất cả
-            </Link>
-          </div>
-          {loading ? (
-            <CourseSkeleton />
-          ) : recentCourses.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {recentCourses.map((course) => (
-                <Link
-                  key={course.courseId}
-                  to={`/learn/${course.courseId}`}
-                  className="group rounded-xl border border-slate-100 p-3 transition hover:-translate-y-1 hover:shadow-md"
-                >
-                  <div className="relative mb-3 aspect-video overflow-hidden rounded-xl bg-gradient-to-br from-purple-200 to-violet-300">
-                    {course.thumbnail ? (
-                      <img src={getFileUrl(course.thumbnail)} alt={course.title} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <BookOpen className="h-10 w-10 text-purple-500" />
-                      </div>
-                    )}
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 text-xs text-white">
-                      <Play className="h-3 w-3 fill-white" />
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/30">
-                        <div className="h-full rounded-full bg-white" style={{ width: `${course.progress}%` }} />
-                      </div>
-                      <span>{course.progress}%</span>
-                    </div>
-                  </div>
-                  <p className="mb-1 text-xs text-slate-400">
-                    {course.category || 'Khóa học'} · {course.totalLessons || 0} bài học
-                  </p>
-                  <p className="line-clamp-2 text-sm font-medium text-slate-900 group-hover:text-purple-600">{course.title}</p>
-                  <p className="mt-1 truncate text-xs text-slate-400">{course.instructorName}</p>
-                  <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-purple-600" style={{ width: `${course.progress}%` }} />
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
-                    <CourseDate label="Bắt đầu" value={course.startedAt} />
-                    <CourseDate label="Kết thúc" value={course.courseEndDate} />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="py-8 text-center text-slate-400">
-              <BookOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
-              <p className="text-sm">Bạn chưa đăng ký khóa học nào.</p>
-              <Link to="/explore" className="mt-1 inline-block text-sm font-medium text-purple-600 hover:underline">
-                Khám phá ngay
-              </Link>
-            </div>
-          )}
-        </section>
-      </div>
-
-      <aside className="space-y-6">
-        <section className="rounded-2xl border border-slate-100 bg-white p-6">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Ví của tôi</h3>
-            {!loading && (
-              <button
-                type="button"
-                onClick={() => setShowWalletAmounts((current) => !current)}
-                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-200"
-                title={showWalletAmounts ? 'Ẩn số tiền' : 'Hiện số tiền'}
-                aria-label={showWalletAmounts ? 'Ẩn số tiền trong ví' : 'Hiện số tiền trong ví'}
-                aria-pressed={!showWalletAmounts}
-              >
-                {showWalletAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            )}
-          </div>
-          {loading ? (
-            <div className="space-y-3">
-              <div className="h-8 w-32 animate-pulse rounded bg-slate-100" />
-              <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
-            </div>
-          ) : (
-            <>
-              <p className="mb-1 text-3xl font-bold text-slate-900">
-                {showWalletAmounts ? formatCurrency(stats?.walletBalance ?? 0) : '••••••'}
-              </p>
-              <p className="mb-4 text-xs text-slate-400">
-                Đã chi: {showWalletAmounts ? formatCurrency(stats?.totalSpent ?? 0) : '••••••'}
-              </p>
               <Link
                 to="/upgrade"
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
+                className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
               >
-                <Wallet className="h-4 w-4" />
-                Nạp ví
+                Nâng cấp Premium
+                <ArrowUpRight className="h-4 w-4" />
               </Link>
-            </>
-          )}
-        </section>
+            </div>
+            <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 gap-3 md:grid">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70 text-purple-600 shadow-sm">
+                <GraduationCap className="h-8 w-8" />
+              </div>
+              <div className="ml-16 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70 text-pink-500 shadow-sm">
+                <BookOpen className="h-7 w-7" />
+              </div>
+            </div>
+          </section>
 
-        <section className="rounded-2xl border border-slate-100 bg-white p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h3 className="text-xl font-semibold tracking-tight text-slate-900">Nhiệm vụ hằng ngày</h3>
-            <Link to="/events" className="text-sm font-medium text-purple-600 hover:text-purple-700">
-              Đổi điểm
-            </Link>
-          </div>
-          <div className="space-y-5">
-            <QuestRow
-              icon={Award}
-              title="Điểm học tập hiện có"
-              subtitle=""
-              color="bg-purple-50 text-purple-600"
-              right={`${learningPoints} điểm`}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <StatCard
+              icon={Check}
+              label="Khóa học"
+              value={loading ? '...' : `${stats?.completedCourses ?? 0} / ${stats?.totalEnrolled ?? 0}`}
+              subtitle="Hoàn thành"
+              color="bg-green-100 text-green-600"
+              loading={loading}
             />
-            {dailyTasks.map((task) => (
-              <QuestRow key={task.title} {...task} />
-            ))}
+            <StatCard
+              icon={Award}
+              label="Chứng chỉ"
+              value={loading ? '...' : stats?.certificates ?? 0}
+              subtitle="Đã đạt được"
+              color="bg-amber-100 text-amber-650"
+              loading={loading}
+            />
+            <StatCard
+              icon={CalendarDays}
+              label="Sự kiện"
+              value={loading ? '...' : stats?.participatedEvents ?? 0}
+              subtitle="Đã tham gia"
+              color="bg-purple-100 text-purple-600"
+              loading={loading}
+            />
           </div>
-        </section>
-      </aside>
-    </div>
+
+          <section className="rounded-2xl border border-slate-100 bg-white p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Tiếp tục học</h3>
+              <Link to="/my-courses" className="text-sm font-medium text-purple-600 hover:underline">
+                Xem tất cả
+              </Link>
+            </div>
+            {loading ? (
+              <CourseSkeleton />
+            ) : recentCourses.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {recentCourses.map((course) => {
+                  const progress = course.progress ?? 0;
+                  return (
+                    <CourseProgressCard
+                      key={course.courseId}
+                      title={course.title}
+                      thumbnail={course.thumbnail}
+                      category={course.category}
+                      instructorName={course.instructorName}
+                      progress={progress}
+                      totalLessons={course.totalLessons || 0}
+                      startedAt={course.startedAt}
+                      endDate={course.courseEndDate}
+                      onContinue={() => navigate(`/learn/${course.courseId}`)}
+                      onDetail={() => navigate(`/course/${course.courseId}`)}
+                      onViewCertificate={() => {
+                        const cert = certificates.find(c => (c.course?.id || c.course?.Id) === course.courseId);
+                        setSelectedCertificate({
+                          ...cert,
+                          studentName: cert?.studentName || user?.name || user?.email || 'Học viên',
+                          courseTitle: cert?.courseTitle || course.title,
+                          instructorName: cert?.instructorName || course.instructorName,
+                        });
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-8 text-center text-slate-400">
+                <BookOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                <Link to="/explore" className="mt-1 inline-block text-sm font-medium text-purple-600 hover:underline">
+                  Khám phá ngay
+                </Link>
+              </div>
+            )}
+          </section>
+        </div>
+
+        <aside className="space-y-6">
+          <section className="rounded-2xl border border-slate-100 bg-white p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Ví của tôi</h3>
+              {!loading && (
+                <button
+                  type="button"
+                  onClick={() => setShowWalletAmounts((current) => !current)}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-600"
+                  title={showWalletAmounts ? 'Ẩn số tiền' : 'Hiện số tiền'}
+                  aria-label={showWalletAmounts ? 'Ẩn số tiền trong ví' : 'Hiện số tiền trong ví'}
+                  aria-pressed={!showWalletAmounts}
+                >
+                  {showWalletAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+            {loading ? (
+              <div className="space-y-3">
+                <div className="h-8 w-32 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
+              </div>
+            ) : (
+              <>
+                <p className="mb-1 text-3xl font-bold text-slate-900">
+                  {showWalletAmounts ? formatCurrency(stats?.walletBalance ?? 0) : '••••••'}
+                </p>
+                <p className="mb-4 text-xs text-slate-400">
+                  Đã chi: {showWalletAmounts ? formatCurrency(stats?.totalSpent ?? 0) : '••••••'}
+                </p>
+                <Link
+                  to="/upgrade"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
+                >
+                  <Wallet className="h-4 w-4" />
+                  Nạp ví
+                </Link>
+              </>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-slate-100 bg-white p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Nhiệm vụ hằng ngày</h3>
+              <Link to="/events" className="text-sm font-medium text-purple-600 hover:text-purple-700">
+                Đổi điểm
+              </Link>
+            </div>
+            <div className="space-y-5">
+              <QuestRow
+                icon={Award}
+                title="Điểm học tập hiện có"
+                subtitle=""
+                color="bg-purple-50 text-purple-600"
+                right={`${learningPoints} điểm`}
+              />
+              {dailyTasks.map((task) => (
+                <QuestRow key={task.title} {...task} />
+              ))}
+            </div>
+          </section>
+        </aside>
+      </div>
+      {selectedCertificate && (
+        <CertificateModal
+          certificate={selectedCertificate}
+          onClose={() => setSelectedCertificate(null)}
+        />
+      )}
+    </>
   );
 };
 
@@ -576,15 +585,22 @@ const Dashboard = () => {
   const { activeView } = useDashboardView();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [certificates, setCertificates] = useState([]);
 
   useEffect(() => {
     setLoading(true);
     setData(null);
+    setCertificates([]);
 
     const fetchStats = async () => {
       try {
         const response = await axios.get(getDashboardEndpoint(activeView));
         setData(normalizeDashboardData(activeView, response.data));
+
+        if (activeView === 'STUDENT') {
+          const certRes = await axios.get('/api/user/certificates').catch(() => ({ data: [] }));
+          setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
+        }
       } catch (error) {
         console.error('Dashboard fetch error:', error);
       } finally {
@@ -603,7 +619,7 @@ const Dashboard = () => {
     return <InstructorDashboard data={data} loading={loading} />;
   }
 
-  return <StudentDashboard data={data} loading={loading} />;
+  return <StudentDashboard data={data} loading={loading} certificates={certificates} />;
 };
 
 const CourseSkeleton = () => (

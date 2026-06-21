@@ -150,7 +150,7 @@ public class DichVuGhiDanh(ApplicationDbContext db) : IDichVuGhiDanh
     public async Task<object?> KiemTraVaCapChungChiAsync(string userId, string khoaHocId)
     {
         var ghiDanh = await db.GhiDanh.FirstOrDefaultAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId);
-        if (ghiDanh is null || ghiDanh.TienDo < 80) return null;
+        if (ghiDanh is null || ghiDanh.TienDo < 100) return null;
 
         var quizzes = await db.BaiKiemTra.AsNoTracking()
             .Include(q => q.CacCauHoi)

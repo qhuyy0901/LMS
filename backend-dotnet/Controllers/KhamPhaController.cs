@@ -10,7 +10,7 @@ namespace LMS.Api.Controllers;
 public class KhamPhaController(ApplicationDbContext db) : Controller
 {
     [HttpGet("")]
-    public async Task<IActionResult> Index(string? danhMucSlug = null, string? danhMucId = null)
+    public async Task<IActionResult> Index(string? danhMucSlug = null, string? danhMucId = null, string? search = null)
     {
         // Get active categories that have at least one published course
         var categories = await db.DanhMuc
@@ -40,6 +40,13 @@ public class KhamPhaController(ApplicationDbContext db) : Controller
                 query = query.Where(c => c.DanhMucId == categoryBySlug.Id);
                 selectedCategoryId = categoryBySlug.Id;
             }
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(c => c.TieuDe.ToLower().Contains(term) || (c.MoTaNgan != null && c.MoTaNgan.ToLower().Contains(term)));
+            ViewData["SearchQuery"] = search;
         }
 
         var courses = await query.OrderByDescending(c => c.NgayTao).ToListAsync();

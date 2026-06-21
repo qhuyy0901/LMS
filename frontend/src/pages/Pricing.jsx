@@ -265,7 +265,7 @@ const WalletTopup = () => {
               return (
                 <div 
                   key={tier.id}
-                  className={`rounded-lg border p-4.5 flex flex-col justify-between min-h-[145px] transition duration-150 ${
+                  className={`rounded-lg border p-4.5 flex flex-col justify-between min-h-[100px] transition duration-150 ${
                     isCurrent 
                       ? 'border-purple-600 bg-purple-50/20 ring-1 ring-purple-600' 
                       : isUnlocked 
@@ -284,7 +284,6 @@ const WalletTopup = () => {
                         <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Đã đạt</span>
                       ) : null}
                     </div>
-                    <p className="mt-3.5 text-[11px] font-medium leading-relaxed text-[#787774]">{tier.desc}</p>
                   </div>
                   
                   <div className="mt-4 pt-3 border-t border-dashed border-[#EAEAEA] flex justify-between items-center text-[10px]">

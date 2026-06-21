@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { resolveMediaUrl } from '../utils/mediaUrl';
 import { useDashboardView } from '../context/DashboardViewContext';
+import { useAuth } from '../context/AuthContext';
 
 const formatCurrency = (amount = 0) =>
   new Intl.NumberFormat('vi-VN', {
@@ -79,6 +80,7 @@ const getCourseImage = (course) =>
   course?.courseImage ||
   course?.anhBia ||
   course?.cover ||
+  course?.anhDaiDien ||
   '';
 
 const getStudentCount = (course) =>
@@ -137,6 +139,7 @@ export default function CourseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isImpersonating } = useDashboardView();
+  const { user } = useAuth();
 
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -182,7 +185,7 @@ export default function CourseDetails() {
       setReviewRating(course.userReview.rating);
       setReviewComment(course.userReview.comment || '');
     } else {
-      setReviewRating(5);
+      setReviewRating(0);
       setReviewComment('');
     }
   }, [course?.userReview]);
@@ -216,6 +219,7 @@ export default function CourseDetails() {
   const teacherId = getTeacherId(course);
   const teacherName = getTeacherName(course);
   const teacherAvatar = getTeacherAvatar(course);
+  const isInstructor = Boolean(user && teacherId && user.id === teacherId);
 
   const handleValidateCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -265,7 +269,7 @@ export default function CourseDetails() {
           ...prev,
           isEnrolled: true,
           progress: 0,
-          canReview: true,
+          canReview: false,
           studentCount: getStudentCount(prev) + 1,
         }));
       }
@@ -279,6 +283,14 @@ export default function CourseDetails() {
   };
 
   const handleSubmitReview = async () => {
+    if (isImpersonating) {
+      window.alert('Chế độ xem thử không hỗ trợ gửi đánh giá.');
+      return;
+    }
+    if (!reviewRating || reviewRating < 1 || reviewRating > 5) {
+      window.alert('Vui lòng chọn số sao đánh giá.');
+      return;
+    }
     setSubmittingReview(true);
     try {
       const response = await axios.post(`/api/courses/${id}/reviews`, {
@@ -306,6 +318,10 @@ export default function CourseDetails() {
   };
 
   const handleDeleteReview = async () => {
+    if (isImpersonating) {
+      window.alert('Chế độ xem thử không hỗ trợ xóa đánh giá.');
+      return;
+    }
     setDeletingReview(true);
     try {
       const response = await axios.delete(`/api/courses/${id}/reviews/me`);
@@ -316,7 +332,7 @@ export default function CourseDetails() {
         userReview: null,
         reviews: (prev.reviews || []).filter((review) => review.userId !== prev.userReview?.userId),
       }));
-      setReviewRating(5);
+      setReviewRating(0);
       setReviewComment('');
     } catch (err) {
       window.alert(err.response?.data?.message || err.message);
@@ -390,9 +406,10 @@ export default function CourseDetails() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-purple-100 via-white to-indigo-100 text-purple-500">
-                  <BookOpen className="h-16 w-16" />
-                  <span className="mt-3 text-sm font-semibold text-purple-700">Skillio Course</span>
+                <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-tr from-purple-600 to-indigo-700 text-white p-6 text-center select-none">
+                  <BookOpen className="h-16 w-16 text-purple-200 mb-4 animate-pulse" />
+                  <h3 className="text-xl font-bold tracking-tight line-clamp-2 max-w-md">{course.title}</h3>
+                  <span className="mt-2 text-xs font-medium tracking-wider uppercase text-purple-200">Skillio Academy</span>
                 </div>
               )}
             </div>
@@ -526,7 +543,7 @@ export default function CourseDetails() {
               </div>
             </div>
 
-            {course.canReview && !isImpersonating ? (
+            {isEnrolled && progress >= 100 && !isInstructor ? (
               <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5">
                 <div className="mb-3 flex items-center justify-between gap-4">
                   <div>
@@ -560,12 +577,34 @@ export default function CourseDetails() {
                   <button
                     type="button"
                     onClick={handleSubmitReview}
-                    disabled={submittingReview}
-                    className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-60"
+                    disabled={submittingReview || reviewRating === 0}
+                    className="rounded-xl bg-purple-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-purple-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {submittingReview ? 'Đang lưu...' : course.userReview ? 'Cập nhật đánh giá' : 'Gửi đánh giá'}
                   </button>
                 </div>
+              </div>
+            ) : !isInstructor ? (
+              <div className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center text-slate-500">
+                {!isEnrolled ? (
+                  <p className="font-medium text-slate-600">Bạn cần mua khóa học để đánh giá</p>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="font-medium text-slate-600">Hoàn thành khóa học để có thể đánh giá</p>
+                    <div className="mx-auto max-w-xs">
+                      <div className="flex justify-between text-xs font-medium text-slate-400 mb-1">
+                        <span>Tiến độ hiện tại</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-purple-500 transition-all duration-500"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 

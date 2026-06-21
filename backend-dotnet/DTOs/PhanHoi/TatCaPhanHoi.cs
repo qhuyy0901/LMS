@@ -151,7 +151,7 @@ public record ChiTietKhoaHocDto(
             ghiDanh is not null, ghiDanh?.TienDo ?? 0, baiHoanThanh, danhGiaCuaToi,
             kh.CacDanhGia.Select(DanhGiaDto.TuDanhGia),
             chuongHienThi.SelectMany(c => c.CacBaiHoc).Any(b => b.ChoXemTruoc),
-            ghiDanh is not null && !laChuSoHuu, !coQuyenHoc, kh.StartDate, kh.EndDate);
+            ghiDanh is not null && !laChuSoHuu && ghiDanh.TienDo >= 100, !coQuyenHoc, kh.StartDate, kh.EndDate);
     }
 }
 

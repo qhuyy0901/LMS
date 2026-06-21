@@ -207,7 +207,9 @@
         </aside>
         <main class="content">
             <div class="topbar">
-                <div class="search">Tìm kiếm khóa học, chủ đề...</div>
+                <form action="/KhamPha" method="get" class="search" style="margin: 0; display: flex; align-items: center; width: 100%; max-width: 400px;">
+                    <input type="text" name="search" value="@ViewData["SearchQuery"]" placeholder="Tìm kiếm khóa học, chủ đề..." style="width: 100%; border: none; outline: none; background: transparent; font-size: 14px; color: var(--text);" />
+                </form>
                 <a class="pill" href="http://localhost:5173/">Về ứng dụng</a>
             </div>
             <div class="page">

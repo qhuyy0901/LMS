@@ -55,7 +55,7 @@ const formatDate = (date) => {
 const EmptyState = ({ title, description }) => (
   <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/80 p-6 text-center">
     <p className="text-sm font-semibold text-slate-700">{title}</p>
-    <p className="mt-1 text-xs text-slate-500">{description}</p>
+    {description && <p className="mt-1 text-xs text-slate-500">{description}</p>}
   </div>
 );
 
@@ -233,34 +233,6 @@ const Reports = () => {
             )}
           </section>
 
-          <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-            <h3 className="mb-5 text-xl font-semibold tracking-tight text-slate-900">Tiến độ khóa học</h3>
-            {courseProgress.length > 0 ? (
-              <div className="space-y-4">
-                {courseProgress.slice(0, 5).map((course, index) => (
-                  <div key={course.id}>
-                    <div className="mb-2 flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-900">{course.title}</p>
-                        <p className="text-xs text-slate-400">
-                          {course.completedLessons}/{course.totalLessons} bài học - {course.instructorName}
-                        </p>
-                      </div>
-                      <span className="text-sm font-semibold text-slate-900">{Math.round(course.progress || 0)}%</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-100">
-                      <div
-                        className={`${progressColors[index % progressColors.length]} h-2 rounded-full`}
-                        style={{ width: `${Math.min(100, Math.max(0, course.progress || 0))}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <EmptyState title="Chưa ghi danh khóa học" description="Các khóa học đã mua hoặc ghi danh sẽ xuất hiện tại đây." />
-            )}
-          </section>
 
           <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
             <h3 className="mb-5 text-xl font-semibold tracking-tight text-slate-900">Kết quả quiz gần đây</h3>
@@ -286,7 +258,7 @@ const Reports = () => {
                 ))}
               </div>
             ) : (
-              <EmptyState title="Chưa có kết quả quiz" description="Làm quiz trong bài học để theo dõi điểm trung bình." />
+              <EmptyState title="Chưa có kết quả quiz" />
             )}
           </section>
         </div>
@@ -314,7 +286,7 @@ const Reports = () => {
                 ))}
               </div>
             ) : (
-              <EmptyState title="Chưa có thành tích" description="Chứng chỉ, khóa học hoàn thành và quiz đạt sẽ hiện ở đây." />
+              <EmptyState title="Chưa có thành tích" />
             )}
           </section>
 

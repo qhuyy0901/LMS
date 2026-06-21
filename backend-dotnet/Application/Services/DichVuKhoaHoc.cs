@@ -402,8 +402,12 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
         if (kh is null) return Results.NotFound(new { message = "Không tìm thấy khóa học" });
         if (kh.GiangVienId == userId) return Results.Json(new { message = "Giảng viên không thể tự đánh giá khóa học của mình" }, statusCode: 403);
 
-        if (!await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId))
-            return Results.Json(new { message = "Bạn cần đăng ký khóa học trước khi đánh giá" }, statusCode: 403);
+        var ghiDanh = await db.GhiDanh.FirstOrDefaultAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId);
+        if (ghiDanh is null)
+            return Results.Json(new { message = "Bạn cần mua khóa học để đánh giá" }, statusCode: 403);
+
+        if (ghiDanh.TienDo < 100)
+            return Results.Json(new { message = "Hoàn thành khóa học để có thể đánh giá" }, statusCode: 403);
 
         var now = DateTime.UtcNow;
         var dg = await db.DanhGiaKhoaHoc.Include(r => r.NguoiDung).FirstOrDefaultAsync(r => r.NguoiDungId == userId && r.KhoaHocId == khoaHocId);

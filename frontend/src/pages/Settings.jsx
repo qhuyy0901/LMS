@@ -144,7 +144,7 @@ const Settings = () => {
     ? tabs.filter((item) => item.id === 'profile' || item.id === 'security' || item.id === 'notifications')
     : isInstructor
       ? tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications')
-      : tabs;
+      : tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications' && item.id !== 'learning');
 
   useEffect(() => {
     setActiveTab(normalizeTab(searchParams.get('tab')));
@@ -155,6 +155,9 @@ const Settings = () => {
       setActiveTab('profile');
       setSearchParams({}, { replace: true });
     } else if (isInstructor && (activeTab === 'billing' || activeTab === 'notifications')) {
+      setActiveTab('profile');
+      setSearchParams({}, { replace: true });
+    } else if (!isAdmin && !isInstructor && (activeTab === 'billing' || activeTab === 'notifications' || activeTab === 'learning')) {
       setActiveTab('profile');
       setSearchParams({}, { replace: true });
     }

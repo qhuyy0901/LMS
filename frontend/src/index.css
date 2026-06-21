@@ -231,6 +231,62 @@ table.dataTable tbody tr:hover td {
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
 }
 
+.skillio-explore-table .dt-container {
+  padding-top: 0;
+}
+
+.skillio-explore-table .dt-search {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.skillio-explore-table .dt-search label,
+.skillio-explore-table .dt-length label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.skillio-explore-table .dt-search input {
+  min-width: 240px;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 9999px !important;
+  background-color: white !important;
+  color: #334155 !important;
+  padding: 0.625rem 1rem !important;
+  font-size: 0.875rem !important;
+  outline: none !important;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.skillio-explore-table .dt-search input:focus {
+  border-color: #a855f7 !important;
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15) !important;
+}
+
+@media (max-width: 768px) {
+  .skillio-explore-table .dt-container .dt-layout-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .skillio-explore-table .dt-container .dt-layout-cell {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .skillio-explore-table .dt-search,
+  .skillio-explore-table .dt-length {
+    width: 100%;
+  }
+
+  .skillio-explore-table .dt-search input {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
 /* Info and Pagination styling */
 .dt-container .dt-info {
   font-size: 0.875rem !important;

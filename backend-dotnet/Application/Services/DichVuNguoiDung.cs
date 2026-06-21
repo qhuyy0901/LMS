@@ -87,12 +87,19 @@ public class DichVuNguoiDung(ApplicationDbContext db) : IDichVuNguoiDung
 
         return ds.Select(g => new
         {
-            g.Id, g.LoaiGiaoDich, g.SoTien,
+            g.Id,
+            g.LoaiGiaoDich,
+            type = g.LoaiGiaoDich,
+            g.SoTien,
+            amount = g.SoTien,
             amountText = TroGiup.DinhDangTienVND(g.SoTien),
             g.SoDuSauGiaoDich,
             balanceAfterText = TroGiup.DinhDangTienVND(g.SoDuSauGiaoDich),
-            g.NoiDung, g.NgayTao,
-            course = g.KhoaHoc == null ? null : new { g.KhoaHoc.Id, g.KhoaHoc.TieuDe },
+            g.NoiDung,
+            note = g.NoiDung,
+            g.NgayTao,
+            createdAt = g.NgayTao,
+            course = g.KhoaHoc == null ? null : new { g.KhoaHoc.Id, g.KhoaHoc.TieuDe, title = g.KhoaHoc.TieuDe },
             purchase = g.DonMua == null ? null : new { g.DonMua.Id, g.DonMua.SoTienCuoi, g.DonMua.TrangThai },
             externalPayment = g.ThanhToan == null ? null : new { g.ThanhToan.Id, g.ThanhToan.TrangThai, g.ThanhToan.NhaCungCap, g.ThanhToan.PhienNhaCungCapId }
         });
@@ -100,9 +107,35 @@ public class DichVuNguoiDung(ApplicationDbContext db) : IDichVuNguoiDung
 
     public async Task<object> LayChungChiAsync(string userId) =>
         await db.ChungChi.AsNoTracking()
-            .Where(c => c.NguoiDungId == userId).Include(c => c.KhoaHoc)
+            .Where(c => c.NguoiDungId == userId)
+            .Include(c => c.NguoiDung)
+            .Include(c => c.KhoaHoc)
+                .ThenInclude(kh => kh!.GiangVien)
             .OrderByDescending(c => c.NgayCap)
-            .Select(c => new { c.Id, c.SoChungChi, c.MaXacThuc, c.PdfUrl, c.NgayCap, course = c.KhoaHoc == null ? null : new { c.KhoaHoc.Id, c.KhoaHoc.TieuDe, c.KhoaHoc.AnhDaiDien } })
+            .Select(c => new
+            {
+                c.Id,
+                c.SoChungChi,
+                certificateNo = c.SoChungChi,
+                c.MaXacThuc,
+                verifyCode = c.MaXacThuc,
+                c.PdfUrl,
+                pdfUrl = c.PdfUrl,
+                c.NgayCap,
+                issuedAt = c.NgayCap,
+                studentName = c.NguoiDung == null ? null : c.NguoiDung.Ten,
+                instructorName = c.KhoaHoc != null && c.KhoaHoc.GiangVien != null ? c.KhoaHoc.GiangVien.Ten : "Giảng viên",
+                courseTitle = c.KhoaHoc == null ? null : c.KhoaHoc.TieuDe,
+                course = c.KhoaHoc == null ? null : new
+                {
+                    c.KhoaHoc.Id,
+                    c.KhoaHoc.TieuDe,
+                    title = c.KhoaHoc.TieuDe,
+                    c.KhoaHoc.AnhDaiDien,
+                    thumbnail = c.KhoaHoc.AnhDaiDien,
+                    instructorName = c.KhoaHoc.GiangVien == null ? "Giảng viên" : c.KhoaHoc.GiangVien.Ten
+                }
+            })
             .ToListAsync();
 
     public async Task<object> LayThongBaoAsync(string userId) =>

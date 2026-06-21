@@ -121,7 +121,7 @@ const Messages = () => {
         setConversations(uniqueConversationsByAccount(conversationResponse.data));
         setScopes(scopeResponse.data);
       } catch (err) {
-        setErrorMessage(err.response?.data?.message || 'Không thể tải dữ liệu tin nhắn.');
+        setErrorMessage(err.response?.data?.message || '');
       }
     };
 
@@ -171,7 +171,7 @@ const Messages = () => {
         if (selectedConversation) setActiveConversation(selectedConversation);
         setSearchParams({}, { replace: true });
       } catch (err) {
-        setErrorMessage(err.response?.data?.message || 'Bạn không thể mở cuộc trò chuyện này.');
+        setErrorMessage(err.response?.data?.message || '');
         setSearchParams({}, { replace: true });
       } finally {
         pendingTargetRef.current = null;

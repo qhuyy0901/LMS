@@ -23,3 +23,5 @@ backend-dotnet/appsettings.Development.json
 .tmp/
 *.log
 skills-lock.json
+artifacts/
+

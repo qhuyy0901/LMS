@@ -650,9 +650,6 @@ export default function InstructorRegister() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-[#111111] tracking-tight">Chuyên môn giảng dạy</h2>
-        <p className="text-sm text-[#787774] mt-1.5">
-          Chọn lĩnh vực chuyên sâu của bạn và mô tả ngắn gọn về hành trình làm việc.
-        </p>
       </div>
 
       <div className="space-y-5">

@@ -13,15 +13,15 @@ import {
   ShieldCheck,
   Tag,
   UserCog,
-  Users,
   Webhook,
   Wallet,
 } from 'lucide-react';
+import { buildBackendUrl } from '../utils/backendUrl';
 
 export const STUDENT_MENU = [
   { section: 'Tổng quan' },
   { name: 'Bảng điều khiển', path: '/', icon: LayoutDashboard },
-  { name: 'Khám phá', path: '/KhamPha', externalUrl: '/KhamPha', icon: Compass },
+  { name: 'Khám phá', path: '/explore', icon: Compass },
   { name: 'Sự kiện', path: '/events', icon: Calendar },
 
   { section: 'Học tập' },
@@ -30,7 +30,6 @@ export const STUDENT_MENU = [
 
   { section: 'Tài khoản' },
   { name: 'Tin nhắn', path: '/messages', icon: MessageCircle },
-  { name: 'Giảng viên', path: '/instructors', icon: Users },
   { name: 'Dạy học trên Skillio', path: '/become-instructor', icon: Briefcase },
   { name: 'Nạp ví', path: '/upgrade', icon: Wallet },
 ];
@@ -41,7 +40,7 @@ export const INSTRUCTOR_MENU = [
 
   { section: 'Quản lý nội dung' },
   { name: 'Khóa học của tôi', path: '/instructor/courses', icon: Briefcase },
-  { name: 'Tạo khóa học mới', path: '/instructor/courses/new', externalUrl: '/Instructor/KhoaHoc/Create', icon: PlusCircle },
+  { name: 'Tạo khóa học mới', path: '/instructor/courses/new', externalUrl: buildBackendUrl('/Instructor/KhoaHoc/Create'), icon: PlusCircle },
   { name: 'Mã giảm giá', path: '/instructor/vouchers', icon: Tag },
   { name: 'Quản lý sự kiện', path: '/instructor/events', icon: Calendar },
 

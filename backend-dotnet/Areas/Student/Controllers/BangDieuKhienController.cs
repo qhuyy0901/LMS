@@ -56,9 +56,9 @@ public class BangDieuKhienController(ApplicationDbContext db) : ControllerBase
         var khoaHocDangHoc = await db.KhoaHoc
             .AsNoTracking()
             .Where(kh =>
-                kh.CacGhiDanh.Any(e => e.NguoiDungId == userId && e.NgayHoanThanh == null) ||
+                kh.CacGhiDanh.Any(e => e.NguoiDungId == userId && e.NgayHoanThanh == null && e.TienDo < 100) ||
                 (kh.CacDonMua.Any(p => p.NguoiDungId == userId && p.TrangThai == "COMPLETED") &&
-                 !kh.CacGhiDanh.Any(e => e.NguoiDungId == userId && e.NgayHoanThanh != null)))
+                 !kh.CacGhiDanh.Any(e => e.NguoiDungId == userId && (e.NgayHoanThanh != null || e.TienDo >= 100))))
             .Select(kh => new
             {
                 courseId = kh.Id,
@@ -87,8 +87,9 @@ public class BangDieuKhienController(ApplicationDbContext db) : ControllerBase
                     .Select(e => (DateTime?)e.NgayCapNhat)
                     .FirstOrDefault()
             })
-            .OrderByDescending(kh => kh.updatedAt ?? kh.purchasedAt)
-            .Take(6)
+            .OrderByDescending(kh => kh.progress)
+            .ThenByDescending(kh => kh.updatedAt ?? kh.purchasedAt)
+            .Take(2)
             .ToListAsync();
 
         if (nguoiDung is null) return Results.Unauthorized();
@@ -349,17 +350,22 @@ public class BangDieuKhienController(ApplicationDbContext db) : ControllerBase
                 walletBalance = user.SoDuVi,
                 totalSpent = user.TongChiTieu
             },
-            recentCourses = ghiDanhs.Take(6).Select(e => new
-            {
-                enrollmentId = e.Id,
-                courseId = e.KhoaHocId,
-                title = e.KhoaHoc?.TieuDe ?? "Khóa học",
-                thumbnail = e.KhoaHoc?.AnhDaiDien,
-                progress = TroGiup.GioiHanPhanTram(e.TienDo),
-                totalLessons = lessonCounts.GetValueOrDefault(e.KhoaHocId, 0),
-                updatedAt = e.NgayCapNhat,
-                completedAt = e.NgayHoanThanh
-            })
+            recentCourses = ghiDanhs
+                .Where(e => e.NgayHoanThanh == null && e.TienDo < 100)
+                .OrderByDescending(e => e.TienDo)
+                .ThenByDescending(e => e.NgayCapNhat)
+                .Take(2)
+                .Select(e => new
+                {
+                    enrollmentId = e.Id,
+                    courseId = e.KhoaHocId,
+                    title = e.KhoaHoc?.TieuDe ?? "Khóa học",
+                    thumbnail = e.KhoaHoc?.AnhDaiDien,
+                    progress = TroGiup.GioiHanPhanTram(e.TienDo),
+                    totalLessons = lessonCounts.GetValueOrDefault(e.KhoaHocId, 0),
+                    updatedAt = e.NgayCapNhat,
+                    completedAt = e.NgayHoanThanh
+                })
         });
     }
 

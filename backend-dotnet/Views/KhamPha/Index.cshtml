@@ -14,12 +14,12 @@
 
     <!-- Category Chips -->
     <div class="chips-container">
-        <a asp-action="Index" class="chip @(string.IsNullOrEmpty(selectedCategoryId) ? "chip-active" : "")">
+        <a asp-action="Index" asp-route-search="@ViewData["SearchQuery"]" class="chip @(string.IsNullOrEmpty(selectedCategoryId) ? "chip-active" : "")">
             Tất cả
         </a>
         @foreach (var cat in categories)
         {
-            <a asp-action="Index" asp-route-danhMucId="@cat.Id" class="chip @(selectedCategoryId == cat.Id ? "chip-active" : "")">
+            <a asp-action="Index" asp-route-danhMucId="@cat.Id" asp-route-search="@ViewData["SearchQuery"]" class="chip @(selectedCategoryId == cat.Id ? "chip-active" : "")">
                 @cat.Ten
             </a>
         }

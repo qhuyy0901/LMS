@@ -24,7 +24,29 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, ApplicationDbContext db) :
         string? sort = null,
         string? price = null,
         string? tier = null)
-        => Results.Ok(await dichVu.LayDanhSachAsync(page, pageSize, paginate, q, category, sort, price, tier));
+    {
+        var userId = TroGiup.LayUserId(User);
+        return Results.Ok(await dichVu.LayDanhSachAsync(page, pageSize, paginate, q, category, sort, price, tier, userId));
+    }
+
+    [HttpGet("/api/course-categories")]
+    public async Task<IResult> DanhMucKhoaHoc()
+    {
+        var danhMuc = await db.DanhMuc
+            .AsNoTracking()
+            .Where(dm => dm.HoatDong && db.KhoaHoc.Any(kh => kh.DanhMucId == dm.Id && kh.DaXuatBan))
+            .OrderBy(dm => dm.Ten)
+            .Select(dm => new
+            {
+                id = dm.Id,
+                name = dm.Ten,
+                slug = dm.Slug,
+                courseCount = db.KhoaHoc.Count(kh => kh.DanhMucId == dm.Id && kh.DaXuatBan)
+            })
+            .ToListAsync();
+
+        return Results.Ok(danhMuc);
+    }
 
     [Authorize]
     [HttpGet("/api/student/courses")]

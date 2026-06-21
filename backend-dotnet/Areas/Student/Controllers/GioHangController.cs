@@ -20,13 +20,36 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
 
+        // Lấy tất cả các mục đã lưu
         var ds = await db.KhoaHocDaLuu
-            .AsNoTracking()
             .Where(s => s.NguoiDungId == userId)
             .Include(s => s.KhoaHoc)
                 .ThenInclude(c => c!.GiangVien)
             .OrderByDescending(s => s.NgayTao)
             .ToListAsync();
+
+        // Lấy danh sách khóa học đã mua/ghi danh của học viên
+        var daMuaIds = await db.GhiDanh
+            .Where(e => e.NguoiDungId == userId)
+            .Select(e => e.KhoaHocId)
+            .Union(db.DonMua
+                .Where(p => p.NguoiDungId == userId && p.TrangThai == "COMPLETED")
+                .Select(p => p.KhoaHocId))
+            .Distinct()
+            .ToListAsync();
+
+        var daMuaSet = daMuaIds.ToHashSet();
+
+        // Tự động xóa các khóa học đã mua/ghi danh khỏi danh sách đã lưu
+        var mucCanXoa = ds.Where(s => daMuaSet.Contains(s.KhoaHocId)).ToList();
+        if (mucCanXoa.Any())
+        {
+            db.KhoaHocDaLuu.RemoveRange(mucCanXoa);
+            await db.SaveChangesAsync();
+            
+            // Cập nhật lại danh sách sau khi xóa
+            ds = ds.Where(s => !daMuaSet.Contains(s.KhoaHocId)).ToList();
+        }
 
         var ketQua = ds.Select(s => new
         {
@@ -68,6 +91,13 @@ public class GioHangController(ApplicationDbContext db) : ControllerBase
 
         if (khoaHoc is null)
             return Results.NotFound(new { message = "Không tìm thấy khóa học" });
+
+        // Kiểm tra đã mua/ghi danh chưa
+        var daMua = await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == yeuCau.CourseId) ||
+                     await db.DonMua.AnyAsync(p => p.NguoiDungId == userId && p.KhoaHocId == yeuCau.CourseId && p.TrangThai == "COMPLETED");
+
+        if (daMua)
+            return Results.BadRequest(new { message = "Bạn đã mua hoặc ghi danh khóa học này rồi" });
 
         // Kiểm tra đã lưu chưa
         var daLuu = await db.KhoaHocDaLuu

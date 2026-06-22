@@ -53,7 +53,7 @@ const Sidebar = () => {
         onClick={toggleSidebar}
         title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
         aria-label={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
-        className="absolute -right-4 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm transition hover:border-purple-200 dark:hover:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-400"
+        className="absolute -right-4 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm transition-all duration-300 hover:border-purple-200 dark:hover:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-400 active:scale-90"
       >
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
       </button>
@@ -63,7 +63,7 @@ const Sidebar = () => {
         type="button"
         onClick={() => window.location.reload()}
         title="Tải lại trang"
-        className={`mb-8 flex items-center rounded-xl text-left transition hover:opacity-80 ${collapsed ? 'justify-center' : 'gap-2'}`}
+        className={`mb-8 flex items-center rounded-xl text-left transition-all duration-300 active:scale-[0.97] hover:opacity-80 ${collapsed ? 'justify-center' : 'gap-2'}`}
       >
         <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200/50 dark:shadow-none">
           <Zap className="w-5 h-5 text-white" />
@@ -106,12 +106,12 @@ const Sidebar = () => {
                   : location.pathname.startsWith(`${item.path}/`);
           const Icon = item.icon;
 
-          const itemClassName = `flex items-center rounded-xl py-2.5 transition-all duration-200 group ${
+          const itemClassName = `flex items-center rounded-xl py-2.5 transition-all duration-300 active:scale-[0.97] group ${
                 collapsed ? 'justify-center px-2' : 'gap-3 px-3'
               } ${
                 isActive
                   ? 'bg-purple-50 text-purple-700 shadow-sm font-semibold'
-                  : 'text-slate-600 hover:bg-purple-50/60 hover:text-purple-700 hover:translate-x-1'
+                  : 'text-slate-600 hover:bg-purple-50/60 hover:text-purple-700 hover:translate-x-0.5'
               }`;
 
           const content = (
@@ -160,7 +160,7 @@ const Sidebar = () => {
                 <Link
                   key={u.id}
                   to={`/messages?userId=${u.id}`}
-                  className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-purple-50/50 transition duration-200 group"
+                  className="flex items-center gap-3 p-1.5 rounded-xl hover:bg-purple-50/50 transition-all duration-300 active:scale-[0.97] group"
                 >
                   <div className="relative shrink-0">
                     <UserAvatar src={u.avatar} name={u.name} className="h-8 w-8 rounded-full" />

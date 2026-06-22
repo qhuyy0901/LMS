@@ -374,3 +374,20 @@ table.dataTable tbody tr:hover td {
   border-color: #9333ea !important;
 }
 
+/* --- Global Tactile Feedback --- */
+button:active,
+a.btn:active,
+.btn:active,
+[role="button"]:active,
+.preset-amount-btn:active,
+.clickable-card:active {
+  transform: scale(0.97) !important;
+}
+
+button,
+.btn,
+[role="button"],
+.clickable-card {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+

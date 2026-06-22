@@ -69,7 +69,13 @@ function CartItem({ item, removeCourse, onNavigate }) {
 
   return (
     <div
-      className="flex items-start gap-4 rounded-2xl border border-slate-100/80 dark:border-slate-800/40 bg-white dark:bg-slate-900 p-3 shadow-sm hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.04)] transition-all duration-300"
+      onClick={() => {
+        onNavigate();
+        setTimeout(() => {
+          navigate(`/course/${c.id}`);
+        }, 150);
+      }}
+      className="flex items-start gap-4 rounded-2xl border border-slate-100/80 dark:border-slate-800/40 bg-white dark:bg-slate-900 p-3 shadow-sm hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.04)] transition-all duration-300 cursor-pointer clickable-card"
     >
       {/* Thumbnail */}
       <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-purple-100 to-indigo-100 dark:from-purple-950/20 dark:to-indigo-950/20 border border-slate-100/30 dark:border-slate-800/30">
@@ -90,10 +96,6 @@ function CartItem({ item, removeCourse, onNavigate }) {
       {/* Info */}
       <div className="min-w-0 flex-1">
         <h3 
-          onClick={() => {
-            onNavigate();
-            navigate(`/course/${c.id}`);
-          }}
           className="line-clamp-2 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-purple-600 dark:hover:text-purple-400 transition-colors leading-snug cursor-pointer"
         >
           {c.title}
@@ -109,7 +111,10 @@ function CartItem({ item, removeCourse, onNavigate }) {
         <div className="mt-3 flex items-center justify-between border-t border-slate-50 dark:border-slate-800/40 pt-2">
           <button
             type="button"
-            onClick={() => removeCourse(c.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              removeCourse(c.id);
+            }}
             className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-500 hover:text-rose-600 transition"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -117,11 +122,7 @@ function CartItem({ item, removeCourse, onNavigate }) {
           </button>
           <button
             type="button"
-            onClick={() => {
-              onNavigate();
-              navigate(`/course/${c.id}`);
-            }}
-            className="inline-flex items-center justify-center gap-1 rounded-full bg-purple-600 hover:bg-purple-700 px-3.5 py-1 text-[10px] font-bold text-white transition active:scale-[0.96] shadow-sm cursor-pointer"
+            className="inline-flex items-center justify-center gap-1 rounded-full bg-purple-650 hover:bg-purple-750 px-3.5 py-1 text-[10px] font-bold text-white transition active:scale-[0.96] shadow-sm cursor-pointer"
           >
             Xem
           </button>
@@ -139,7 +140,10 @@ function CourseCard({ course, isSaved, onToggleSave, onDetail, savingId }) {
   const saved = isSaved(course.id);
 
   return (
-    <div className="p-1.5 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_-6px_rgba(139,92,246,0.06)] hover:border-purple-200/50 dark:hover:border-purple-900/30 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 group h-full flex flex-col">
+    <div 
+      onClick={onDetail}
+      className="p-1.5 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)] hover:shadow-[0_8px_30px_-6px_rgba(139,92,246,0.06)] hover:border-purple-200/50 dark:hover:border-purple-900/30 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-1 group h-full flex flex-col cursor-pointer clickable-card"
+    >
       <article className="bg-white dark:bg-slate-950 rounded-[calc(2rem-6px)] h-full flex flex-col overflow-hidden border border-slate-100/50 dark:border-slate-850/50">
         {/* Thumbnail Bezel Nested */}
         <div className="relative aspect-[16/10] overflow-hidden rounded-[calc(2rem-10px)] m-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-100/30 dark:border-slate-800/20">
@@ -203,14 +207,16 @@ function CourseCard({ course, isSaved, onToggleSave, onDetail, savingId }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={onDetail}
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white px-3 py-2.5 text-xs font-semibold shadow-sm hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer"
               >
                 Xem chi tiết
               </button>
               <button
                 type="button"
-                onClick={onToggleSave}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSave();
+                }}
                 disabled={savingId === course.id}
                 className={`flex items-center justify-center p-2.5 rounded-full border transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] cursor-pointer ${
                   saved
@@ -233,6 +239,12 @@ export default function Explore() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { isSaved, saveCourse, savedCourses, removeCourse } = useSavedCourses();
+
+  const navigateWithDelay = useCallback((path) => {
+    setTimeout(() => {
+      navigate(path);
+    }, 150);
+  }, [navigate]);
 
   const [courses, setCourses] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -386,7 +398,11 @@ export default function Explore() {
         <div className="flex flex-wrap items-center justify-end gap-2">
           <button
             type="button"
-            onClick={() => navigate(`/course/${row.id}`)}
+            onClick={() => {
+              setTimeout(() => {
+                navigate(`/course/${row.id}`);
+              }, 150);
+            }}
             className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
           >
             Xem chi tiết
@@ -570,7 +586,7 @@ export default function Explore() {
                     course={course}
                     isSaved={isSaved}
                     onToggleSave={() => handleToggleSave(course.id)}
-                    onDetail={() => navigate(`/course/${course.id}`)}
+                    onDetail={() => navigateWithDelay(`/course/${course.id}`)}
                     savingId={savingId}
                   />
                 ))}

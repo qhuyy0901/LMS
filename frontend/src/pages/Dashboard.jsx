@@ -124,7 +124,9 @@ const normalizeDashboardData = (view, payload = {}) => {
       startedAt: course.purchasedAt ?? course.enrolledAt ?? course.courseStartDate,
     })),
   };
-}const StudentDashboard = ({ data, loading, certificates = [] }) => {
+}
+
+const StudentDashboard = ({ data, loading, certificates = [] }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [selectedCertificate, setSelectedCertificate] = useState(null);

@@ -21,6 +21,7 @@ import {
   Trash2,
   Upload,
   Video,
+  FileText,
 } from 'lucide-react';
 import { COURSE_CATEGORIES } from '../config/courseCategories';
 import { api } from '../api/client';
@@ -166,13 +167,7 @@ const CourseEditor = () => {
   const [expandedSectionId, setExpandedSectionId] = useState(null);
   const [course, setCourse] = useState(null);
   const [courseForm, setCourseForm] = useState(emptyCourseForm);
-  const isReadOnly = useMemo(() => {
-    if (!course?.id) return false;
-    const status = course.trangThai || course.status || (course.isPublished ? 'PUBLIC' : 'DRAFT');
-    if (status === 'DRAFT') return false;
-    if (status === 'HIDDEN' && !course.ngayXuatBan) return false;
-    return true;
-  }, [course]);
+  const isReadOnly = false;
   const [dragState, setDragState] = useState(null);
   const [selectedLessonForQuiz, setSelectedLessonForQuiz] = useState(null);
 
@@ -249,10 +244,30 @@ const CourseEditor = () => {
   );
 
   const canManageCurriculum = Boolean(course?.id || id);
-  const publishErrors = course?.publishValidationErrors || [];
+  
+  const publishErrors = useMemo(() => {
+    const errors = [];
+    if (!courseForm.title || courseForm.title.trim().length < 5) {
+      errors.push('Khóa học cần có tiêu đề tối thiểu 5 ký tự.');
+    }
+    const descHtml = courseForm.description || '';
+    const descTrim = getPlainTextFromHtml(descHtml);
+    if (!descTrim || descTrim.length < 20) {
+      errors.push('Khóa học cần có mô tả tối thiểu 20 ký tự.');
+    }
+    if (sections.length === 0) {
+      errors.push('Khóa học cần ít nhất 1 chương.');
+    }
+    if (totalLessons === 0) {
+      errors.push('Khóa học cần ít nhất 1 bài học.');
+    }
+    return errors;
+  }, [courseForm.title, courseForm.description, sections, totalLessons]);
+
   const hasValidCourseDates =
-    Boolean(courseForm.startDate && courseForm.endDate) &&
-    new Date(courseForm.endDate) > new Date(courseForm.startDate);
+    (!courseForm.startDate && !courseForm.endDate) ||
+    (Boolean(courseForm.startDate && courseForm.endDate) &&
+      new Date(courseForm.endDate) > new Date(courseForm.startDate));
 
   const handleCourseFieldChange = (event) => {
     const { name, value } = event.target;
@@ -795,25 +810,35 @@ const CourseEditor = () => {
       </section>
 
       <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-medium text-slate-900">Xem trước thông tin</p>
-          {courseForm.category && (
-            <span className="mt-3 inline-flex rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
-              {categories.find(c => c.id === courseForm.category)?.name || courseForm.category}
-            </span>
-          )}
-          <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white">
+        <p className="text-sm font-bold text-slate-900">Xem trước khóa học</p>
+        <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300">
+          <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
             {courseForm.thumbnail || course?.thumbnail || course?.anhBia || course?.primaryImage ? (
               <img src={getFileUrl(courseForm.thumbnail || course?.thumbnail || course?.anhBia || course?.primaryImage)} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
             ) : (
-              <div className="text-center text-slate-400">
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-500">
-                  <ImageIcon className="h-6 w-6" />
-                </div>
-                <p className="text-sm font-medium text-slate-500">Chưa có ảnh bìa</p>
-                <p className="mt-1 text-xs text-slate-400">Dán URL hoặc tải file để xem trước</p>
+              <div className="flex h-full w-full items-center justify-center bg-purple-50 text-purple-500">
+                <ImageIcon className="h-10 w-10" />
               </div>
             )}
+            {courseForm.category && (
+              <span className="absolute left-3 top-3 rounded-lg bg-purple-600 px-2.5 py-1 text-[11px] font-semibold text-white shadow-sm">
+                {categories.find(c => c.id === courseForm.category)?.name || courseForm.category}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col p-4">
+            <h3 className="line-clamp-1 text-sm font-bold text-slate-800">
+              {courseForm.title?.trim() || 'Chưa có tiêu đề khóa học'}
+            </h3>
+            <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed text-slate-500">
+              {courseForm.shortDescription?.trim() || 'Mô tả ngắn của khóa học sẽ hiển thị ở đây...'}
+            </p>
+            <div className="mt-3 border-t border-slate-100 pt-3 flex items-center justify-between text-xs font-semibold text-slate-600">
+              <span className="text-purple-600 font-bold">
+                {Number(courseForm.price || 0) === 0 ? 'Miễn phí' : `${Number(courseForm.price).toLocaleString('vi-VN')} đ`}
+              </span>
+              <span>{courseForm.level === 'BEGINNER' ? 'Cơ bản' : courseForm.level === 'INTERMEDIATE' ? 'Trung cấp' : 'Nâng cao'}</span>
+            </div>
           </div>
         </div>
       </aside>
@@ -1126,14 +1151,15 @@ const CourseEditor = () => {
                               <button
                                 type="button"
                                 onClick={() => setSelectedLessonForQuiz({ id: lesson.id, title: lesson.title })}
-                                className="w-full mt-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 px-3 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                                className="w-full mt-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 px-3 py-2 text-xs font-bold transition-all duration-150 flex items-center justify-center gap-1.5 active:scale-[0.98]"
                               >
-                                📝 Thiết lập Quiz
+                                <FileText className="h-3.5 w-3.5" />
+                                Thiết lập Quiz
                               </button>
 
                               <button
                                 onClick={() => removeLesson(lesson.id)}
-                                className="w-full mt-2 rounded-xl border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition"
+                                className="w-full mt-2 rounded-xl border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition-all duration-150 active:scale-[0.98]"
                               >
                                 Xóa bài học
                               </button>
@@ -1235,7 +1261,14 @@ const CourseEditor = () => {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Kiểm tra sẵn sàng</p>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">{courseForm.title || 'Khóa học chưa đặt tên'}</h2>
-          <p className="mt-3 text-sm text-slate-600">{courseForm.description || 'Chưa có mô tả khóa học.'}</p>
+          {courseForm.description ? (
+            <div
+              className="mt-3 text-sm text-slate-600 rich-text-content"
+              dangerouslySetInnerHTML={{ __html: courseForm.description }}
+            />
+          ) : (
+            <p className="mt-3 text-sm text-slate-600">Chưa có mô tả khóa học.</p>
+          )}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -1278,7 +1311,7 @@ const CourseEditor = () => {
               />
             </label>
           </div>
-          {!hasValidCourseDates && (
+          {((courseForm.startDate || courseForm.endDate) && !hasValidCourseDates) && (
             <p className="mt-3 text-sm font-medium text-amber-700">
               Vui lòng chọn ngày kết thúc sau ngày bắt đầu.
             </p>
@@ -1351,12 +1384,12 @@ const CourseEditor = () => {
   };
 
   return (
-    <div className="mx-auto max-w-7xl pb-12">
+    <div className="animate-fade-in-up mx-auto max-w-7xl pb-12">
       <div className="mb-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate('/instructor/courses')}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all duration-150 active:scale-[0.98] hover:bg-slate-50 hover:text-slate-700"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
@@ -1367,7 +1400,7 @@ const CourseEditor = () => {
         <button
           onClick={saveCourse}
           disabled={saving || isReadOnly}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-30 disabled:pointer-events-none"
+          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 active:scale-[0.98] hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Lưu khóa học
@@ -1382,75 +1415,86 @@ const CourseEditor = () => {
             <button
               key={step.id}
               onClick={() => setActiveStep(step.id)}
-              className={`rounded-2xl border p-4 text-left transition ${
+              className={`rounded-2xl border p-4.5 text-left transition-all duration-300 active:scale-[0.98] ${
                 isActive
-                  ? 'border-purple-500 bg-purple-50 shadow-sm'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  ? 'border-purple-500 bg-purple-500/5 shadow-md shadow-purple-500/5 ring-1 ring-purple-500/10'
+                  : 'border-slate-200 bg-white hover:border-purple-200 hover:shadow-md'
               }`}
             >
               <div className="flex items-center justify-between">
                 <span
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-xl text-sm font-bold transition-all duration-300 font-mono ${
                     isComplete
-                      ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                      ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/15'
                       : isActive
-                        ? 'bg-purple-600 text-white shadow-sm shadow-purple-200'
-                        : 'bg-slate-100 text-slate-500'
+                        ? 'bg-purple-600 text-white shadow-md shadow-purple-600/20'
+                        : 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
                   }`}
                 >
-                  {isComplete ? <CheckCircle2 className="h-4 w-4" /> : step.id}
+                  {isComplete ? <CheckCircle2 className="h-4.5 w-4.5" /> : step.id}
                 </span>
-                {isActive && <ChevronRight className="h-4 w-4 text-purple-600" />}
+                {isActive && <ChevronRight className="h-4.5 w-4.5 text-purple-600" />}
               </div>
-              <p className="mt-4 text-sm font-semibold text-slate-900">{step.title}</p>
+              <p className="mt-4 text-sm font-bold text-slate-900">{step.title}</p>
               <p className="mt-1 text-xs text-slate-500">{step.hint}</p>
             </button>
           );
         })}
       </div>
 
-      <div className="mb-6 grid gap-4 lg:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-50">
-              <ListTree className="h-5 w-5 text-purple-600" />
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="group rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 transition-colors group-hover:bg-purple-600 group-hover:text-white">
+              <ListTree className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Giáo trình</p>
-              <p className="text-lg font-semibold text-slate-900">{sections.length} chương</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Giáo trình</p>
+              <p className="mt-0.5 text-lg font-bold font-mono text-slate-900">{sections.length} chương</p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50">
-              <Video className="h-5 w-5 text-sky-600" />
+
+        <div className="group rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 transition-colors group-hover:bg-sky-600 group-hover:text-white">
+              <Video className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Bài học</p>
-              <p className="text-lg font-semibold text-slate-900">{totalLessons}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Bài học</p>
+              <p className="mt-0.5 text-lg font-bold font-mono text-slate-900">{totalLessons}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50">
-              <Sparkles className="h-5 w-5 text-amber-500" />
+
+        <div className="group rounded-2xl border border-slate-200 bg-white p-4.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 transition-colors group-hover:bg-amber-500 group-hover:text-white">
+              <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Tổng thời lượng</p>
-              <p className="text-lg font-semibold text-slate-900">{formatDuration(totalDurationSeconds)}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Tổng thời lượng</p>
+              <p className="mt-0.5 text-lg font-bold font-mono text-slate-900">{formatDuration(totalDurationSeconds)}</p>
             </div>
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-50">
-              <Eye className="h-5 w-5 text-emerald-600" />
+
+        <div className={`group rounded-2xl border bg-white p-4.5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md ${
+          course?.isPublished || course?.trangThai === 'PUBLIC' ? 'border-emerald-200 hover:border-emerald-400' : 'border-slate-200 hover:border-purple-200'
+        }`}>
+          <div className="flex items-center gap-3.5">
+            <div className={`flex h-11 w-11 items-center justify-center rounded-xl transition-colors ${
+              course?.isPublished || course?.trangThai === 'PUBLIC' 
+                ? 'bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white' 
+                : 'bg-slate-500/10 text-slate-600 group-hover:bg-slate-600 group-hover:text-white'
+            }`}>
+              <Eye className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-400">Trạng thái</p>
-              <p className="text-lg font-semibold text-slate-900">{course?.isPublished ? 'Đã xuất bản' : 'Bản nháp'}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">Trạng thái</p>
+              <p className={`mt-0.5 text-lg font-bold text-slate-900`}>
+                {course?.isPublished || course?.trangThai === 'PUBLIC' ? 'Đã xuất bản' : 'Bản nháp'}
+              </p>
             </div>
           </div>
         </div>
@@ -1461,14 +1505,14 @@ const CourseEditor = () => {
       <div className="mt-8 flex items-center justify-between">
         <button
           onClick={handleBack}
-          className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
+          className="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition-all duration-150 active:scale-[0.98] hover:bg-slate-50"
         >
           {activeStep === 1 ? 'Quay lại danh sách' : 'Quay lại'}
         </button>
         {activeStep < STEPS.length && (
           <button
             onClick={handleContinue}
-            className="rounded-full bg-purple-600 px-5 py-2.5 text-sm font-medium text-white"
+            className="rounded-xl bg-purple-600 px-6 py-2.5 text-sm font-semibold text-white shadow-md shadow-purple-600/10 transition-all duration-150 active:scale-[0.98] hover:bg-purple-700 hover:shadow-lg"
           >
             Tiếp tục
           </button>

@@ -441,7 +441,7 @@ export default function Explore() {
   }), [initialTableSearch, pageSize]);
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in-up space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Khám phá khóa học</h1>

@@ -215,7 +215,7 @@ export default function Checkout() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 pb-24">
+    <div className="animate-fade-in-up mx-auto max-w-5xl px-4 py-8 pb-24">
       {/* Back Button */}
       <button
         type="button"

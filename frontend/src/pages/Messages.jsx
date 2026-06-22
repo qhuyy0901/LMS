@@ -355,7 +355,7 @@ const Messages = () => {
   };
 
   return (
-    <div className="relative mx-auto my-6 flex h-[calc(100vh-64px)] max-h-[820px] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="animate-fade-in-up relative mx-auto my-6 flex h-[calc(100vh-64px)] max-h-[820px] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex w-1/3 min-w-[280px] flex-col border-r border-slate-200 bg-slate-50">
         <div className="border-b border-slate-200 bg-white p-4">
           <div className="mb-3 flex items-center justify-between">

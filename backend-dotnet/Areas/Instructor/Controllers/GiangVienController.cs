@@ -214,7 +214,6 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
-        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
 
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title)?.Trim();
         if (!string.IsNullOrWhiteSpace(tieuDe) && tieuDe != kh.TieuDe)
@@ -275,7 +274,6 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
-        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
         if (files is null || files.Count == 0) return Results.BadRequest(new { message = "Vui lòng chọn ít nhất một ảnh." });
 
         await DongBoAnhDaiDienCu(kh);
@@ -309,7 +307,6 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
-        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
 
         var image = kh.CacHinhAnh.FirstOrDefault(item => item.Id == imageId);
         if (image is null) return Results.NotFound(new { message = "KhÃ´ng tÃ¬m tháº¥y áº£nh khÃ³a há» c." });
@@ -330,7 +327,6 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
-        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
 
         var image = kh.CacHinhAnh.FirstOrDefault(item => item.Id == imageId);
         if (image is null) return Results.NotFound(new { message = "Không tìm thấy ảnh khóa học." });
@@ -382,10 +378,12 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
         if (yeuCau.IsPublished)
         {
-            kh.StartDate = yeuCau.StartDate;
-            kh.EndDate = yeuCau.EndDate;
+            // Only update dates if provided; preserve existing dates when un-hiding
+            if (yeuCau.StartDate is not null) kh.StartDate = yeuCau.StartDate;
+            if (yeuCau.EndDate is not null) kh.EndDate = yeuCau.EndDate;
 
-            if (kh.StartDate is null || kh.EndDate is null || kh.EndDate.Value.Date <= kh.StartDate.Value.Date)
+            if ((kh.StartDate is not null || kh.EndDate is not null) &&
+                (kh.StartDate is null || kh.EndDate is null || kh.EndDate.Value.Date <= kh.StartDate.Value.Date))
             {
                 return Results.BadRequest(new
                 {

@@ -358,7 +358,7 @@ export default function InstructorRegister() {
     const isApproved = existingApp.status === 'APPROVED';
 
     return (
-      <div className="min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: '#F7F6F3' }}>
+      <div className="animate-fade-in-up min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: '#F7F6F3' }}>
         {/* Left column - Branding */}
         <div className="lg:w-[45%] p-8 lg:p-16 flex flex-col justify-between text-white relative overflow-hidden" style={{ backgroundColor: '#0F172A' }}>
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'radial-gradient(circle at center, rgba(126,34,206,0.1), transparent 70%)' }} />
@@ -984,7 +984,7 @@ export default function InstructorRegister() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: '#F7F6F3' }}>
+    <div className="animate-fade-in-up min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: '#F7F6F3' }}>
       {/* LEFT COLUMN - Inspiring messaging & Progress Timeline */}
       <div className="lg:w-[45%] p-8 lg:p-16 flex flex-col justify-between text-white relative overflow-hidden" style={{ backgroundColor: '#0F172A' }}>
         {/* Ambient slow animation light source */}

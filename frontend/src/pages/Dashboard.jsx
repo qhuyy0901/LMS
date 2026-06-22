@@ -181,7 +181,7 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
   ];
 
   return (
-    <>
+    <div className="animate-fade-in-up">
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-100 via-purple-50 to-pink-50 p-8">
@@ -354,7 +354,7 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
           onClose={() => setSelectedCertificate(null)}
         />
       )}
-    </>
+    </div>
   );
 };
 
@@ -364,7 +364,7 @@ const InstructorDashboard = ({ data, loading }) => {
   const recentEnrollments = data?.recentEnrollments || [];
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in-up space-y-6">
       <section className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -499,7 +499,7 @@ const AdminDashboard = ({ data, loading }) => {
   ].filter((item) => !item.hideWhenZero || item.value > 0);
 
   return (
-    <div className="space-y-5">
+    <div className="animate-fade-in-up space-y-5">
       <div>
         <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Dashboard Quản trị</h1>
       </div>

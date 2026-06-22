@@ -207,7 +207,7 @@ export default function AdminSettings() {
 
   if (loading) {
     return (
-      <div className="animate-fade-in space-y-6">
+      <div className="animate-fade-in-up space-y-6">
         <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
           <div className="h-96 rounded-2xl bg-slate-100 animate-pulse" />
@@ -218,7 +218,7 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="animate-fade-in space-y-6">
+    <div className="animate-fade-in-up space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-slate-100 pb-5">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">Cài đặt tài khoản quản trị</h1>

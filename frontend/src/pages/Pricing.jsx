@@ -220,7 +220,7 @@ const WalletTopup = () => {
   };
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-transparent px-4 py-8 sm:px-6 lg:px-8">
+    <div className="animate-fade-in-up min-h-screen w-full max-w-full overflow-x-hidden bg-transparent px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-6">
         
 

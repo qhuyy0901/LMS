@@ -384,7 +384,7 @@ export default function InstructorVouchers() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="animate-fade-in-up space-y-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Mã giảm giá</h1>

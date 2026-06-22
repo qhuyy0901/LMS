@@ -425,7 +425,7 @@ export default function CourseDetails() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl pb-24">
+    <div className="animate-fade-in-up mx-auto max-w-6xl pb-24">
       <button
         type="button"
         onClick={() => navigate('/explore')}

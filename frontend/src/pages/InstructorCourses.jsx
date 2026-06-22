@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
   BookOpen,
+  ChevronDown,
   Eye,
   EyeOff,
   FileX,
@@ -39,6 +40,13 @@ const normalizeStatus = (course) => {
   if (course.trangThai === 'HIDDEN' || course.status === 'HIDDEN') return 'HIDDEN';
   if (course.isPublished || course.daXuatBan || course.trangThai === 'PUBLIC') return 'PUBLIC';
   return 'DRAFT';
+};
+
+const isDraftOrUnpublished = (course) => {
+  const currentStatus = normalizeStatus(course);
+  if (currentStatus === 'DRAFT') return true;
+  if (currentStatus === 'HIDDEN' && !course.ngayXuatBan) return true;
+  return false;
 };
 
 const statusLabel = {
@@ -332,6 +340,8 @@ function CourseRow({ course, onEdit, onPublish, onHide, onMoveToDraft, onDelete,
   const studentCount = getStudentCount(course);
   const purchaseCount = getPurchaseCount(course);
   const canDelete = canDeleteCourse(course);
+  const isDraftOrUnpub = isDraftOrUnpublished(course);
+  const isPublishedHidden = currentStatus === 'HIDDEN' && course.ngayXuatBan;
   const deleteTitle = canDelete
     ? 'Xóa khóa học'
     : purchaseCount > 0
@@ -369,14 +379,62 @@ function CourseRow({ course, onEdit, onPublish, onHide, onMoveToDraft, onDelete,
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 xl:max-w-80 xl:justify-end">
+      <div className="grid grid-cols-2 gap-2 w-[280px] shrink-0 self-center">
         <ActionLink to={`/course/${course.id}`} icon={Eye} label="Xem chi tiết" />
-        <ActionButton icon={FilePenLine} label="Sửa khóa học" onClick={onEdit} />
-        <ActionButton icon={Layers} label="Quản lý giáo trình" onClick={onCurriculum} />
-        <ActionButton icon={UploadCloud} label="Xuất bản" onClick={onPublish} disabled={currentStatus === 'PUBLIC'} />
-        <ActionButton icon={FileX} label="Chuyển về bản nháp" onClick={onMoveToDraft} disabled={currentStatus === 'DRAFT'} />
-        <ActionButton icon={EyeOff} label="Ẩn khóa học" onClick={onHide} disabled={currentStatus === 'HIDDEN'} />
-        <ActionButton icon={Trash2} label="Xóa khóa học" onClick={onDelete} danger disabled={!canDelete} title={deleteTitle} />
+        
+        <ActionButton 
+          icon={FilePenLine} 
+          label="Sửa khóa học" 
+          onClick={onEdit} 
+          disabled={!isDraftOrUnpub}
+          title={!isDraftOrUnpub ? "Chỉ khóa học bản nháp mới được chỉnh sửa" : ""}
+        />
+
+        <ActionButton 
+          icon={Layers} 
+          label="Quản lý giáo trình" 
+          onClick={onCurriculum} 
+        />
+
+        {!isPublishedHidden && (
+          <ActionButton 
+            icon={UploadCloud} 
+            label="Xuất bản" 
+            onClick={onPublish}
+            disabled={currentStatus === 'PUBLIC'}
+            title={currentStatus === 'PUBLIC' ? 'Khóa học đã được xuất bản' : ''}
+          />
+        )}
+        
+        <ActionButton 
+          icon={currentStatus === 'HIDDEN' ? Eye : EyeOff} 
+          label={currentStatus === 'HIDDEN' ? 'Hiện khóa học' : 'Ẩn khóa học'} 
+          onClick={currentStatus === 'HIDDEN' ? onPublish : onHide}
+        />
+
+        <ActionButton 
+          icon={FileX} 
+          label="Chuyển về bản nháp" 
+          disabled={true}
+          title={isDraftOrUnpub ? 'Khóa học đã ở trạng thái bản nháp' : 'Khóa đã xuất bản không thể chuyển về bản nháp'}
+        />
+
+        <div className={isPublishedHidden ? '' : 'col-span-2'}>
+          <ActionButton 
+            icon={Trash2} 
+            label="Xóa khóa học" 
+            onClick={onDelete} 
+            danger 
+            disabled={!isDraftOrUnpub || !canDelete} 
+            title={
+              !isDraftOrUnpub
+                ? 'Chỉ Admin mới được xóa khóa đã xuất bản'
+                : !canDelete
+                  ? 'Không thể xóa vì khóa học đã có học viên'
+                  : 'Xóa khóa học'
+            }
+          />
+        </div>
       </div>
     </article>
   );
@@ -398,14 +456,14 @@ function ActionButton({ icon: Icon, label, onClick, disabled = false, danger = f
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-30 w-full ${
         danger
-          ? 'border-red-100 text-red-600 hover:bg-red-50'
-          : 'border-slate-200 text-slate-600 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700'
+          ? 'border-red-100 bg-red-50 text-red-600 hover:bg-red-100/50 shadow-sm'
+          : 'border-slate-200 bg-white text-slate-600 hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700 shadow-sm'
       }`}
     >
-      <Icon className="h-3.5 w-3.5" />
-      {label}
+      <Icon className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">{label}</span>
     </button>
   );
 }

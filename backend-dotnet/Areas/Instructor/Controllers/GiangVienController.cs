@@ -214,6 +214,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
 
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title)?.Trim();
         if (!string.IsNullOrWhiteSpace(tieuDe) && tieuDe != kh.TieuDe)
@@ -273,8 +274,9 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     public async Task<IResult> UploadAnhKhoaHoc(string id, [FromForm] List<IFormFile> files)
     {
         var kh = await LoadOwnedCourse(id);
-        if (kh is null) return Results.Json(new { message = "Báº¡n khÃ´ng cÃ³ quyá»n chá»‰nh sá»­a khÃ³a há»c nÃ y." }, statusCode: 403);
-        if (files is null || files.Count == 0) return Results.BadRequest(new { message = "Vui lÃ²ng chá»n Ã­t nháº¥t má»™t áº£nh." });
+        if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
+        if (files is null || files.Count == 0) return Results.BadRequest(new { message = "Vui lòng chọn ít nhất một ảnh." });
 
         await DongBoAnhDaiDienCu(kh);
 
@@ -297,7 +299,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
         return Results.Ok(new
         {
-            message = errors.Count == 0 ? "ÄÃ£ táº£i áº£nh khÃ³a há»c." : $"Má»™t sá»‘ áº£nh khÃ´ng há»£p lá»‡: {string.Join(", ", errors)}",
+            message = errors.Count == 0 ? "Ä Ã£ táº£i áº£nh khÃ³a há» c." : $"Má»™t sá»‘ áº£nh khÃ´ng há»£p lá»‡: {string.Join(", ", errors)}",
             course = MapCourse(kh)
         });
     }
@@ -306,10 +308,11 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     public async Task<IResult> ChonAnhChinhKhoaHoc(string id, string imageId)
     {
         var kh = await LoadOwnedCourse(id);
-        if (kh is null) return Results.Json(new { message = "Báº¡n khÃ´ng cÃ³ quyá»n chá»‰nh sá»­a khÃ³a há»c nÃ y." }, statusCode: 403);
+        if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
 
         var image = kh.CacHinhAnh.FirstOrDefault(item => item.Id == imageId);
-        if (image is null) return Results.NotFound(new { message = "KhÃ´ng tÃ¬m tháº¥y áº£nh khÃ³a há»c." });
+        if (image is null) return Results.NotFound(new { message = "KhÃ´ng tÃ¬m tháº¥y áº£nh khÃ³a há» c." });
 
         foreach (var item in kh.CacHinhAnh)
         {
@@ -326,10 +329,11 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     public async Task<IResult> XoaAnhKhoaHoc(string id, string imageId)
     {
         var kh = await LoadOwnedCourse(id);
-        if (kh is null) return Results.Json(new { message = "Báº¡n khÃ´ng cÃ³ quyá»n chá»‰nh sá»­a khÃ³a há»c nÃ y." }, statusCode: 403);
+        if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+        if (kh.TrangThai != "DRAFT" && !(kh.TrangThai == "HIDDEN" && kh.NgayXuatBan == null)) return Results.BadRequest(new { message = "Chỉ khóa học ở trạng thái bản nháp mới được chỉnh sửa." });
 
         var image = kh.CacHinhAnh.FirstOrDefault(item => item.Id == imageId);
-        if (image is null) return Results.NotFound(new { message = "KhÃ´ng tÃ¬m tháº¥y áº£nh khÃ³a há»c." });
+        if (image is null) return Results.NotFound(new { message = "Không tìm thấy ảnh khóa học." });
 
         var wasPrimary = image.AnhChinh || string.Equals(kh.AnhDaiDien, image.AnhUrl, StringComparison.OrdinalIgnoreCase);
         XoaFileUpload(image.AnhUrl);
@@ -367,6 +371,14 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+
+        if (!yeuCau.IsPublished)
+        {
+            if (kh.TrangThai == "PUBLIC" || (kh.TrangThai == "HIDDEN" && kh.NgayXuatBan != null))
+            {
+                return Results.BadRequest(new { message = "Khóa học đã xuất bản không thể chuyển về bản nháp." });
+            }
+        }
 
         if (yeuCau.IsPublished)
         {
@@ -422,6 +434,8 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
     {
         var kh = await LoadOwnedCourse(id);
         if (kh is null) return Results.Json(new { message = "Bạn không có quyền chỉnh sửa khóa học này." }, statusCode: 403);
+        if (kh.TrangThai == "PUBLIC" || (kh.TrangThai == "HIDDEN" && kh.NgayXuatBan != null))
+            return Results.BadRequest(new { message = "Chỉ Admin mới có quyền xóa khóa học đã xuất bản hoặc đã ẩn." });
         if (await db.DonMua.AnyAsync(p => p.KhoaHocId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có sinh viên mua. Bạn chỉ có thể ẩn khóa học." });
         if (await db.GhiDanh.AnyAsync(e => e.KhoaHocId == id)) return Results.BadRequest(new { message = "Không thể xóa khóa học đã có học viên đăng ký. Bạn chỉ có thể ẩn khóa học." });
 
@@ -1648,6 +1662,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             updatedAt = kh.NgayCapNhat,
             startDate = kh.StartDate,
             endDate = kh.EndDate,
+            ngayXuatBan = kh.NgayXuatBan,
             instructorId = kh.GiangVienId,
             sections,
             publishValidationErrors = errors,

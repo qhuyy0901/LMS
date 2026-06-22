@@ -166,6 +166,13 @@ const CourseEditor = () => {
   const [expandedSectionId, setExpandedSectionId] = useState(null);
   const [course, setCourse] = useState(null);
   const [courseForm, setCourseForm] = useState(emptyCourseForm);
+  const isReadOnly = useMemo(() => {
+    if (!course?.id) return false;
+    const status = course.trangThai || course.status || (course.isPublished ? 'PUBLIC' : 'DRAFT');
+    if (status === 'DRAFT') return false;
+    if (status === 'HIDDEN' && !course.ngayXuatBan) return false;
+    return true;
+  }, [course]);
   const [dragState, setDragState] = useState(null);
   const [selectedLessonForQuiz, setSelectedLessonForQuiz] = useState(null);
 
@@ -317,7 +324,7 @@ const CourseEditor = () => {
   };
 
   const handleContinue = async () => {
-    if (activeStep === 1) {
+    if (activeStep === 1 && !isReadOnly) {
       const ok = await saveCourse();
       if (!ok) {
         return;
@@ -709,6 +716,7 @@ const CourseEditor = () => {
             placeholder="Ví dụ: Lập trình C# cơ bản cho người mới"
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             required
+            disabled={isReadOnly}
           />
         </div>
 
@@ -721,6 +729,7 @@ const CourseEditor = () => {
             placeholder="Tóm tắt ngắn gọn mục tiêu hoặc đối tượng của khóa học trong 1-2 câu..."
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
             required
+            disabled={isReadOnly}
           />
         </div>
 
@@ -730,6 +739,7 @@ const CourseEditor = () => {
             value={courseForm.description}
             onChange={(value) => setCourseForm((prev) => ({ ...prev, description: value }))}
             placeholder="Giới thiệu chi tiết về nội dung khóa học và quyền lợi học viên..."
+            disabled={isReadOnly}
           />
         </div>
 
@@ -745,6 +755,7 @@ const CourseEditor = () => {
                 onChange={handleCourseFieldChange}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
                 required
+                disabled={isReadOnly}
               >
                 <option value="">-- Chọn danh mục --</option>
                 {categories.map((cat) => (
@@ -764,6 +775,7 @@ const CourseEditor = () => {
               onChange={handleCourseFieldChange}
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
               required
+              disabled={isReadOnly}
             >
               <option value="BEGINNER">Cơ bản (Beginner)</option>
               <option value="INTERMEDIATE">Trung cấp (Intermediate)</option>
@@ -777,6 +789,7 @@ const CourseEditor = () => {
           onUpload={uploadCourseImages}
           onSetPrimary={setPrimaryCourseImage}
           onDelete={deleteCourseImage}
+          disabled={isReadOnly}
         />
 
       </section>
@@ -807,17 +820,19 @@ const CourseEditor = () => {
     </div>
   );
 
-  const renderCurriculumStep = () => (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  const renderCurriculumStep = () => {
+    const isReadOnly = false;
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Xây dựng giáo trình</h2>
           <p className="mt-1 text-sm text-slate-500">Kéo thả để đổi thứ tự chương và bài học. Đánh dấu xem thử cho bài học phù hợp.</p>
         </div>
         <button
           onClick={addSection}
-          disabled={!canManageCurriculum}
-          className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+          disabled={!canManageCurriculum || isReadOnly}
+          className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-30 disabled:pointer-events-none"
         >
           <Plus className="h-4 w-4" />
           Thêm chương
@@ -834,18 +849,20 @@ const CourseEditor = () => {
         {sections.map((section, sectionIndex) => (
           <div
             key={section.id}
-            draggable
-            onDragStart={() => onDragStart({ type: 'section', sectionId: section.id })}
-            onDragEnd={onDragEnd}
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={() => handleSectionDrop(section.id)}
+            draggable={!isReadOnly}
+            onDragStart={isReadOnly ? undefined : () => onDragStart({ type: 'section', sectionId: section.id })}
+            onDragEnd={isReadOnly ? undefined : onDragEnd}
+            onDragOver={isReadOnly ? undefined : (event) => event.preventDefault()}
+            onDrop={isReadOnly ? undefined : () => handleSectionDrop(section.id)}
             className="rounded-2xl border border-slate-200 bg-white shadow-sm"
           >
             <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4">
               <div className="flex flex-1 items-start gap-3">
-                <button className="mt-1 cursor-grab text-slate-400">
-                  <GripVertical className="h-5 w-5" />
-                </button>
+                {!isReadOnly && (
+                  <button className="mt-1 cursor-grab text-slate-400">
+                    <GripVertical className="h-5 w-5" />
+                  </button>
+                )}
                 <div className="flex-1">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Chương {sectionIndex + 1}</p>
                   <input
@@ -856,7 +873,8 @@ const CourseEditor = () => {
                       )
                     }
                     onBlur={(event) => updateSection(section.id, { title: event.target.value, description: section.description })}
-                    className="mt-2 w-full bg-transparent text-lg font-semibold tracking-tight text-slate-900 outline-none focus:text-purple-900"
+                    className="mt-2 w-full bg-transparent text-lg font-semibold tracking-tight text-slate-900 outline-none focus:text-purple-900 disabled:text-slate-500"
+                    disabled={isReadOnly}
                   />
                   <textarea
                     value={section.description || ''}
@@ -868,7 +886,8 @@ const CourseEditor = () => {
                     onBlur={(event) => updateSection(section.id, { title: section.title, description: event.target.value })}
                     rows={2}
                     placeholder="Mô tả ngắn cho chương này"
-                    className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                    className="mt-2 w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 disabled:bg-slate-100 disabled:text-slate-500"
+                    disabled={isReadOnly}
                   />
                 </div>
               </div>
@@ -879,12 +898,14 @@ const CourseEditor = () => {
                 >
                   {expandedSectionId === section.id ? 'Thu gọn' : 'Mở rộng'}
                 </button>
-                <button
-                  onClick={() => removeSection(section.id)}
-                  className="rounded-full border border-rose-200 px-3 py-1.5 text-sm text-rose-600"
-                >
-                  Xóa
-                </button>
+                {!isReadOnly && (
+                  <button
+                    onClick={() => removeSection(section.id)}
+                    className="rounded-full border border-rose-200 px-3 py-1.5 text-sm text-rose-600"
+                  >
+                    Xóa
+                  </button>
+                )}
               </div>
             </div>
 
@@ -893,17 +914,19 @@ const CourseEditor = () => {
                 {(section.lessons || []).map((lesson, lessonIndex) => (
                   <div
                     key={lesson.id}
-                    draggable
-                    onDragStart={() => onDragStart({ type: 'lesson', lessonId: lesson.id, sectionId: section.id })}
-                    onDragEnd={onDragEnd}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => handleLessonDrop(section.id, lesson.id)}
+                    draggable={!isReadOnly}
+                    onDragStart={isReadOnly ? undefined : () => onDragStart({ type: 'lesson', lessonId: lesson.id, sectionId: section.id })}
+                    onDragEnd={isReadOnly ? undefined : onDragEnd}
+                    onDragOver={isReadOnly ? undefined : (event) => event.preventDefault()}
+                    onDrop={isReadOnly ? undefined : () => handleLessonDrop(section.id, lesson.id)}
                     className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
                   >
                     <div className="flex items-start gap-3">
-                      <button className="mt-2 cursor-grab text-slate-400">
-                        <GripVertical className="h-5 w-5" />
-                      </button>
+                      {!isReadOnly && (
+                        <button className="mt-2 cursor-grab text-slate-400">
+                          <GripVertical className="h-5 w-5" />
+                        </button>
+                      )}
                       <div className="grid flex-1 gap-3 md:grid-cols-[1.2fr_1fr]">
                         <div className="flex min-h-[260px] flex-col space-y-3 md:min-h-[520px]">
                           <div>
@@ -921,7 +944,8 @@ const CourseEditor = () => {
                                 )
                               }
                               onBlur={(event) => updateLesson(lesson, { title: event.target.value })}
-                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100 disabled:text-slate-500"
+                              disabled={isReadOnly}
                             />
                           </div>
                           <textarea
@@ -939,7 +963,8 @@ const CourseEditor = () => {
                             onBlur={(event) => updateLesson(lesson, { content: event.target.value })}
                             rows={3}
                             placeholder="Mô tả bài học, tài liệu đính kèm, kết quả cần đạt..."
-                            className="min-h-[180px] w-full flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 md:min-h-[420px]"
+                            className="min-h-[180px] w-full flex-1 resize-y rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 md:min-h-[420px] disabled:bg-slate-100 disabled:text-slate-500"
+                            disabled={isReadOnly}
                           />
                         </div>
 
@@ -963,14 +988,17 @@ const CourseEditor = () => {
                               }
                               onBlur={(event) => updateLesson(lesson, { videoUrl: event.target.value })}
                               placeholder="Dán video URL nếu cần"
-                              className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                              className="mt-3 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 disabled:text-slate-500"
+                              disabled={isReadOnly}
                             />
-                            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
-                              <Upload className="h-4 w-4" />
-                              Tải video
-                              <input type="file" accept="video/*" className="hidden" onChange={(event) => uploadLessonVideo(lesson, event.target.files?.[0])} />
-                            </label>
-                            {lesson.videoUrl && (
+                            {!isReadOnly && (
+                              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                <Upload className="h-4 w-4" />
+                                Tải video
+                                <input type="file" accept="video/*" className="hidden" onChange={(event) => uploadLessonVideo(lesson, event.target.files?.[0])} />
+                              </label>
+                            )}
+                            {lesson.videoUrl && !isReadOnly && (
                               <button
                                 type="button"
                                 onClick={() => removeLessonVideo(lesson)}
@@ -996,29 +1024,33 @@ const CourseEditor = () => {
                                     <a href={getFileUrl(imageUrl)} target="_blank" rel="noreferrer" className="block h-full w-full">
                                       <img src={getFileUrl(imageUrl)} alt="Ảnh minh họa bài học" className="h-full w-full object-cover" />
                                     </a>
-                                    <button
-                                      type="button"
-                                      onClick={() => removeLessonImage(lesson, imageUrl)}
-                                      className="absolute right-1 top-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-rose-600 shadow-sm opacity-0 transition group-hover:opacity-100"
-                                    >
-                                      Xóa
-                                    </button>
+                                    {imageUrl && !isReadOnly && (
+                                      <button
+                                        type="button"
+                                        onClick={() => removeLessonImage(lesson, imageUrl)}
+                                        className="absolute right-1 top-1 rounded-full bg-white/95 px-2 py-1 text-[11px] font-semibold text-rose-600 shadow-sm opacity-0 transition group-hover:opacity-100"
+                                      >
+                                        Xóa
+                                      </button>
+                                    )}
                                   </div>
                                 ))}
                               </div>
                             )}
-                            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
-                              <ImageIcon className="h-4 w-4" />
-                              Tải nhiều ảnh
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                className="hidden"
-                                onChange={(event) => uploadLessonImages(lesson, event.target.files)}
-                              />
-                            </label>
-                            <p className="mt-2 text-xs text-slate-500">Có thể chọn nhiều ảnh từ máy tính cùng lúc.</p>
+                            {!isReadOnly && (
+                              <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                <ImageIcon className="h-4 w-4" />
+                                Tải nhiều ảnh
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  multiple
+                                  className="hidden"
+                                  onChange={(event) => uploadLessonImages(lesson, event.target.files)}
+                                />
+                              </label>
+                            )}
+                            {!isReadOnly && <p className="mt-2 text-xs text-slate-500">Có thể chọn nhiều ảnh từ máy tính cùng lúc.</p>}
                           </div>
 
                           <div className="rounded-xl border border-slate-200 bg-white p-3">
@@ -1041,17 +1073,19 @@ const CourseEditor = () => {
                               </p>
                             )}
                             <div className="mt-3 flex flex-wrap gap-2">
-                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700">
-                                <Upload className="h-4 w-4" />
-                                Tải tài liệu
-                                <input
-                                  type="file"
-                                  accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                                  className="hidden"
-                                  onChange={(event) => uploadLessonDocument(lesson, event.target.files?.[0])}
-                                />
-                              </label>
-                              {lesson.fileUrl && (
+                              {!isReadOnly && (
+                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                                  <Upload className="h-4 w-4" />
+                                  Tải tài liệu
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.doc,.docx,.ppt,.pptx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                                    className="hidden"
+                                    onChange={(event) => uploadLessonDocument(lesson, event.target.files?.[0])}
+                                  />
+                                </label>
+                              )}
+                              {lesson.fileUrl && !isReadOnly && (
                                 <button
                                   type="button"
                                   onClick={() => removeLessonDocument(lesson)}
@@ -1061,7 +1095,7 @@ const CourseEditor = () => {
                                 </button>
                               )}
                             </div>
-                            <p className="mt-2 text-xs text-slate-500">Hỗ trợ PDF, Word và PowerPoint.</p>
+                            {!isReadOnly && <p className="mt-2 text-xs text-slate-500">Hỗ trợ PDF, Word và PowerPoint.</p>}
                           </div>
 
                           <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm">
@@ -1072,6 +1106,7 @@ const CourseEditor = () => {
                                 checked={Boolean(lesson.isPreview)}
                                 onChange={(event) => updateLesson(lesson, { isPreview: event.target.checked })}
                                 className="h-4 w-4"
+                                disabled={isReadOnly}
                               />
                             </label>
                             <label className="flex items-center justify-between gap-3">
@@ -1081,50 +1116,58 @@ const CourseEditor = () => {
                                 checked={Boolean(lesson.isPublished)}
                                 onChange={(event) => updateLesson(lesson, { isPublished: event.target.checked })}
                                 className="h-4 w-4"
+                                disabled={isReadOnly}
                               />
                             </label>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setSelectedLessonForQuiz({ id: lesson.id, title: lesson.title })}
-                            className="w-full mt-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 px-3 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5"
-                          >
-                            📝 Thiết lập Quiz
-                          </button>
+                          {!isReadOnly && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedLessonForQuiz({ id: lesson.id, title: lesson.title })}
+                                className="w-full mt-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 px-3 py-2 text-xs font-bold transition flex items-center justify-center gap-1.5"
+                              >
+                                📝 Thiết lập Quiz
+                              </button>
 
-                          <button
-                            onClick={() => removeLesson(lesson.id)}
-                            className="w-full mt-2 rounded-xl border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition"
-                          >
-                            Xóa bài học
-                          </button>
+                              <button
+                                onClick={() => removeLesson(lesson.id)}
+                                className="w-full mt-2 rounded-xl border border-rose-200 px-3 py-2 text-xs text-rose-600 hover:bg-rose-50 transition"
+                              >
+                                Xóa bài học
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
                 ))}
 
-                <div
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={() => handleLessonDrop(section.id, null)}
-                  className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3"
-                >
-                  <button
-                    onClick={() => addLesson(section.id)}
-                    className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm"
+                {!isReadOnly && (
+                  <div
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => handleLessonDrop(section.id, null)}
+                    className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-3"
                   >
-                    <Plus className="h-4 w-4" />
-                    Thêm bài học
-                  </button>
-                </div>
+                    <button
+                      onClick={() => addLesson(section.id)}
+                      className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Thêm bài học
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         ))}
       </div>
     </div>
-  );
+    );
+  };
 
   const renderPricingStep = () => (
     <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
@@ -1137,6 +1180,7 @@ const CourseEditor = () => {
             value={courseForm.price}
             onChange={handleCourseFieldChange}
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            disabled={isReadOnly}
           />
           <p className="mt-2 text-xs text-slate-500">Đặt 0 nếu đây là khóa học miễn phí.</p>
         </div>
@@ -1147,6 +1191,7 @@ const CourseEditor = () => {
             value={courseForm.minimumMemberTier}
             onChange={handleCourseFieldChange}
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            disabled={isReadOnly}
           >
             {TIER_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -1217,6 +1262,7 @@ const CourseEditor = () => {
                 value={courseForm.startDate}
                 onChange={handleCourseFieldChange}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                disabled={isReadOnly}
               />
             </label>
             <label className="text-sm font-medium text-slate-700">
@@ -1228,6 +1274,7 @@ const CourseEditor = () => {
                 value={courseForm.endDate}
                 onChange={handleCourseFieldChange}
                 className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                disabled={isReadOnly}
               />
             </label>
           </div>
@@ -1262,15 +1309,16 @@ const CourseEditor = () => {
       <aside className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <button
           onClick={publishCourse}
-          disabled={!course?.id || publishErrors.length > 0 || !hasValidCourseDates}
+          disabled={!course?.id || publishErrors.length > 0 || !hasValidCourseDates || course?.trangThai === 'PUBLIC'}
           className="w-full rounded-full bg-purple-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          Xuất bản khóa học
+          {course?.trangThai === 'PUBLIC' ? 'Đã xuất bản' : 'Xuất bản khóa học'}
         </button>
         <button
           onClick={unpublishCourse}
-          disabled={!course?.id || (!course?.isPublished && course?.trangThai !== 'HIDDEN' && course?.status !== 'HIDDEN')}
-          className="w-full rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-50"
+          disabled={true}
+          title="Khóa đã xuất bản không thể chuyển về bản nháp"
+          className="w-full rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Chuyển về bản nháp
         </button>
@@ -1318,8 +1366,8 @@ const CourseEditor = () => {
         </div>
         <button
           onClick={saveCourse}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+          disabled={saving || isReadOnly}
+          className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white disabled:opacity-30 disabled:pointer-events-none"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
           Lưu khóa học
@@ -1442,8 +1490,7 @@ const CourseEditor = () => {
     </div>
   );
 };
-
-const RichTextEditor = ({ value, onChange, placeholder }) => {
+const RichTextEditor = ({ value, onChange, placeholder, disabled = false }) => {
   const editorRef = useRef(null);
 
   useEffect(() => {
@@ -1455,12 +1502,14 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
   const sync = () => onChange(editorRef.current?.innerHTML || '');
 
   const runCommand = (command, commandValue = null) => {
+    if (disabled) return;
     editorRef.current?.focus();
     document.execCommand(command, false, commandValue);
     sync();
   };
 
   const addLink = () => {
+    if (disabled) return;
     const href = window.prompt('Nhập liên kết');
     if (!href) return;
     runCommand('createLink', href);
@@ -1482,8 +1531,9 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
             key={label}
             type="button"
             onClick={action}
+            disabled={disabled}
             title={label}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-purple-50 hover:text-purple-700"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-purple-50 hover:text-purple-700 disabled:opacity-40 disabled:pointer-events-none"
           >
             <Icon className="h-4 w-4" />
           </button>
@@ -1491,26 +1541,25 @@ const RichTextEditor = ({ value, onChange, placeholder }) => {
       </div>
       <div
         ref={editorRef}
-        contentEditable
+        contentEditable={!disabled}
         role="textbox"
         aria-multiline="true"
         data-placeholder={placeholder}
         onInput={sync}
         onBlur={sync}
-        className="rich-text-editor min-h-36 w-full px-4 py-3 text-sm leading-7 text-slate-800 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
+        className={`rich-text-editor min-h-36 w-full px-4 py-3 text-sm leading-7 text-slate-800 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)] ${disabled ? 'bg-slate-100 opacity-60 cursor-not-allowed' : ''}`}
         suppressContentEditableWarning
       />
     </div>
   );
 };
-
-const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete }) => (
+const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete, disabled = false }) => (
   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <p className="text-sm font-semibold text-slate-900">Ảnh khóa học</p>
       </div>
-      <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+      <label className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 ${disabled ? 'opacity-40 pointer-events-none cursor-not-allowed' : ''}`}>
         <Upload className="h-4 w-4" />
         Tải ảnh từ máy
         <input
@@ -1522,7 +1571,7 @@ const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete }
             onUpload(event.target.files);
             event.target.value = '';
           }}
-          disabled={saving}
+          disabled={saving || disabled}
         />
       </label>
     </div>
@@ -1545,7 +1594,7 @@ const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete }
               <div className="flex flex-wrap gap-2 p-2">
                 <button
                   type="button"
-                  disabled={saving || image.isPrimary || image.canDelete === false}
+                  disabled={saving || disabled || image.isPrimary || image.canDelete === false}
                   onClick={() => onSetPrimary(image.id)}
                   className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -1554,7 +1603,7 @@ const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete }
                 </button>
                 <button
                   type="button"
-                  disabled={saving || image.canDelete === false}
+                  disabled={saving || disabled || image.canDelete === false}
                   onClick={() => onDelete(image.id)}
                   className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-100 px-2 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -1573,6 +1622,5 @@ const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete }
     )}
   </div>
 );
-
 export default CourseEditor;
 

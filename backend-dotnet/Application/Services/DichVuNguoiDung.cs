@@ -139,8 +139,21 @@ public class DichVuNguoiDung(ApplicationDbContext db) : IDichVuNguoiDung
 
     public async Task<object> LayThongBaoAsync(string userId) =>
         await db.ThongBao.AsNoTracking()
-            .Where(tb => tb.NguoiDungId == userId).OrderByDescending(tb => tb.NgayTao).Take(30)
-            .Select(tb => new { tb.Id, tb.LoaiThongBao, tb.TieuDe, tb.NoiDung, tb.DuongDan, tb.DaDoc, tb.Metadata, tb.DocLuc, tb.NgayTao })
+            .Where(tb => tb.NguoiDungId == userId)
+            .OrderByDescending(tb => tb.NgayTao)
+            .Take(30)
+            .Select(tb => new
+            {
+                tb.Id,
+                type = tb.LoaiThongBao,
+                title = tb.TieuDe,
+                body = tb.NoiDung,
+                link = tb.DuongDan,
+                isRead = tb.DaDoc,
+                metadata = tb.Metadata,
+                readAt = tb.DocLuc,
+                createdAt = tb.NgayTao
+            })
             .ToListAsync();
 
     public async Task<object?> XuatDuLieuCaNhanAsync(string userId)

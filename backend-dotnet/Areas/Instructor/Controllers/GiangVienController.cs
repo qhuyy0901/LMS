@@ -139,10 +139,6 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         if (loi is not null) return loi;
 
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title ?? string.Empty).Trim();
-        if (tieuDe.Length < 5) return Results.BadRequest(new { message = "Tiêu đề khóa học tối thiểu 5 ký tự." });
-
-        var moTa = SanitizeRichText(yeuCau.MoTa ?? yeuCau.Description ?? string.Empty);
-        if (DemKyTuNoiDung(moTa) < 20) return Results.BadRequest(new { message = "Mô tả khóa học tối thiểu 20 ký tự." });
         if (yeuCau.Gia < 0) return Results.BadRequest(new { message = "Giá khóa học không được âm." });
 
         string? anhBia = null;
@@ -152,6 +148,58 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             if (validate is not null) return validate;
             anhBia = await SaveUpload(yeuCau.CoverImageFile, "uploads/courses");
         }
+
+        var moTa = SanitizeRichText(yeuCau.MoTa ?? yeuCau.Description ?? string.Empty);
+        var khoaHoc = new KhoaHoc
+        {
+            Id = TaoId.Moi(),
+            TieuDe = tieuDe,
+            DuongDanThanThien = await TaoSlugDuyNhat(string.IsNullOrWhiteSpace(tieuDe) ? "Khóa học mới" : tieuDe),
+            MoTaNgan = yeuCau.MoTaNgan,
+            MoTa = moTa,
+            MoTaChiTiet = yeuCau.MoTaChiTiet,
+            AnhDaiDien = anhBia ?? yeuCau.Thumbnail,
+            DanhMucId = null,
+            ChuyenMuc = "Lập trình",
+            TrinhDo = string.IsNullOrWhiteSpace(yeuCau.TrinhDo) ? "BEGINNER" : yeuCau.TrinhDo.Trim(),
+            Gia = yeuCau.Gia,
+            HangThanhVienToiThieu = "BRONZE",
+            GiangVienId = TroGiup.LayUserId(User)!,
+            DaXuatBan = false,
+            TrangThai = "DRAFT",
+            NgayTao = DateTime.UtcNow,
+            NgayCapNhat = DateTime.UtcNow
+        };
+
+        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc))
+        {
+            var dm = await db.DanhMuc.AsNoTracking().FirstOrDefaultAsync(d => d.Id == yeuCau.DanhMuc || d.Ten == yeuCau.DanhMuc);
+            if (dm is not null)
+            {
+                khoaHoc.ChuyenMuc = dm.Ten;
+                khoaHoc.DanhMucId = dm.Id;
+            }
+            else
+            {
+                khoaHoc.ChuyenMuc = yeuCau.DanhMuc.Trim();
+            }
+        }
+
+        db.KhoaHoc.Add(khoaHoc);
+        if (!string.IsNullOrWhiteSpace(khoaHoc.AnhDaiDien))
+        {
+            khoaHoc.CacHinhAnh.Add(new KhoaHocAnh
+            {
+                Id = TaoId.Moi(),
+                KhoaHocId = khoaHoc.Id,
+                AnhUrl = khoaHoc.AnhDaiDien,
+                AnhChinh = true,
+                NgayTao = DateTime.UtcNow
+            });
+        }
+        await db.SaveChangesAsync();
+
+        return Results.Created($"/api/instructor/courses/{khoaHoc.Id}", MapCourse(khoaHoc));
 
         var selectedCategoryName = "Lập trình";
         string? danhMucId = null;

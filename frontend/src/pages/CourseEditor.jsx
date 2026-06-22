@@ -282,24 +282,7 @@ const CourseEditor = () => {
     const titleTrim = (courseForm.title || '').trim();
     const shortDescTrim = (courseForm.shortDescription || '').trim();
     const descHtml = (courseForm.description || '').trim();
-    const descTrim = getPlainTextFromHtml(descHtml);
 
-    if (!titleTrim || titleTrim.length < 5) {
-      window.alert('Tiêu đề khóa học phải tối thiểu 5 ký tự.');
-      return false;
-    }
-    if (!courseForm.category) {
-      window.alert('Vui lòng chọn danh mục khóa học.');
-      return false;
-    }
-    if (!shortDescTrim) {
-      window.alert('Vui lòng điền mô tả ngắn.');
-      return false;
-    }
-    if (!descTrim || descTrim.length < 20) {
-      window.alert('Mô tả khóa học phải tối thiểu 20 ký tự.');
-      return false;
-    }
     if (Number(courseForm.price) < 0) {
       window.alert('Giá khóa học không được phép âm.');
       return false;
@@ -1349,8 +1332,14 @@ const CourseEditor = () => {
         </button>
         <button
           onClick={unpublishCourse}
-          disabled={true}
-          title="Khóa đã xuất bản không thể chuyển về bản nháp"
+          disabled={!course?.id || course?.trangThai !== 'PUBLIC'}
+          title={
+            course?.trangThai === 'DRAFT'
+              ? 'Khóa học đang là bản nháp'
+              : course?.trangThai === 'PUBLIC'
+              ? 'Chuyển khóa học này về trạng thái bản nháp'
+              : 'Chỉ khóa học đã xuất bản mới có thể chuyển về bản nháp'
+          }
           className="w-full rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-30 disabled:cursor-not-allowed"
         >
           Chuyển về bản nháp
@@ -1403,7 +1392,7 @@ const CourseEditor = () => {
           className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all duration-150 active:scale-[0.98] hover:bg-slate-800 disabled:opacity-30 disabled:pointer-events-none"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Lưu khóa học
+          {course?.trangThai === 'PUBLIC' ? 'Cập nhật khóa học' : 'Lưu bản nháp'}
         </button>
       </div>
 

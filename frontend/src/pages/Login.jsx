@@ -13,6 +13,12 @@ import {
 
 const isValidEmail = (value) => /\S+@\S+\.\S+/.test(value);
 
+const getLoginRedirectPath = (user) => {
+  if (user?.role === 'INSTRUCTOR') return '/instructor/dashboard';
+  if (user?.role === 'ADMIN') return '/admin';
+  return '/';
+};
+
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -55,8 +61,9 @@ export default function Login() {
 
     try {
       setIsLoading(true);
-      await login(normalizedEmail, password);
-      navigate('/');
+      const user = await login(normalizedEmail, password);
+      sessionStorage.removeItem('skillio_student_preview');
+      navigate(getLoginRedirectPath(user), { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
     } finally {

@@ -48,6 +48,19 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, ApplicationDbContext db) :
         return Results.Ok(danhMuc);
     }
 
+    [HttpGet("/api/categories")]
+    public async Task<IResult> LayTatCaDanhMuc()
+    {
+        var ds = await db.DanhMuc
+            .AsNoTracking()
+            .Where(dm => dm.HoatDong)
+            .OrderBy(dm => dm.Ten)
+            .Select(dm => new { id = dm.Id, name = dm.Ten, slug = dm.Slug })
+            .ToListAsync();
+        return Results.Ok(ds);
+    }
+
+
     [Authorize]
     [HttpGet("/api/student/courses")]
     public async Task<IResult> DanhSachChoSinhVien(

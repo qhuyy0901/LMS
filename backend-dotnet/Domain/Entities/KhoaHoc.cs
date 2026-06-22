@@ -39,4 +39,5 @@ public class KhoaHoc
     public ICollection<MaGiamGia> CacMaGiamGia { get; set; } = [];
     public ICollection<BaiTap> CacBaiTap { get; set; } = [];
     public ICollection<KhoaHocDaLuu> CacNguoiDungDaLuu { get; set; } = [];
+    public ICollection<KhoaHocAnh> CacHinhAnh { get; set; } = [];
 }

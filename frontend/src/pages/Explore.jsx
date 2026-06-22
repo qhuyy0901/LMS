@@ -66,15 +66,16 @@ function CartItem({ item, removeCourse, onNavigate }) {
   const rawImage = getCourseImage(c);
   const courseImageUrl = rawImage ? resolveMediaUrl(rawImage) : '';
   const showImage = courseImageUrl && !imageError;
+  const viewCourse = () => {
+    onNavigate();
+    setTimeout(() => {
+      navigate(`/course/${c.id}`);
+    }, 150);
+  };
 
   return (
     <div
-      onClick={() => {
-        onNavigate();
-        setTimeout(() => {
-          navigate(`/course/${c.id}`);
-        }, 150);
-      }}
+      onClick={viewCourse}
       className="flex items-start gap-4 rounded-2xl border border-slate-100/80 dark:border-slate-800/40 bg-white dark:bg-slate-900 p-3 shadow-sm hover:shadow-[0_8px_20px_-6px_rgba(0,0,0,0.04)] transition-all duration-300 cursor-pointer clickable-card"
     >
       {/* Thumbnail */}
@@ -122,7 +123,11 @@ function CartItem({ item, removeCourse, onNavigate }) {
           </button>
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-1 rounded-full bg-purple-650 hover:bg-purple-750 px-3.5 py-1 text-[10px] font-bold text-white transition active:scale-[0.96] shadow-sm cursor-pointer"
+            onClick={(e) => {
+              e.stopPropagation();
+              viewCourse();
+            }}
+            className="inline-flex items-center justify-center gap-1 rounded-full bg-purple-600 px-3.5 py-1 text-[10px] font-bold text-white shadow-sm transition hover:bg-purple-700 active:scale-[0.96] cursor-pointer"
           >
             Xem
           </button>
@@ -440,7 +445,6 @@ export default function Explore() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Khám phá khóa học</h1>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">Tìm kiếm và lưu trữ những khóa học phù hợp với định hướng của bạn</p>
         </div>
         <div className="flex items-center gap-2">
           {user && (

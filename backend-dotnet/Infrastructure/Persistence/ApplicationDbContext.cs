@@ -8,6 +8,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<NguoiDung> NguoiDung => Set<NguoiDung>();
     public DbSet<DanhMuc> DanhMuc => Set<DanhMuc>();
     public DbSet<KhoaHoc> KhoaHoc => Set<KhoaHoc>();
+    public DbSet<KhoaHocAnh> KhoaHocAnh => Set<KhoaHocAnh>();
     public DbSet<ChuongHoc> ChuongHoc => Set<ChuongHoc>();
     public DbSet<BaiHoc> BaiHoc => Set<BaiHoc>();
     public DbSet<GhiDanh> GhiDanh => Set<GhiDanh>();
@@ -153,6 +154,17 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(item => item.TrinhDo).HasDefaultValue("BEGINNER");
             entity.Property(item => item.TrangThai).HasDefaultValue("DRAFT");
             entity.Property(item => item.LyDoTuChoi).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<KhoaHocAnh>(entity =>
+        {
+            entity.ToTable("KhoaHocAnh");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.KhoaHocId);
+            entity.HasOne(item => item.KhoaHoc)
+                .WithMany(item => item.CacHinhAnh)
+                .HasForeignKey(item => item.KhoaHocId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<ChuongHoc>(entity =>

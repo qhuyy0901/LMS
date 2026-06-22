@@ -40,7 +40,7 @@ export const INSTRUCTOR_MENU = [
 
   { section: 'Quản lý nội dung' },
   { name: 'Khóa học của tôi', path: '/instructor/courses', icon: Briefcase },
-  { name: 'Tạo khóa học mới', path: '/instructor/courses/new', externalUrl: buildBackendUrl('/Instructor/KhoaHoc/Create'), icon: PlusCircle },
+  { name: 'Tạo khóa học mới', path: '/instructor/courses/new', icon: PlusCircle },
   { name: 'Mã giảm giá', path: '/instructor/vouchers', icon: Tag },
   { name: 'Quản lý sự kiện', path: '/instructor/events', icon: Calendar },
 

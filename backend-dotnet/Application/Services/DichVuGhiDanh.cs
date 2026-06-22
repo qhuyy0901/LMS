@@ -140,11 +140,53 @@ public class DichVuGhiDanh(ApplicationDbContext db) : IDichVuGhiDanh
 
     public async Task<object> LayKhoaHocDaGhiDanhAsync(string userId)
     {
-        return await db.GhiDanh.AsNoTracking()
-            .Where(e => e.NguoiDungId == userId).Include(e => e.KhoaHoc)
+        var ghiDanhs = await db.GhiDanh.AsNoTracking()
+            .Where(e => e.NguoiDungId == userId)
+            .Include(e => e.KhoaHoc)
+                .ThenInclude(kh => kh!.GiangVien)
+            .Include(e => e.KhoaHoc)
+                .ThenInclude(kh => kh!.DanhMuc)
+            .Include(e => e.KhoaHoc)
+                .ThenInclude(kh => kh!.CacBaiHoc)
+            .Include(e => e.KhoaHoc)
+                .ThenInclude(kh => kh!.CacChuongHoc)
+            .Include(e => e.KhoaHoc)
+                .ThenInclude(kh => kh!.CacGhiDanh)
             .OrderByDescending(e => e.NgayTao)
-            .Select(e => new { e.Id, e.TienDo, e.NgayHoanThanh, e.NgayTao, course = e.KhoaHoc == null ? null : KhoaHocDto.TuKhoaHoc(e.KhoaHoc) })
             .ToListAsync();
+
+        var courseIds = ghiDanhs.Select(e => e.KhoaHocId).ToList();
+        var lessonCounts = await db.BaiHoc.AsNoTracking()
+            .Where(lesson => courseIds.Contains(lesson.KhoaHocId))
+            .GroupBy(lesson => lesson.KhoaHocId)
+            .Select(group => new { CourseId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.CourseId, item => item.Count);
+
+        var completedLessonCounts = await db.TienDoBaiHoc.AsNoTracking()
+            .Where(progress => progress.NguoiDungId == userId
+                && progress.DaHoanThanh
+                && progress.BaiHoc != null
+                && courseIds.Contains(progress.BaiHoc.KhoaHocId))
+            .GroupBy(progress => progress.BaiHoc!.KhoaHocId)
+            .Select(group => new { CourseId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.CourseId, item => item.Count);
+
+        return ghiDanhs.Select(e =>
+        {
+            var totalLessons = lessonCounts.GetValueOrDefault(e.KhoaHocId, 0);
+            var completedLessons = completedLessonCounts.GetValueOrDefault(e.KhoaHocId, 0);
+            var progressFromLessons = totalLessons == 0 ? e.TienDo : completedLessons * 100d / totalLessons;
+            var progress = TroGiup.GioiHanPhanTram(Math.Max(e.TienDo, progressFromLessons));
+
+            return new
+            {
+                id = e.Id,
+                progress,
+                completedAt = e.NgayHoanThanh,
+                createdAt = e.NgayTao,
+                course = e.KhoaHoc == null ? null : KhoaHocDto.TuKhoaHoc(e.KhoaHoc)
+            };
+        });
     }
 
     public async Task<object?> KiemTraVaCapChungChiAsync(string userId, string khoaHocId)

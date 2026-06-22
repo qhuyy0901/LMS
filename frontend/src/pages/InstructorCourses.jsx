@@ -212,7 +212,7 @@ export default function InstructorCourses() {
         </div>
         <button
           type="button"
-          onClick={() => window.location.href = '/Instructor/KhoaHoc/Create'}
+          onClick={() => navigate('/instructor/courses/new')}
           className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
         >
           <Plus className="h-4 w-4" />
@@ -269,7 +269,7 @@ export default function InstructorCourses() {
             <p className="mb-4 text-sm font-semibold text-slate-700">Bạn chưa có khóa học nào</p>
             <button
               type="button"
-              onClick={() => window.location.href = '/Instructor/KhoaHoc/Create'}
+              onClick={() => navigate('/instructor/courses/new')}
               className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-purple-700"
             >
               <Plus className="h-4 w-4" />
@@ -286,7 +286,7 @@ export default function InstructorCourses() {
               <CourseRow
                 key={course.id}
                 course={course}
-                onEdit={() => window.location.href = `/Instructor/KhoaHoc/Edit/${course.id}`}
+                onEdit={() => navigate(`/instructor/courses/${course.id}/edit`)}
                 onPublish={() => publishCourse(course)}
                 onHide={() => hideCourse(course)}
                 onDelete={() => deleteCourse(course)}

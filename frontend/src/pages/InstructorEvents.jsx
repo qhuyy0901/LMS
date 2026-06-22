@@ -20,6 +20,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { resolveMediaUrl } from '../utils/mediaUrl';
 
 const TYPES = [
   { value: 'WORKSHOP', label: 'Workshop' },
@@ -452,12 +453,12 @@ export default function InstructorEvents() {
       ) : (
         <div className="grid gap-5 xl:grid-cols-2">
           {filteredEvents.map((item) => (
-            <article key={item.id} className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <article key={item.id} className="flex flex-col overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
               {/* Cover image */}
               {coverImageUrl(item) ? (
                 <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-purple-50 to-indigo-50">
                   <img
-                    src={coverImageUrl(item)}
+                    src={resolveMediaUrl(coverImageUrl(item))}
                     alt={item.title}
                     className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
                     onError={(e) => { e.target.style.display = 'none'; }}
@@ -476,7 +477,7 @@ export default function InstructorEvents() {
                 </div>
               )}
 
-              <div className="p-5">
+              <div className="flex flex-1 flex-col p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <div className="mb-3 flex flex-wrap gap-2">
@@ -492,7 +493,8 @@ export default function InstructorEvents() {
                   </button>
                 </div>
 
-                <div className="mt-5 grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 sm:grid-cols-2">
+                <div className="mt-auto pt-5">
+                  <div className="grid gap-3 rounded-2xl bg-slate-50 p-4 text-sm text-slate-600 sm:grid-cols-2">
                   <p className="flex items-center gap-2"><Clock3 className="h-4 w-4 text-purple-500" />{dateTime.format(new Date(item.startAt))}</p>
                   <p className="flex items-center gap-2"><MapPin className="h-4 w-4 text-purple-500" />{item.location || formatLabel(item.format)}</p>
                   <button type="button" onClick={() => setShowAttendees(item)} className="flex items-center gap-2 text-left font-semibold text-slate-700 transition hover:text-purple-700 sm:col-span-2">
@@ -500,6 +502,7 @@ export default function InstructorEvents() {
                     {item.registrationCount}/{item.capacity} người đăng ký
                   </button>
                   <p className="font-semibold text-purple-700 sm:col-span-2">{(item.pointCost ?? 0) > 0 ? `${item.pointCost} điểm để tham gia` : 'Tham gia miễn phí'}</p>
+                </div>
                 </div>
               </div>
 
@@ -598,7 +601,7 @@ export default function InstructorEvents() {
                     {allImages.map((img) => (
                       <div key={img.id} className="group relative aspect-square overflow-hidden rounded-xl border-2 border-slate-200 bg-slate-50 transition hover:border-purple-300">
                         <img
-                          src={img.source === 'existing' ? img.imageUrl : img.imageUrl}
+                          src={img.source === 'existing' ? resolveMediaUrl(img.imageUrl) : img.imageUrl}
                           alt="Ảnh sự kiện"
                           className="h-full w-full object-cover"
                         />

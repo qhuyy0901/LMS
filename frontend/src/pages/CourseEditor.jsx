@@ -1,17 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
+  Bold,
   CheckCircle2,
   ChevronRight,
   Eye,
   GripVertical,
+  Heading3,
   Image as ImageIcon,
+  Italic,
+  Link as LinkIcon,
+  List,
   ListTree,
   Loader2,
   Plus,
   Save,
   Sparkles,
+  Star,
+  Trash2,
   Upload,
   Video,
 } from 'lucide-react';
@@ -35,12 +42,19 @@ const TIER_OPTIONS = [
   { value: 'DIAMOND', label: 'Kim c\u01b0\u01a1ng' },
 ];
 
+const ACCEPTED_COURSE_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const ACCEPTED_COURSE_IMAGE_EXTENSIONS = /\.(jpe?g|png|webp)$/i;
+const MAX_COURSE_IMAGE_SIZE = 5 * 1024 * 1024;
+
 const emptyCourseForm = {
   title: '',
+  shortDescription: '',
   description: '',
+  detailedDescription: '',
   category: '',
   thumbnail: '',
   price: 0,
+  level: 'BEGINNER',
   minimumMemberTier: 'BRONZE',
   startDate: '',
   endDate: '',
@@ -125,12 +139,27 @@ const resizeTextarea = (element) => {
   element.style.height = `${element.scrollHeight}px`;
 };
 
+const getPlainTextFromHtml = (html = '') => {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  return (container.textContent || container.innerText || '').replace(/\s+/g, ' ').trim();
+};
+
+const getCourseImages = (course) => course?.courseImages || course?.images || [];
+
 const CourseEditor = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditing = Boolean(id);
+  const isEditRoute = window.location.pathname.endsWith('/edit');
 
-  const [activeStep, setActiveStep] = useState(1);
+  const [activeStep, setActiveStep] = useState(() => {
+    if (id && !isEditRoute) {
+      return 2; // Default to Curriculum if managing curriculum directly
+    }
+    return 1;
+  });
+
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState([]);
@@ -140,6 +169,24 @@ const CourseEditor = () => {
   const [dragState, setDragState] = useState(null);
   const [selectedLessonForQuiz, setSelectedLessonForQuiz] = useState(null);
 
+  const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
+
+  // Load categories from database
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await api.get('/api/categories');
+        setCategories(data || []);
+      } catch (err) {
+        console.error('Không thể tải danh mục:', err);
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const fetchCourse = useCallback(async (courseId) => {
     setLoading(true);
     try {
@@ -148,10 +195,13 @@ const CourseEditor = () => {
       setSections(data.sections || []);
       setCourseForm({
         title: data.title || '',
-        description: data.description || '',
-        category: data.danhMuc || data.category || '',
+        shortDescription: data.moTaNgan || '',
+        description: data.description || data.moTa || '',
+        detailedDescription: data.moTaChiTiet || '',
+        category: data.danhMucId || data.danhMuc || data.category || '',
         thumbnail: data.thumbnail || '',
         price: data.price || 0,
+        level: data.trinhDo || 'BEGINNER',
         minimumMemberTier: data.minimumMemberTier || 'BRONZE',
         startDate: data.startDate?.slice(0, 10) || '',
         endDate: data.endDate?.slice(0, 10) || '',
@@ -163,7 +213,7 @@ const CourseEditor = () => {
     } catch (error) {
       console.error('Load course error', error);
       window.alert('Không tìm thấy khóa học hoặc bạn không có quyền truy cập.');
-      navigate('/instructor');
+      navigate('/instructor/courses');
     } finally {
       setLoading(false);
     }
@@ -205,31 +255,58 @@ const CourseEditor = () => {
     }));
   };
 
-
   const saveCourse = async () => {
+    // Validate inputs
+    const titleTrim = (courseForm.title || '').trim();
+    const shortDescTrim = (courseForm.shortDescription || '').trim();
+    const descHtml = (courseForm.description || '').trim();
+    const descTrim = getPlainTextFromHtml(descHtml);
+
+    if (!titleTrim || titleTrim.length < 5) {
+      window.alert('Tiêu đề khóa học phải tối thiểu 5 ký tự.');
+      return false;
+    }
+    if (!courseForm.category) {
+      window.alert('Vui lòng chọn danh mục khóa học.');
+      return false;
+    }
+    if (!shortDescTrim) {
+      window.alert('Vui lòng điền mô tả ngắn.');
+      return false;
+    }
+    if (!descTrim || descTrim.length < 20) {
+      window.alert('Mô tả khóa học phải tối thiểu 20 ký tự.');
+      return false;
+    }
+    if (Number(courseForm.price) < 0) {
+      window.alert('Giá khóa học không được phép âm.');
+      return false;
+    }
+
     setSaving(true);
     try {
       const formData = new FormData();
-      if (courseForm.title) formData.append('TieuDe', courseForm.title);
-      if (courseForm.description) formData.append('MoTa', courseForm.description);
-      if (courseForm.category) formData.append('DanhMuc', courseForm.category);
+      formData.append('TieuDe', titleTrim);
+      formData.append('MoTaNgan', shortDescTrim);
+      formData.append('MoTa', descHtml);
+      formData.append('MoTaChiTiet', (courseForm.detailedDescription || '').trim());
+      formData.append('DanhMuc', courseForm.category);
       if (courseForm.thumbnail && !courseForm.coverImageFile) formData.append('Thumbnail', courseForm.thumbnail);
-      if (courseForm.price !== undefined) formData.append('Gia', courseForm.price);
+      formData.append('Gia', String(Number(courseForm.price) || 0));
+      formData.append('TrinhDo', courseForm.level || 'BEGINNER');
       if (courseForm.minimumMemberTier) formData.append('MinimumMemberTier', courseForm.minimumMemberTier);
       if (courseForm.coverImageFile) formData.append('CoverImageFile', courseForm.coverImageFile);
 
       if (course?.id || id) {
         const updated = await api.uploadPut(`/api/instructor/courses/${course?.id || id}`, formData);
         setCourse(updated);
+        return updated;
       } else {
         const created = await api.upload('/api/instructor/courses', formData);
         setCourse(created);
         navigate(`/instructor/courses/${created.id}`, { replace: true });
+        return created;
       }
-      if (course?.id || id) {
-        await fetchCourse(course?.id || id);
-      }
-      return true;
     } catch (error) {
       console.error(error);
       window.alert(error?.data?.message || 'Lưu khóa học thất bại.');
@@ -254,10 +331,90 @@ const CourseEditor = () => {
 
   const handleBack = () => {
     if (activeStep === 1) {
-      navigate('/instructor');
+      navigate('/instructor/courses');
       return;
     }
     setActiveStep((prev) => prev - 1);
+  };
+
+  const ensureCourseSaved = async () => {
+    const existingId = course?.id || id;
+    if (existingId) return existingId;
+    const saved = await saveCourse();
+    return saved?.id || null;
+  };
+
+  const validateCourseImageFiles = (files) => {
+    const errors = [];
+    const accepted = [];
+
+    Array.from(files || []).forEach((file) => {
+      const validType = ACCEPTED_COURSE_IMAGE_TYPES.has(file.type) && ACCEPTED_COURSE_IMAGE_EXTENSIONS.test(file.name);
+      if (!validType) {
+        errors.push(`${file.name}: chỉ hỗ trợ JPG, JPEG, PNG hoặc WEBP.`);
+        return;
+      }
+      if (file.size > MAX_COURSE_IMAGE_SIZE) {
+        errors.push(`${file.name}: tối đa 5MB.`);
+        return;
+      }
+      accepted.push(file);
+    });
+
+    return { accepted, errors };
+  };
+
+  const uploadCourseImages = async (files) => {
+    const { accepted, errors } = validateCourseImageFiles(files);
+    if (errors.length > 0) {
+      window.alert(errors.join('\n'));
+    }
+    if (accepted.length === 0) return;
+
+    const courseId = await ensureCourseSaved();
+    if (!courseId) return;
+
+    const formData = new FormData();
+    accepted.forEach((file) => formData.append('files', file));
+
+    try {
+      setSaving(true);
+      const response = await api.upload(`/api/instructor/courses/${courseId}/images`, formData);
+      if (response.course) setCourse(response.course);
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể tải ảnh khóa học.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const setPrimaryCourseImage = async (imageId) => {
+    const courseId = course?.id || id;
+    if (!courseId || !imageId || imageId === 'current-cover') return;
+    try {
+      setSaving(true);
+      const updated = await api.patch(`/api/instructor/courses/${courseId}/images/${imageId}/primary`, {});
+      setCourse(updated);
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể chọn ảnh chính.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteCourseImage = async (imageId) => {
+    const courseId = course?.id || id;
+    if (!courseId || !imageId || imageId === 'current-cover') return;
+    if (!window.confirm('Bạn chắc chắn muốn xóa ảnh khóa học này?')) return;
+    try {
+      setSaving(true);
+      const updated = await api.delete(`/api/instructor/courses/${courseId}/images/${imageId}`);
+      setCourse(updated);
+    } catch (error) {
+      window.alert(error?.data?.message || 'Không thể xóa ảnh khóa học.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const addSection = async () => {
@@ -543,68 +700,84 @@ const CourseEditor = () => {
     <div className="grid gap-6 lg:grid-cols-[1.65fr_1fr]">
       <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <div>
-          <p className="text-sm font-medium text-slate-900">Tiêu đề khóa học</p>
+          <p className="text-sm font-medium text-slate-900 font-semibold">Tiêu đề khóa học *</p>
           <input
             name="title"
             value={courseForm.title}
             onChange={handleCourseFieldChange}
             placeholder="Ví dụ: Lập trình C# cơ bản cho người mới"
             className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            required
           />
         </div>
+
         <div>
-          <p className="text-sm font-medium text-slate-900">Mô tả khóa học</p>
-          <textarea
-            name="description"
-            rows={4}
+          <p className="text-sm font-medium text-slate-900 font-semibold">Mô tả ngắn *</p>
+          <input
+            name="shortDescription"
+            value={courseForm.shortDescription}
+            onChange={handleCourseFieldChange}
+            placeholder="Tóm tắt ngắn gọn mục tiêu hoặc đối tượng của khóa học trong 1-2 câu..."
+            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            required
+          />
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-slate-900 font-semibold">Mô tả khóa học * (tối thiểu 20 ký tự)</p>
+          <RichTextEditor
             value={courseForm.description}
-            onChange={handleCourseFieldChange}
-            onInput={(event) => resizeTextarea(event.currentTarget)}
-            placeholder="Tóm tắt giá trị, đối tượng học viên và kết quả đạt được sau khóa học."
-            className="mt-2 w-full resize-none overflow-hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+            onChange={(value) => setCourseForm((prev) => ({ ...prev, description: value }))}
+            placeholder="Giới thiệu chi tiết về nội dung khóa học và quyền lợi học viên..."
           />
         </div>
-        <div>
-          <p className="text-sm font-medium text-slate-900">Ngành / mảng của khóa học</p>
-          <input
-            name="category"
-            list="course-category-options"
-            value={courseForm.category}
-            onChange={handleCourseFieldChange}
-            placeholder="Ví dụ: Công nghệ, Dữ liệu & AI, Kinh doanh"
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-          />
-          <datalist id="course-category-options">
-            {COURSE_CATEGORIES.map((category) => (
-              <option key={category} value={category} />
-            ))}
-          </datalist>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <p className="text-sm font-medium text-slate-900 font-semibold">Ngành / mảng của khóa học *</p>
+            {loadingCategories ? (
+              <div className="mt-2 text-sm text-slate-400">Đang tải chuyên mục...</div>
+            ) : (
+              <select
+                name="category"
+                value={courseForm.category}
+                onChange={handleCourseFieldChange}
+                className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+                required
+              >
+                <option value="">-- Chọn danh mục --</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          <div>
+            <p className="text-sm font-medium text-slate-900 font-semibold">Trình độ khóa học *</p>
+            <select
+              name="level"
+              value={courseForm.level}
+              onChange={handleCourseFieldChange}
+              className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
+              required
+            >
+              <option value="BEGINNER">Cơ bản (Beginner)</option>
+              <option value="INTERMEDIATE">Trung cấp (Intermediate)</option>
+              <option value="ADVANCED">Nâng cao (Advanced)</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <p className="text-sm font-medium text-slate-900">Ảnh bìa khóa học</p>
-          <input
-            name="thumbnail"
-            value={courseForm.thumbnail}
-            onChange={handleCourseFieldChange}
-            placeholder="Dán URL ảnh bìa hoặc tải ảnh lên"
-            className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 outline-none transition focus:border-purple-500 focus:ring-2 focus:ring-purple-100"
-          />
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition">
-            <Upload className="h-4 w-4" />
-            Tải ảnh từ máy tính
-            <input 
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                  setCourseForm(prev => ({ ...prev, coverImageFile: file, thumbnail: URL.createObjectURL(file) }));
-                }
-              }} 
-            />
-          </label>
-        </div>
+        <CourseImageManager
+          images={getCourseImages(course)}
+          saving={saving}
+          onUpload={uploadCourseImages}
+          onSetPrimary={setPrimaryCourseImage}
+          onDelete={deleteCourseImage}
+        />
+
       </section>
 
       <aside className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -612,19 +785,19 @@ const CourseEditor = () => {
           <p className="text-sm font-medium text-slate-900">Xem trước thông tin</p>
           {courseForm.category && (
             <span className="mt-3 inline-flex rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
-              {courseForm.category}
+              {categories.find(c => c.id === courseForm.category)?.name || courseForm.category}
             </span>
           )}
           <div className="mt-4 flex h-44 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white">
-            {courseForm.thumbnail ? (
-              <img src={getFileUrl(courseForm.thumbnail)} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
+            {courseForm.thumbnail || course?.thumbnail || course?.anhBia || course?.primaryImage ? (
+              <img src={getFileUrl(courseForm.thumbnail || course?.thumbnail || course?.anhBia || course?.primaryImage)} alt="Ảnh bìa khóa học" className="h-full w-full object-cover" />
             ) : (
               <div className="text-center text-slate-400">
                 <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-50 text-purple-500">
                   <ImageIcon className="h-6 w-6" />
                 </div>
                 <p className="text-sm font-medium text-slate-500">Chưa có ảnh bìa</p>
-                <p className="mt-1 text-xs text-slate-400">Dán URL để xem trước ảnh khóa học</p>
+                <p className="mt-1 text-xs text-slate-400">Dán URL hoặc tải file để xem trước</p>
               </div>
             )}
           </div>
@@ -1133,7 +1306,7 @@ const CourseEditor = () => {
       <div className="mb-8 flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/instructor')}
+            onClick={() => navigate('/instructor/courses')}
             className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500"
           >
             <ArrowLeft className="h-5 w-5" />
@@ -1241,7 +1414,7 @@ const CourseEditor = () => {
           onClick={handleBack}
           className="rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700"
         >
-          {activeStep === 1 ? 'Quay lại bảng điều khiển' : 'Quay lại'}
+          {activeStep === 1 ? 'Quay lại danh sách' : 'Quay lại'}
         </button>
         {activeStep < STEPS.length && (
           <button
@@ -1268,6 +1441,137 @@ const CourseEditor = () => {
     </div>
   );
 };
+
+const RichTextEditor = ({ value, onChange, placeholder }) => {
+  const editorRef = useRef(null);
+
+  useEffect(() => {
+    if (editorRef.current && editorRef.current.innerHTML !== (value || '')) {
+      editorRef.current.innerHTML = value || '';
+    }
+  }, [value]);
+
+  const sync = () => onChange(editorRef.current?.innerHTML || '');
+
+  const runCommand = (command, commandValue = null) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, commandValue);
+    sync();
+  };
+
+  const addLink = () => {
+    const href = window.prompt('Nhập liên kết');
+    if (!href) return;
+    runCommand('createLink', href);
+  };
+
+  const buttons = [
+    { icon: Bold, label: 'In đậm', action: () => runCommand('bold') },
+    { icon: Italic, label: 'In nghiêng', action: () => runCommand('italic') },
+    { icon: List, label: 'Gạch đầu dòng', action: () => runCommand('insertUnorderedList') },
+    { icon: Heading3, label: 'Tiêu đề nhỏ', action: () => runCommand('formatBlock', 'h3') },
+    { icon: LinkIcon, label: 'Chèn link', action: addLink },
+  ];
+
+  return (
+    <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 focus-within:border-purple-400 focus-within:ring-4 focus-within:ring-purple-100">
+      <div className="flex flex-wrap gap-1 border-b border-slate-200 bg-white p-2">
+        {buttons.map(({ icon: Icon, label, action }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={action}
+            title={label}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-600 transition hover:bg-purple-50 hover:text-purple-700"
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        ))}
+      </div>
+      <div
+        ref={editorRef}
+        contentEditable
+        role="textbox"
+        aria-multiline="true"
+        data-placeholder={placeholder}
+        onInput={sync}
+        onBlur={sync}
+        className="rich-text-editor min-h-36 w-full px-4 py-3 text-sm leading-7 text-slate-800 outline-none empty:before:text-slate-400 empty:before:content-[attr(data-placeholder)]"
+        suppressContentEditableWarning
+      />
+    </div>
+  );
+};
+
+const CourseImageManager = ({ images, saving, onUpload, onSetPrimary, onDelete }) => (
+  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-semibold text-slate-900">Ảnh khóa học</p>
+      </div>
+      <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+        <Upload className="h-4 w-4" />
+        Tải ảnh từ máy
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            onUpload(event.target.files);
+            event.target.value = '';
+          }}
+          disabled={saving}
+        />
+      </label>
+    </div>
+
+    {images.length > 0 ? (
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {images.map((image) => {
+          const imageUrl = image.imageUrl || image.url;
+          return (
+            <div key={image.id || imageUrl} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <div className="relative aspect-video bg-slate-100">
+                <img src={getFileUrl(imageUrl)} alt="Ảnh khóa học" className="h-full w-full object-cover" />
+                {image.isPrimary && (
+                  <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700 shadow-sm">
+                    <Star className="h-3 w-3 fill-emerald-500" />
+                    Ảnh chính
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 p-2">
+                <button
+                  type="button"
+                  disabled={saving || image.isPrimary || image.canDelete === false}
+                  onClick={() => onSetPrimary(image.id)}
+                  className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Star className="h-3.5 w-3.5" />
+                  Chọn làm ảnh chính
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || image.canDelete === false}
+                  onClick={() => onDelete(image.id)}
+                  className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-100 px-2 py-1.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Xóa
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Chưa có ảnh khóa học. Hệ thống sẽ dùng ảnh mặc định khi hiển thị.
+      </div>
+    )}
+  </div>
+);
 
 export default CourseEditor;
 

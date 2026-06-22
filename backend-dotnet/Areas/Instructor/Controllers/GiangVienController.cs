@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Data;
+using System.Net;
 using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.PhanHoi;
 using LMS.Api.DTOs.YeuCau;
@@ -38,6 +39,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var userId = TroGiup.LayUserId(User)!;
         var ds = await db.KhoaHoc.AsNoTracking()
             .Where(c => c.GiangVienId == userId)
+            .Include(c => c.CacHinhAnh.OrderBy(i => i.NgayTao))
             .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
                 .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
             .Include(c => c.CacGhiDanh)
@@ -56,6 +58,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var userId = TroGiup.LayUserId(User)!;
         var khoaHocs = await db.KhoaHoc.AsNoTracking()
             .Where(c => c.GiangVienId == userId)
+            .Include(c => c.CacHinhAnh.OrderBy(i => i.NgayTao))
             .Include(c => c.CacChuongHoc)
                 .ThenInclude(s => s.CacBaiHoc)
             .Include(c => c.CacGhiDanh)
@@ -138,8 +141,8 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var tieuDe = (yeuCau.TieuDe ?? yeuCau.Title ?? string.Empty).Trim();
         if (tieuDe.Length < 5) return Results.BadRequest(new { message = "Tiêu đề khóa học tối thiểu 5 ký tự." });
 
-        var moTa = (yeuCau.MoTa ?? yeuCau.Description ?? string.Empty).Trim();
-        if (moTa.Length < 20) return Results.BadRequest(new { message = "Mô tả khóa học tối thiểu 20 ký tự." });
+        var moTa = SanitizeRichText(yeuCau.MoTa ?? yeuCau.Description ?? string.Empty);
+        if (DemKyTuNoiDung(moTa) < 20) return Results.BadRequest(new { message = "Mô tả khóa học tối thiểu 20 ký tự." });
         if (yeuCau.Gia < 0) return Results.BadRequest(new { message = "Giá khóa học không được âm." });
 
         string? anhBia = null;
@@ -148,6 +151,22 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             var validate = ValidateFile(yeuCau.CoverImageFile, ImageTypes, 5 * 1024 * 1024, "Ảnh bìa");
             if (validate is not null) return validate;
             anhBia = await SaveUpload(yeuCau.CoverImageFile, "uploads/courses");
+        }
+
+        var selectedCategoryName = "Lập trình";
+        string? danhMucId = null;
+        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc))
+        {
+            var dm = await db.DanhMuc.AsNoTracking().FirstOrDefaultAsync(d => d.Id == yeuCau.DanhMuc || d.Ten == yeuCau.DanhMuc);
+            if (dm is not null)
+            {
+                selectedCategoryName = dm.Ten;
+                danhMucId = dm.Id;
+            }
+            else
+            {
+                selectedCategoryName = yeuCau.DanhMuc.Trim();
+            }
         }
 
         var now = DateTime.UtcNow;
@@ -160,7 +179,8 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             MoTa = moTa,
             MoTaChiTiet = yeuCau.MoTaChiTiet,
             AnhDaiDien = anhBia ?? yeuCau.Thumbnail,
-            ChuyenMuc = string.IsNullOrWhiteSpace(yeuCau.DanhMuc) ? "Lập trình" : yeuCau.DanhMuc.Trim(),
+            DanhMucId = danhMucId,
+            ChuyenMuc = selectedCategoryName,
             TrinhDo = string.IsNullOrWhiteSpace(yeuCau.TrinhDo) ? "BEGINNER" : yeuCau.TrinhDo.Trim(),
             Gia = yeuCau.Gia,
             HangThanhVienToiThieu = "BRONZE",
@@ -172,6 +192,17 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         };
 
         db.KhoaHoc.Add(khoaHoc);
+        if (!string.IsNullOrWhiteSpace(khoaHoc.AnhDaiDien))
+        {
+            khoaHoc.CacHinhAnh.Add(new KhoaHocAnh
+            {
+                Id = TaoId.Moi(),
+                KhoaHocId = khoaHoc.Id,
+                AnhUrl = khoaHoc.AnhDaiDien,
+                AnhChinh = true,
+                NgayTao = now
+            });
+        }
         await db.SaveChangesAsync();
 
         return Results.Created($"/api/instructor/courses/{khoaHoc.Id}", MapCourse(khoaHoc));
@@ -195,12 +226,25 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         var moTa = yeuCau.MoTa ?? yeuCau.Description;
         if (moTa is not null)
         {
-            if (moTa.Trim().Length < 20) return Results.BadRequest(new { message = "Mô tả khóa học tối thiểu 20 ký tự." });
-            kh.MoTa = moTa.Trim();
+            var clean = SanitizeRichText(moTa);
+            if (DemKyTuNoiDung(clean) < 20) return Results.BadRequest(new { message = "Mô tả khóa học tối thiểu 20 ký tự." });
+            kh.MoTa = clean;
         }
         if (yeuCau.MoTaNgan is not null) kh.MoTaNgan = yeuCau.MoTaNgan.Trim();
         if (yeuCau.MoTaChiTiet is not null) kh.MoTaChiTiet = yeuCau.MoTaChiTiet.Trim();
-        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc)) kh.ChuyenMuc = yeuCau.DanhMuc.Trim();
+        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc))
+        {
+            var dm = await db.DanhMuc.AsNoTracking().FirstOrDefaultAsync(d => d.Id == yeuCau.DanhMuc || d.Ten == yeuCau.DanhMuc);
+            if (dm is not null)
+            {
+                kh.ChuyenMuc = dm.Ten;
+                kh.DanhMucId = dm.Id;
+            }
+            else
+            {
+                kh.ChuyenMuc = yeuCau.DanhMuc.Trim();
+            }
+        }
         if (!string.IsNullOrWhiteSpace(yeuCau.TrinhDo)) kh.TrinhDo = yeuCau.TrinhDo.Trim();
         if (!string.IsNullOrWhiteSpace(yeuCau.TrangThai))
         {
@@ -216,6 +260,94 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             var validate = ValidateFile(yeuCau.CoverImageFile, ImageTypes, 5 * 1024 * 1024, "Ảnh bìa");
             if (validate is not null) return validate;
             kh.AnhDaiDien = await SaveUpload(yeuCau.CoverImageFile, "uploads/courses");
+            await ThemAnhKhoaHoc(kh, kh.AnhDaiDien, true);
+        }
+
+        kh.NgayCapNhat = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return Results.Ok(MapCourse(kh));
+    }
+
+    [HttpPost("/api/instructor/courses/{id}/images")]
+    [RequestSizeLimit(60 * 1024 * 1024)]
+    public async Task<IResult> UploadAnhKhoaHoc(string id, [FromForm] List<IFormFile> files)
+    {
+        var kh = await LoadOwnedCourse(id);
+        if (kh is null) return Results.Json(new { message = "Báº¡n khÃ´ng cÃ³ quyá»n chá»‰nh sá»­a khÃ³a há»c nÃ y." }, statusCode: 403);
+        if (files is null || files.Count == 0) return Results.BadRequest(new { message = "Vui lÃ²ng chá»n Ã­t nháº¥t má»™t áº£nh." });
+
+        await DongBoAnhDaiDienCu(kh);
+
+        var errors = new List<string>();
+        foreach (var file in files.Where(file => file is not null && file.Length > 0))
+        {
+            var validate = ValidateFile(file, ImageTypes, 5 * 1024 * 1024, "áº¢nh khÃ³a há»c");
+            if (validate is not null)
+            {
+                errors.Add(file.FileName);
+                continue;
+            }
+
+            var url = await SaveUpload(file, "uploads/courses");
+            await ThemAnhKhoaHoc(kh, url, !kh.CacHinhAnh.Any(item => item.AnhChinh));
+        }
+
+        kh.NgayCapNhat = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new
+        {
+            message = errors.Count == 0 ? "ÄÃ£ táº£i áº£nh khÃ³a há»c." : $"Má»™t sá»‘ áº£nh khÃ´ng há»£p lá»‡: {string.Join(", ", errors)}",
+            course = MapCourse(kh)
+        });
+    }
+
+    [HttpPatch("/api/instructor/courses/{id}/images/{imageId}/primary")]
+    public async Task<IResult> ChonAnhChinhKhoaHoc(string id, string imageId)
+    {
+        var kh = await LoadOwnedCourse(id);
+        if (kh is null) return Results.Json(new { message = "Báº¡n khÃ´ng cÃ³ quyá»n chá»‰nh sá»­a khÃ³a há»c nÃ y." }, statusCode: 403);
+
+        var image = kh.CacHinhAnh.FirstOrDefault(item => item.Id == imageId);
+        if (image is null) return Results.NotFound(new { message = "KhÃ´ng tÃ¬m tháº¥y áº£nh khÃ³a há»c." });
+
+        foreach (var item in kh.CacHinhAnh)
+        {
+            item.AnhChinh = item.Id == imageId;
+        }
+
+        kh.AnhDaiDien = image.AnhUrl;
+        kh.NgayCapNhat = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return Results.Ok(MapCourse(kh));
+    }
+
+    [HttpDelete("/api/instructor/courses/{id}/images/{imageId}")]
+    public async Task<IResult> XoaAnhKhoaHoc(string id, string imageId)
+    {
+        var kh = await LoadOwnedCourse(id);
+        if (kh is null) return Results.Json(new { message = "Báº¡n khÃ´ng cÃ³ quyá»n chá»‰nh sá»­a khÃ³a há»c nÃ y." }, statusCode: 403);
+
+        var image = kh.CacHinhAnh.FirstOrDefault(item => item.Id == imageId);
+        if (image is null) return Results.NotFound(new { message = "KhÃ´ng tÃ¬m tháº¥y áº£nh khÃ³a há»c." });
+
+        var wasPrimary = image.AnhChinh || string.Equals(kh.AnhDaiDien, image.AnhUrl, StringComparison.OrdinalIgnoreCase);
+        XoaFileUpload(image.AnhUrl);
+        db.KhoaHocAnh.Remove(image);
+        kh.CacHinhAnh.Remove(image);
+
+        if (wasPrimary)
+        {
+            var next = kh.CacHinhAnh.OrderBy(item => item.NgayTao).FirstOrDefault();
+            if (next is not null)
+            {
+                next.AnhChinh = true;
+                kh.AnhDaiDien = next.AnhUrl;
+            }
+            else
+            {
+                kh.AnhDaiDien = null;
+            }
         }
 
         kh.NgayCapNhat = DateTime.UtcNow;
@@ -1256,6 +1388,7 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
 
         var userId = TroGiup.LayUserId(User)!;
         var query = db.KhoaHoc
+            .Include(c => c.CacHinhAnh.OrderBy(i => i.NgayTao))
             .Include(c => c.CacChuongHoc.OrderBy(s => s.ThuTu))
                 .ThenInclude(s => s.CacBaiHoc.OrderBy(l => l.ThuTu))
             .Include(c => c.CacGhiDanh)
@@ -1335,9 +1468,57 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             || string.Equals(kh.TrangThai, "PUBLISHED", StringComparison.OrdinalIgnoreCase);
     }
 
+
+    private static string SanitizeRichText(string? html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return string.Empty;
+
+        var clean = Regex.Replace(html, @"<(script|style)[\s\S]*?</\1>", string.Empty, RegexOptions.IgnoreCase);
+        clean = Regex.Replace(clean, @"\s+on\w+\s*=\s*(""[^""]*""|'[^']*')", string.Empty, RegexOptions.IgnoreCase);
+        clean = Regex.Replace(clean, @"\s+(style|class|id)\s*=\s*(""[^""]*""|'[^']*')", string.Empty, RegexOptions.IgnoreCase);
+
+        var allowed = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "p", "br", "strong", "b", "em", "i", "ul", "ol", "li", "h3", "h4", "a"
+        };
+
+        clean = Regex.Replace(clean, @"</?([a-zA-Z0-9]+)([^>]*)>", match =>
+        {
+            var tag = match.Groups[1].Value.ToLowerInvariant();
+            if (!allowed.Contains(tag)) return string.Empty;
+            var isClosing = match.Value.StartsWith("</", StringComparison.Ordinal);
+            if (isClosing) return tag == "br" ? string.Empty : $"</{tag}>";
+            if (tag == "br") return "<br>";
+            if (tag != "a") return $"<{tag}>";
+
+            var hrefMatch = Regex.Match(match.Groups[2].Value, @"href\s*=\s*(""([^""]*)""|'([^']*)')", RegexOptions.IgnoreCase);
+            var href = hrefMatch.Success ? (hrefMatch.Groups[2].Value.Length > 0 ? hrefMatch.Groups[2].Value : hrefMatch.Groups[3].Value) : "#";
+            if (!Uri.TryCreate(href, UriKind.RelativeOrAbsolute, out var uri) ||
+                (uri.IsAbsoluteUri && uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
+            {
+                href = "#";
+            }
+
+            return $"<a href=\"{WebUtility.HtmlEncode(href)}\" target=\"_blank\" rel=\"noopener noreferrer\">";
+        }, RegexOptions.IgnoreCase);
+
+        return clean.Trim();
+    }
+
+    private static int DemKyTuNoiDung(string? html)
+    {
+        var text = Regex.Replace(html ?? string.Empty, "<[^>]+>", " ");
+        text = WebUtility.HtmlDecode(text);
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+        return text.Length;
+    }
+
     private static IResult? ValidateFile(IFormFile file, HashSet<string> allowedTypes, long maxSize, string label)
     {
         if (!allowedTypes.Contains(file.ContentType)) return Results.BadRequest(new { message = $"{label} không đúng định dạng được hỗ trợ." });
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (allowedTypes == ImageTypes && extension is not ".jpg" and not ".jpeg" and not ".png" and not ".webp")
+            return Results.BadRequest(new { message = $"{label} chỉ hỗ trợ JPG, JPEG, PNG hoặc WEBP." });
         if (file.Length > maxSize) return Results.BadRequest(new { message = $"{label} vượt quá dung lượng cho phép." });
         return null;
     }
@@ -1362,10 +1543,78 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         return "/" + relativeFolder.Trim('/').Replace("\\", "/") + "/" + fileName;
     }
 
+
+    private void XoaFileUpload(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url) || url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return;
+        var root = string.IsNullOrWhiteSpace(env.WebRootPath) ? Path.Combine(env.ContentRootPath, "wwwroot") : env.WebRootPath;
+        var path = Path.Combine(root, url.TrimStart('/').Replace('/', Path.DirectorySeparatorChar));
+        if (System.IO.File.Exists(path)) System.IO.File.Delete(path);
+    }
+
+    private async Task DongBoAnhDaiDienCu(KhoaHoc kh)
+    {
+        if (kh.CacHinhAnh.Count > 0 || string.IsNullOrWhiteSpace(kh.AnhDaiDien)) return;
+        await ThemAnhKhoaHoc(kh, kh.AnhDaiDien, true);
+    }
+
+    private Task ThemAnhKhoaHoc(KhoaHoc kh, string url, bool primary)
+    {
+        if (primary)
+        {
+            foreach (var image in kh.CacHinhAnh)
+            {
+                image.AnhChinh = false;
+            }
+            kh.AnhDaiDien = url;
+        }
+
+        if (!kh.CacHinhAnh.Any(item => string.Equals(item.AnhUrl, url, StringComparison.OrdinalIgnoreCase)))
+        {
+            kh.CacHinhAnh.Add(new KhoaHocAnh
+            {
+                Id = TaoId.Moi(),
+                KhoaHocId = kh.Id,
+                AnhUrl = url,
+                AnhChinh = primary,
+                NgayTao = DateTime.UtcNow
+            });
+        }
+
+        return Task.CompletedTask;
+    }
+
     private static object MapCourse(KhoaHoc kh)
     {
         var sections = kh.CacChuongHoc.OrderBy(s => s.ThuTu).Select(MapSection).ToList();
         var errors = PublishErrors(kh);
+        var courseImages = kh.CacHinhAnh
+            .OrderByDescending(item => item.AnhChinh)
+            .ThenBy(item => item.NgayTao)
+            .Select(item => new
+            {
+                id = item.Id,
+                imageUrl = item.AnhUrl,
+                url = item.AnhUrl,
+                isPrimary = item.AnhChinh,
+                createdAt = item.NgayTao,
+                canDelete = true
+            })
+            .Cast<object>()
+            .ToList();
+        if (courseImages.Count == 0 && !string.IsNullOrWhiteSpace(kh.AnhDaiDien))
+        {
+            courseImages.Add(new
+            {
+                id = "current-cover",
+                imageUrl = kh.AnhDaiDien,
+                url = kh.AnhDaiDien,
+                isPrimary = true,
+                createdAt = kh.NgayCapNhat,
+                canDelete = false
+            });
+        }
+
         return new
         {
             id = kh.Id,
@@ -1377,7 +1626,11 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
             description = kh.MoTa,
             thumbnail = kh.AnhDaiDien,
             anhBia = kh.AnhDaiDien,
+            primaryImage = kh.AnhDaiDien,
+            images = courseImages,
+            courseImages,
             danhMuc = kh.ChuyenMuc,
+            danhMucId = kh.DanhMucId,
             trinhDo = kh.TrinhDo,
             price = kh.Gia,
             gia = kh.Gia,

@@ -184,11 +184,13 @@ export default function Events() {
                           )}
                         </div>
                       </div>
-                      {item.isRegistered && pointsUsed > 0 && (
-                        <p className="mt-2 text-right text-xs font-medium text-slate-500">
-                          Đã sử dụng {pointsUsed} điểm
-                        </p>
-                      )}
+                      <div className="mt-2 min-h-[16px]">
+                        {item.isRegistered && pointsUsed > 0 && (
+                          <p className="text-right text-xs font-medium text-slate-500">
+                            Đã sử dụng {pointsUsed} điểm
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>

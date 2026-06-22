@@ -222,6 +222,23 @@ await using (var scope = app.Services.CreateAsyncScope())
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await db.Database.MigrateAsync();
 
+    // Ensure KhoaHocAnh table is created if the migration was already marked as applied but the table is missing
+    await db.Database.ExecuteSqlRawAsync(@"
+        IF OBJECT_ID(N'[KhoaHocAnh]') IS NULL
+        BEGIN
+            CREATE TABLE [KhoaHocAnh] (
+                [Id] nvarchar(450) NOT NULL,
+                [KhoaHocId] nvarchar(450) NOT NULL,
+                [AnhUrl] nvarchar(max) NOT NULL,
+                [AnhChinh] bit NOT NULL,
+                [NgayTao] datetime2 NOT NULL,
+                CONSTRAINT [PK_KhoaHocAnh] PRIMARY KEY ([Id]),
+                CONSTRAINT [FK_KhoaHocAnh_KhoaHoc_KhoaHocId] FOREIGN KEY ([KhoaHocId]) REFERENCES [KhoaHoc] ([Id]) ON DELETE CASCADE
+            );
+            CREATE INDEX [IX_KhoaHocAnh_KhoaHocId] ON [KhoaHocAnh] ([KhoaHocId]);
+        END;
+    ");
+
     if (app.Environment.IsDevelopment())
     {
         await SeedData.SeedAsync(db);

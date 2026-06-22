@@ -22,14 +22,21 @@ const clamp = (v) => Math.min(100, Math.max(0, Number(v || 0)));
 
 const getCourse = (e) => e?.course || {};
 const getCourseId = (course) => course?.id || course?.Id;
+const getEnrollmentCourseId = (enrollment) =>
+  getCourseId(getCourse(enrollment)) ||
+  enrollment?.courseId ||
+  enrollment?.khoaHocId ||
+  enrollment?.KhoaHocId;
 const getCertificateCourseId = (certificate) => certificate?.course?.id || certificate?.course?.Id;
+const getEnrollmentProgress = (enrollment) =>
+  clamp(enrollment?.progress ?? enrollment?.tienDo ?? enrollment?.TienDo ?? 0);
 
 const getStatus = (enrollment) => {
   const course = getCourse(enrollment);
-  const progress = clamp(enrollment.progress);
+  const progress = getEnrollmentProgress(enrollment);
   const now = new Date();
   const startDate = course.startDate ? new Date(course.startDate) : null;
-  if (enrollment.completedAt || progress >= 100) return 'completed';
+  if (enrollment.completedAt || enrollment.ngayHoanThanh || enrollment.NgayHoanThanh || progress >= 100) return 'completed';
   if (startDate && startDate > now) return 'upcoming';
   return 'active';
 };
@@ -49,6 +56,7 @@ const MyLearning = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [enrollments, setEnrollments] = useState([]);
+  const [progressByCourseId, setProgressByCourseId] = useState({});
   const [certificates, setCertificates] = useState([]);
   const [selectedCertificate, setSelectedCertificate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -62,12 +70,29 @@ const MyLearning = () => {
     const load = async () => {
       try {
         setLoading(true);
-        const [enrollRes, certRes] = await Promise.all([
+        const [enrollRes, certRes, reportRes] = await Promise.all([
           axios.get('/api/courses/enrolled'),
-          axios.get('/api/user/certificates').catch(() => ({ data: [] }))
+          axios.get('/api/user/certificates').catch(() => ({ data: [] })),
+          axios.get('/api/user/reports').catch(() => ({ data: null })),
         ]);
         if (mounted) {
+          const reportProgress = Array.isArray(reportRes.data?.courseProgress) ? reportRes.data.courseProgress : [];
+          const progressMap = reportProgress.reduce((map, course) => {
+            const courseId = course?.id || course?.courseId;
+            if (courseId) {
+              map[courseId] = {
+                progress: clamp(course.progress),
+                totalLessons: Number(course.totalLessons || 0),
+                completedLessons: Number(course.completedLessons || 0),
+                instructorName: course.instructorName,
+                title: course.title,
+              };
+            }
+            return map;
+          }, {});
+
           setEnrollments(Array.isArray(enrollRes.data) ? enrollRes.data : []);
+          setProgressByCourseId(progressMap);
           setCertificates(Array.isArray(certRes.data) ? certRes.data : []);
         }
       } catch (err) {
@@ -84,11 +109,32 @@ const MyLearning = () => {
   const enriched = useMemo(() =>
     enrollments
       .filter(e => e.course)
-      .map(e => ({
-        ...e,
-        status: getStatus(e),
-      })),
-    [enrollments]
+      .map(e => {
+        const course = getCourse(e);
+        const reportProgress = progressByCourseId[getEnrollmentCourseId(e)];
+        const savedProgress = getEnrollmentProgress(e);
+        const progress = clamp(Math.max(savedProgress, reportProgress?.progress ?? 0));
+        const savedLessonCount = Number(course.lessonCount ?? course.LessonCount ?? 0);
+        const totalLessons = Math.max(savedLessonCount, reportProgress?.totalLessons ?? 0);
+        const merged = {
+          ...e,
+          progress,
+          completedAt: e.completedAt ?? e.ngayHoanThanh ?? e.NgayHoanThanh,
+          createdAt: e.createdAt ?? e.ngayTao ?? e.NgayTao,
+          course: {
+            ...course,
+            title: course.title || reportProgress?.title,
+            instructorName: course.instructorName || reportProgress?.instructorName,
+            lessonCount: totalLessons,
+          },
+        };
+
+        return {
+          ...merged,
+          status: getStatus(merged),
+        };
+      }),
+    [enrollments, progressByCourseId]
   );
 
   // Tab counts
@@ -207,7 +253,7 @@ const MyLearning = () => {
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filtered.map(enrollment => {
                 const course = getCourse(enrollment);
-                const progress = clamp(enrollment.progress);
+                const progress = getEnrollmentProgress(enrollment);
                 const certificate = enrollment.status === 'completed'
                   ? certificates.find(c => getCertificateCourseId(c) === getCourseId(course))
                   : null;

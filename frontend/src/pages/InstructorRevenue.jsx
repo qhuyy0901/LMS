@@ -294,7 +294,6 @@ const InstructorRevenue = () => {
             </div>
             <div>
               <h2 className="font-semibold text-slate-900">Lịch sử giao dịch</h2>
-              <p className="text-xs text-slate-500">Bán khóa học, hoàn tiền và rút tiền.</p>
             </div>
           </div>
 

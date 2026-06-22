@@ -97,9 +97,31 @@ public static class SeedData
         // Seed DanhMuc
         var categoryNames = new[] { "Lập trình", "Công nghệ", "Mạng máy tính", "Tiếng Anh", "Thiết kế", "Kinh doanh", "AI", "ReactJS", "Python", "ASP.NET Core", "Data Science" };
         var categoryMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        async Task<DanhMuc> LayHoacTaoDanhMuc(string? rawName)
+        {
+            var name = string.IsNullOrWhiteSpace(rawName) ? "Khac" : rawName.Trim();
+            var slug = TroGiup.TaoSlug(name);
+            var existing = await db.DanhMuc.FirstOrDefaultAsync(d => d.Ten == name || d.Slug == slug);
+            if (existing is not null) return existing;
+
+            var dm = new DanhMuc
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Ten = name,
+                Slug = slug,
+                MoTa = $"Chuyen muc ve {name}",
+                HoatDong = true,
+                NgayTao = now,
+                NgayCapNhat = now
+            };
+
+            db.DanhMuc.Add(dm);
+            await db.SaveChangesAsync();
+            return dm;
+        }
         foreach (var name in categoryNames)
         {
-            var dm = await db.DanhMuc.FirstOrDefaultAsync(d => d.Ten == name);
+            var dm = await LayHoacTaoDanhMuc(name);
             if (dm == null)
             {
                 dm = new DanhMuc
@@ -122,6 +144,15 @@ public static class SeedData
         var uncategorizedCourses = await db.KhoaHoc.Where(c => c.DanhMucId == null || c.DanhMucId == "").ToListAsync();
         if (uncategorizedCourses.Any())
         {
+            foreach (var categoryName in uncategorizedCourses
+                .Select(c => c.ChuyenMuc)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var dm = await LayHoacTaoDanhMuc(categoryName);
+                categoryMap[categoryName] = dm.Id;
+            }
+
             foreach (var course in uncategorizedCourses)
             {
                 if (categoryMap.TryGetValue(course.ChuyenMuc, out var dmId))

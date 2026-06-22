@@ -19,6 +19,8 @@ import {
   TrendingUp,
   Users,
   Wallet,
+  Trophy,
+  RefreshCw,
 } from 'lucide-react';
 import { useDashboardView } from '../context/DashboardViewContext';
 import { StatCard } from '../components/StatCard';
@@ -85,6 +87,7 @@ const normalizeDashboardData = (view, payload = {}) => {
         totalCourses: payload.tongKhoaHoc ?? payload.totalCourses ?? 0,
         averageRating: payload.danhGiaTrungBinh ?? payload.averageRating ?? null,
       },
+      bestSellerTitle: payload.khoaHocNhieuHocVienNhat?.tenKhoaHoc ?? payload.khoaHocNhieuHocVienNhat?.title ?? payload.khoaHocNhieuHocVienNhat?.tieuDe ?? null,
       courses: (payload.khoaHocCuaToi ?? payload.courses ?? []).map((course) => ({
         id: course.id,
         title: course.title ?? course.tieuDe ?? course.tenKhoaHoc,
@@ -124,7 +127,7 @@ const normalizeDashboardData = (view, payload = {}) => {
       startedAt: course.purchasedAt ?? course.enrolledAt ?? course.courseStartDate,
     })),
   };
-}
+};
 
 const StudentDashboard = ({ data, loading, certificates = [] }) => {
   const navigate = useNavigate();
@@ -157,7 +160,7 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
       subtitle: `Chuỗi ${stats?.loginStreak ?? 0} ngày`,
       reward: `+${stats?.nextLoginReward ?? 3} điểm`,
       done: (stats?.loginStreak ?? 0) > 0,
-      color: 'bg-orange-50 text-orange-500 dark:bg-orange-950/20 dark:text-orange-400',
+      color: 'bg-orange-50 text-orange-500',
     },
     {
       icon: BookOpen,
@@ -165,7 +168,7 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
       subtitle: '',
       reward: '+5 điểm',
       done: Boolean(stats?.dailyLessonCompleted),
-      color: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400',
+      color: 'bg-green-50 text-green-600',
     },
     {
       icon: FileCheck,
@@ -173,135 +176,76 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
       subtitle: '',
       reward: '+10 điểm',
       done: Boolean(stats?.dailyQuizPassed),
-      color: 'bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400',
+      color: 'bg-blue-50 text-blue-600',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-6 gap-6 items-stretch animate-fade-in-up">
-      {/* Row 1: Hero Banner (4 cols) & Wallet (2 cols) */}
-      <div className="md:col-span-4 p-[1.5px] rounded-[1.5rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)] h-full">
-        <section className="relative overflow-hidden rounded-[calc(1.5rem-1.5px)] bg-gradient-to-br from-purple-50/20 via-white to-purple-100/10 dark:from-slate-900/90 dark:to-purple-950/10 p-8 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)] dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.05)] h-full flex flex-col justify-center min-h-[220px] group">
-          {/* Ambient Glow */}
-          <div className="absolute top-0 right-0 w-80 h-80 bg-purple-500/5 rounded-full blur-[100px] pointer-events-none" />
+    <>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="space-y-6 xl:col-span-2">
+          <section className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-100 via-purple-50 to-pink-50 p-8">
+            <div className="relative z-10 max-w-xl">
+              <h2 className="mb-3 text-2xl font-semibold tracking-tight text-purple-950 md:text-3xl">
+                Mở khóa hơn 1.000 khóa học cao cấp ngay hôm nay
+              </h2>
 
-          <div className="relative z-10 max-w-xl">
-            <span className="text-[10px] tracking-[0.2em] font-mono uppercase text-purple-650 dark:text-purple-400 mb-2.5 block font-bold">Premium Membership</span>
-            <h2 className="mb-4 text-2xl font-extrabold tracking-tight text-slate-900 dark:text-purple-50 md:text-3xl leading-tight">
-              Mở khóa hơn 1.000 khóa học cao cấp ngay hôm nay
-            </h2>
-            <Link
-              to="/upgrade"
-              className="inline-flex items-center gap-2.5 rounded-full bg-purple-600 hover:bg-purple-755 text-white transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-[1.02] active:scale-[0.98] px-5 py-2.5 text-xs font-semibold group/btn shadow-md shadow-purple-200/40 dark:shadow-none w-fit"
-            >
-              <span>Nâng cấp Premium</span>
-              <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5">
-                <ArrowUpRight className="h-3 w-3 text-white" strokeWidth={2.5} />
-              </span>
-            </Link>
-          </div>
-
-          <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden md:flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/85 dark:bg-slate-800/85 border border-purple-100/40 dark:border-slate-700/40 text-purple-600 dark:text-purple-400 shadow-sm animate-float">
-              <GraduationCap className="h-6 w-6" strokeWidth={1.5} />
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/85 dark:bg-slate-800/85 border border-purple-100/40 dark:border-slate-700/40 text-indigo-500 dark:text-indigo-400 shadow-sm animate-float delay-100">
-              <BookOpen className="h-5 w-5" strokeWidth={1.5} />
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div className="md:col-span-2 p-[1.5px] rounded-[1.5rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(147,51,234,0.04)] group h-full">
-        <section className="bg-white dark:bg-slate-900 rounded-[calc(1.5rem-1.5px)] p-6 h-full flex flex-col justify-between min-h-[220px]">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-[10px] tracking-[0.2em] font-mono uppercase text-slate-400 dark:text-slate-500 block font-bold">Ví tài khoản</span>
-            {!loading && (
-              <button
-                type="button"
-                onClick={() => setShowWalletAmounts((current) => !current)}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-purple-50 dark:border-slate-805 text-slate-400 hover:text-slate-650 dark:hover:text-slate-300 transition cursor-pointer"
-                title={showWalletAmounts ? 'Ẩn số tiền' : 'Hiện số tiền'}
-                aria-label={showWalletAmounts ? 'Ẩn số tiền trong ví' : 'Hiện số tiền trong ví'}
+              <Link
+                to="/upgrade"
+                className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-6 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
               >
-                {showWalletAmounts ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-              </button>
-            )}
+                Nâng cấp Premium
+                <ArrowUpRight className="h-4 w-4" />
+              </Link>
+            </div>
+            <div className="absolute right-10 top-1/2 hidden -translate-y-1/2 gap-3 md:grid">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/70 text-purple-600 shadow-sm">
+                <GraduationCap className="h-8 w-8" />
+              </div>
+              <div className="ml-16 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/70 text-pink-500 shadow-sm">
+                <BookOpen className="h-7 w-7" />
+              </div>
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <StatCard
+              icon={Check}
+              label="Khóa học"
+              value={loading ? '...' : `${stats?.completedCourses ?? 0} / ${stats?.totalEnrolled ?? 0}`}
+              subtitle="Hoàn thành"
+              color="bg-green-100 text-green-600"
+              loading={loading}
+            />
+            <StatCard
+              icon={Award}
+              label="Chứng chỉ"
+              value={loading ? '...' : stats?.certificates ?? 0}
+              subtitle="Đã đạt được"
+              color="bg-amber-100 text-amber-650"
+              loading={loading}
+            />
+            <StatCard
+              icon={CalendarDays}
+              label="Sự kiện"
+              value={loading ? '...' : stats?.participatedEvents ?? 0}
+              subtitle="Đã tham gia"
+              color="bg-purple-100 text-purple-600"
+              loading={loading}
+            />
           </div>
 
-          {loading ? (
-            <div className="space-y-3">
-              <div className="h-8 w-32 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
-              <div className="h-3 w-20 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
-            </div>
-          ) : (
-            <div>
-              <p className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white font-mono">
-                {showWalletAmounts ? formatCurrency(stats?.walletBalance ?? 0) : '••••••'}
-              </p>
-              <p className="mt-1 text-xs text-slate-400 dark:text-slate-550 font-medium">
-                Đã chi: <span className="font-mono">{showWalletAmounts ? formatCurrency(stats?.totalSpent ?? 0) : '••••••'}</span>
-              </p>
-            </div>
-          )}
-
-          <Link
-            to="/upgrade"
-            className="mt-6 flex w-full items-center justify-center gap-2.5 rounded-full bg-purple-600 hover:bg-purple-755 text-white py-2.5 text-xs font-semibold transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-[1.02] active:scale-[0.98] group/btn shadow-md shadow-purple-100/50 dark:shadow-none"
-          >
-            <Wallet className="h-3.5 w-3.5 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/btn:scale-110" strokeWidth={1.5} />
-            <span>Nạp ví</span>
-          </Link>
-        </section>
-      </div>
-
-      {/* Row 2: Stats Row spanning full width using 3 columns (col-span-2 each) */}
-      <div className="md:col-span-2">
-        <StatCard
-          icon={Check}
-          label="Khóa học"
-          value={loading ? '...' : `${stats?.completedCourses ?? 0} / ${stats?.totalEnrolled ?? 0}`}
-          subtitle="Hoàn thành"
-          color="bg-green-100 text-green-650"
-          loading={loading}
-        />
-      </div>
-      <div className="md:col-span-2">
-        <StatCard
-          icon={Award}
-          label="Chứng chỉ"
-          value={loading ? '...' : stats?.certificates ?? 0}
-          subtitle="Đã đạt được"
-          color="bg-amber-100 text-amber-650"
-          loading={loading}
-        />
-      </div>
-      <div className="md:col-span-2">
-        <StatCard
-          icon={CalendarDays}
-          label="Sự kiện"
-          value={loading ? '...' : stats?.participatedEvents ?? 0}
-          subtitle="Đã tham gia"
-          color="bg-purple-100 text-purple-650"
-          loading={loading}
-        />
-      </div>
-
-      {/* Row 3: Continuing Education (4 cols) & Daily Quests (2 cols) */}
-      <div className="md:col-span-4 p-[1.5px] rounded-[1.5rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)]">
-        <section className="bg-white dark:bg-slate-900 rounded-[calc(1.5rem-1.5px)] p-6 h-full flex flex-col justify-between">
-          <div>
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Tiếp tục học</h3>
-              <Link to="/my-learning" className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-305 transition">
+          <section className="rounded-2xl border border-slate-100 bg-white p-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold tracking-tight text-slate-900">Tiếp tục học</h3>
+              <Link to="/my-courses" className="text-sm font-medium text-purple-600 hover:underline">
                 Xem tất cả
               </Link>
             </div>
-
             {loading ? (
               <CourseSkeleton />
             ) : recentCourses.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {recentCourses.map((course) => {
                   const progress = course.progress ?? 0;
                   return (
@@ -331,44 +275,78 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
                 })}
               </div>
             ) : (
-              <div className="py-12 text-center">
-                <BookOpen className="mx-auto mb-3 h-8 w-8 text-slate-350 dark:text-slate-600" strokeWidth={1.5} />
-                <p className="text-xs text-slate-400 dark:text-slate-550">Bạn chưa đăng ký khóa học nào.</p>
-                <Link to="/explore" className="mt-2 inline-block text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline">
+              <div className="py-8 text-center text-slate-400">
+                <BookOpen className="mx-auto mb-2 h-8 w-8 text-slate-300" />
+                <Link to="/explore" className="mt-1 inline-block text-sm font-medium text-purple-600 hover:underline">
                   Khám phá ngay
                 </Link>
               </div>
             )}
-          </div>
-        </section>
-      </div>
+          </section>
+        </div>
 
-      <div className="md:col-span-2 p-[1.5px] rounded-[1.5rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)]">
-        <section className="bg-white dark:bg-slate-900 rounded-[calc(1.5rem-1.5px)] p-6 h-full flex flex-col justify-between">
-          <div>
-            <div className="mb-5 flex items-center justify-between border-b border-purple-50/50 dark:border-slate-800/50 pb-4">
-              <h3 className="text-lg font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Nhiệm vụ hằng ngày</h3>
-              <Link to="/events" className="text-xs font-bold text-purple-600 dark:text-purple-400 hover:text-purple-800 transition">
+        <aside className="space-y-6">
+          <section className="rounded-2xl border border-slate-100 bg-white p-6">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Ví của tôi</h3>
+              {!loading && (
+                <button
+                  type="button"
+                  onClick={() => setShowWalletAmounts((current) => !current)}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-600"
+                  title={showWalletAmounts ? 'Ẩn số tiền' : 'Hiện số tiền'}
+                  aria-label={showWalletAmounts ? 'Ẩn số tiền trong ví' : 'Hiện số tiền trong ví'}
+                  aria-pressed={!showWalletAmounts}
+                >
+                  {showWalletAmounts ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+            {loading ? (
+              <div className="space-y-3">
+                <div className="h-8 w-32 animate-pulse rounded bg-slate-100" />
+                <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
+              </div>
+            ) : (
+              <>
+                <p className="mb-1 text-3xl font-bold text-slate-900">
+                  {showWalletAmounts ? formatCurrency(stats?.walletBalance ?? 0) : '••••••'}
+                </p>
+                <p className="mb-4 text-xs text-slate-400">
+                  Đã chi: {showWalletAmounts ? formatCurrency(stats?.totalSpent ?? 0) : '••••••'}
+                </p>
+                <Link
+                  to="/upgrade"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-purple-600 py-3 text-sm font-medium text-white transition hover:bg-purple-700"
+                >
+                  <Wallet className="h-4 w-4" />
+                  Nạp ví
+                </Link>
+              </>
+            )}
+          </section>
+
+          <section className="rounded-2xl border border-slate-100 bg-white p-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h3 className="text-xl font-semibold tracking-tight text-slate-900">Nhiệm vụ hằng ngày</h3>
+              <Link to="/events" className="text-sm font-medium text-purple-600 hover:text-purple-700">
                 Đổi điểm
               </Link>
             </div>
-
-            <div className="space-y-4">
+            <div className="space-y-5">
               <QuestRow
                 icon={Award}
                 title="Điểm học tập hiện có"
                 subtitle=""
-                color="bg-purple-50/80 text-purple-600 dark:bg-purple-950/20 dark:text-purple-400"
+                color="bg-purple-50 text-purple-600"
                 right={`${learningPoints} điểm`}
               />
-              <div className="border-t border-purple-50/60 dark:border-slate-800 pt-4 space-y-4">
-                {dailyTasks.map((task) => (
-                  <QuestRow key={task.title} {...task} />
-                ))}
-              </div>
+              {dailyTasks.map((task) => (
+                <QuestRow key={task.title} {...task} />
+              ))}
             </div>
-          </div>
-        </section>
+          </section>
+        </aside>
       </div>
       {selectedCertificate && (
         <CertificateModal
@@ -376,7 +354,7 @@ const StudentDashboard = ({ data, loading, certificates = [] }) => {
           onClose={() => setSelectedCertificate(null)}
         />
       )}
-    </div>
+    </>
   );
 };
 
@@ -386,113 +364,94 @@ const InstructorDashboard = ({ data, loading }) => {
   const recentEnrollments = data?.recentEnrollments || [];
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
-      {/* Top Banner Bezel */}
-      <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)]">
-        <section className="bg-gradient-to-br from-white via-white to-purple-50/30 dark:from-slate-900 dark:to-slate-900/50 rounded-[calc(1.25rem-1.5px)] p-6">
-          <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-            <div>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-purple-600 dark:text-purple-400 block mb-1">
-                Khu vực giảng viên
-              </span>
-              <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-                Quản lý và tạo khóa học
-              </h2>
-              <p className="mt-1 text-xs text-slate-400 dark:text-slate-500 font-medium max-w-[65ch]">
-                Theo dõi doanh thu, học viên mới đăng ký và trạng thái khóa học của bạn trực quan.
-              </p>
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-purple-100 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple-600">Khu vực giảng viên</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Quản lý và tạo khóa học</h2>
+            <p className="mt-1 text-sm text-slate-500">Theo dõi doanh thu, học viên mới và trạng thái khóa học của bạn.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link to="/instructor/courses" className="rounded-xl border border-slate-200 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Quản lý khóa học
+            </Link>
+            <Link to="/instructor/courses/new" className="rounded-xl bg-purple-600 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-purple-700">
+              Tạo khóa học mới
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <StatCard icon={Users} label="Tổng học viên" value={stats?.totalStudents ?? 0} subtitle="Đã ghi danh" color="bg-blue-50 text-blue-600" loading={loading} />
+        <StatCard icon={BookOpen} label="Tổng khóa học" value={stats?.totalCourses ?? 0} subtitle="Tất cả khóa học" color="bg-purple-50 text-purple-600" loading={loading} />
+        <StatCard icon={RefreshCw} label="Khóa học công khai" value={stats?.publishedCourses ?? 0} subtitle={`${stats?.draftCourses ?? 0} bản nháp`} color="bg-sky-50 text-sky-600" loading={loading} />
+        <StatCard icon={TrendingUp} label="Đánh giá TB" value={stats?.averageRating ? `${Number(stats.averageRating).toFixed(1)}/5` : 'Chưa có'} subtitle="Từ học viên" color="bg-amber-50 text-amber-600" loading={loading} />
+        <StatCard icon={Trophy} label="Khóa học bán chạy nhất" value={data?.bestSellerTitle || 'Chưa có'} subtitle="Được học viên yêu thích" color="bg-rose-50 text-rose-600" loading={loading} />
+        <StatCard icon={Wallet} label="Tổng doanh thu" value={stats?.totalRevenueFormatted ?? formatCurrency(0)} subtitle="Doanh số tích lũy" color="bg-emerald-50 text-emerald-600" loading={loading} />
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5">
+            <h3 className="font-semibold text-slate-900">Khóa học của bạn</h3>
+            <Link to="/instructor/courses" className="text-sm font-medium text-purple-600 hover:underline">
+              Quản lý
+            </Link>
+          </div>
+          {loading ? (
+            <div className="p-4">
+              <ListSkeleton />
             </div>
-            <div className="flex flex-col gap-2.5 sm:flex-row">
-              <Link
-                to="/instructor/courses"
-                className="rounded-full border border-purple-100 dark:border-purple-800 bg-white dark:bg-slate-800 px-5 py-2.5 text-center text-xs font-semibold text-purple-700 dark:text-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 transition"
-              >
-                Quản lý khóa học
-              </Link>
-              <Link
-                to="/instructor/courses/new"
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 hover:bg-purple-700 text-white transition px-5 py-2.5 text-center text-xs font-semibold group/btn shadow-md shadow-purple-200/50 dark:shadow-none"
-              >
-                <span>Tạo khóa học mới</span>
-                <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center transition-transform group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5">
-                  <ArrowUpRight className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />
-                </span>
-              </Link>
+          ) : courses.length > 0 ? (
+            <div className="divide-y divide-slate-50">
+              {courses.slice(0, 5).map((course) => (
+                <Link key={course.id} to={`/instructor/courses/${course.id}`} className="flex items-center gap-3 p-4 transition hover:bg-slate-50">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-purple-100 to-pink-100">
+                    <BookOpen className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{course.title}</p>
+                    <p className="text-xs text-slate-400">{course.enrollments} học viên · {course.lessons} bài</p>
+                  </div>
+                  <StatusPill active={course.isPublished} />
+                </Link>
+              ))}
             </div>
+          ) : (
+            <div className="p-6 text-center text-sm text-slate-400">Chưa có khóa học nào.</div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5">
+            <h3 className="font-semibold text-slate-900">Học viên mới đăng ký</h3>
+            <Link to="/instructor/revenue" className="text-sm font-medium text-purple-600 hover:underline">
+              Xem tất cả
+            </Link>
+          </div>
+          <div className="p-2">
+            {loading ? (
+              <ListSkeleton />
+            ) : recentEnrollments.length > 0 ? (
+              <div className="space-y-1">
+                {recentEnrollments.slice(0, 5).map((enrollment, index) => (
+                  <div key={enrollment.id || index} className="flex items-center gap-3 rounded-xl p-3 transition hover:bg-slate-50">
+                    <Avatar name={enrollment.studentName} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-slate-900">{enrollment.studentName}</p>
+                      <p className="truncate text-xs text-slate-400">{enrollment.courseTitle}</p>
+                    </div>
+                    <span className="shrink-0 text-xs text-slate-400">{formatDate(enrollment.enrolledAt)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-6 text-center text-sm text-slate-400">Chưa có học viên mới đăng ký.</p>
+            )}
           </div>
         </section>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-        <StatCard icon={Users} label="Tổng học viên" value={stats?.totalStudents ?? 0} subtitle="Đã ghi danh" color="bg-blue-50 text-blue-600" loading={loading} />
-        <StatCard icon={BookOpen} label="Khóa học công khai" value={stats?.publishedCourses ?? 0} subtitle={`${stats?.draftCourses ?? 0} bản nháp`} color="bg-purple-50 text-purple-600" loading={loading} />
-        <StatCard icon={TrendingUp} label="Đánh giá TB" value={stats?.averageRating ? `${Number(stats.averageRating).toFixed(1)}/5` : 'Chưa có'} subtitle="Từ học viên" color="bg-amber-50 text-amber-600" loading={loading} />
-      </div>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Double-bezel Recent Enrollments */}
-        <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)] lg:col-span-1">
-          <section className="bg-white dark:bg-slate-900 rounded-[calc(1.25rem-1.5px)] p-6 h-full flex flex-col justify-between">
-            <div>
-              <h3 className="mb-5 text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 font-bold">
-                Học viên mới đăng ký
-              </h3>
-              {loading ? (
-                <ListSkeleton />
-              ) : recentEnrollments.length > 0 ? (
-                <div className="space-y-4">
-                  {recentEnrollments.map((enrollment, index) => (
-                    <div key={enrollment.id || index} className="flex items-center gap-3 border-b border-purple-50/30 dark:border-slate-800/30 pb-3 last:pb-0 last:border-none">
-                      <Avatar name={enrollment.studentName} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-200">{enrollment.studentName}</p>
-                        <p className="truncate text-[11px] text-slate-450 dark:text-slate-500 font-medium">{enrollment.courseTitle}</p>
-                      </div>
-                      <span className="shrink-0 font-mono text-[10px] text-slate-400 dark:text-slate-505">{formatDate(enrollment.enrolledAt)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">Chưa có học viên mới.</p>
-              )}
-            </div>
-          </section>
-        </div>
-
-        {/* Double-bezel My Courses List */}
-        <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)] lg:col-span-2">
-          <section className="bg-white dark:bg-slate-900 rounded-[calc(1.25rem-1.5px)] p-6 h-full flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between border-b border-purple-50/50 dark:border-slate-800/80 pb-4 mb-4">
-                <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 font-bold">Khóa học của bạn</h3>
-                <Link to="/instructor/courses" className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 transition">
-                  Quản lý
-                </Link>
-              </div>
-
-              {loading ? (
-                <ListSkeleton />
-              ) : courses.length > 0 ? (
-                <div className="space-y-4">
-                  {courses.slice(0, 5).map((course) => (
-                    <Link key={course.id} to={`/instructor/courses/${course.id}`} className="group flex items-center gap-3.5 p-2.5 rounded-xl border border-transparent hover:border-purple-50/30 dark:hover:border-slate-800/40 hover:bg-purple-50/10 dark:hover:bg-slate-900/10 transition duration-300">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400">
-                        <BookOpen className="h-4.5 w-4.5" strokeWidth={1.5} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-200 group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">{course.title}</p>
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium font-mono">{course.enrollments} học viên · {course.lessons} bài</p>
-                      </div>
-                      <StatusPill active={course.isPublished} />
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="py-12 text-center text-xs text-slate-400 dark:text-slate-500">Chưa có khóa học nào.</div>
-              )}
-            </div>
-          </section>
-        </div>
       </div>
     </div>
   );
@@ -513,146 +472,125 @@ const AdminDashboard = ({ data, loading }) => {
       value: stats.pendingInstructorApplications ?? 0,
       to: '/admin/instructor-applications',
       icon: FileCheck,
-      color: 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-400',
+      color: 'bg-rose-50 text-rose-600',
     },
     {
       label: 'Khóa học chờ duyệt',
       value: stats.pendingCourses ?? 0,
       to: '/admin/courses',
       icon: BookOpen,
-      color: 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400',
+      color: 'bg-amber-50 text-amber-600',
     },
     {
       label: 'Yêu cầu rút tiền chờ xử lý',
       value: stats.pendingWithdrawals ?? 0,
       to: '/admin/transactions',
       icon: Wallet,
-      color: 'bg-sky-50 text-sky-600 dark:bg-sky-950/20 dark:text-sky-400',
+      color: 'bg-sky-50 text-sky-600',
     },
     {
       label: 'Giao dịch cần kiểm tra',
       value: stats.pendingPayments ?? 0,
       to: '/admin/transactions',
       icon: BarChart2,
-      color: 'bg-orange-50 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400',
+      color: 'bg-orange-50 text-orange-600',
       hideWhenZero: true,
     },
   ].filter((item) => !item.hideWhenZero || item.value > 0);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 md:text-3xl">Dashboard Quản trị</h1>
-        <p className="mt-1 text-xs text-slate-400 dark:text-slate-500 font-medium">
-          Hệ thống theo dõi và phê duyệt dữ liệu LMS Skillio toàn cục.
-        </p>
+        <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Dashboard Quản trị</h1>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminStatLink to="/admin/users" icon={Users} label="Tổng người dùng" value={stats.totalUsers ?? 0} subtitle="Toàn hệ thống" color="bg-blue-50 text-blue-600" loading={loading} />
         <AdminStatLink to="/admin/courses" icon={BookOpen} label="Tổng khóa học" value={stats.totalCourses ?? 0} subtitle="Tất cả trạng thái" color="bg-purple-50 text-purple-600" loading={loading} />
         <AdminStatLink to="/admin/instructor-applications" icon={FileCheck} label="Hồ sơ GV chờ duyệt" value={stats.pendingInstructorApplications ?? 0} subtitle="Cần Admin xử lý" color="bg-rose-50 text-rose-600" loading={loading} />
         <AdminStatLink to="/admin/courses" icon={CalendarDays} label="Khóa học chờ duyệt" value={stats.pendingCourses ?? 0} subtitle="Chờ kiểm duyệt" color="bg-amber-50 text-amber-600" loading={loading} />
       </div>
 
-      {/* Double-bezel Pending Tasks */}
-      <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)]">
-        <section className="bg-white dark:bg-slate-900 rounded-[calc(1.25rem-1.5px)] p-6">
-          <h3 className="mb-5 text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 font-bold">Việc cần xử lý</h3>
+      <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <h3 className="mb-4 font-semibold text-slate-900">Việc cần xử lý</h3>
+        {loading ? (
+          <ListSkeleton />
+        ) : taskItems.length > 0 ? (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {taskItems.map((item) => (
+              <AdminTaskItem key={item.label} {...item} />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-slate-50 px-4 py-5 text-center text-sm text-slate-500">Không có việc cần xử lý.</p>
+        )}
+      </section>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm xl:col-span-2">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-900">Người dùng mới nhất</h3>
+            <Link to="/admin/users" className="text-sm font-medium text-purple-600 hover:underline">
+              Tất cả
+            </Link>
+          </div>
           {loading ? (
             <ListSkeleton />
-          ) : taskItems.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {taskItems.map((item) => (
-                <AdminTaskItem key={item.label} {...item} />
+          ) : recentUsers.length > 0 ? (
+            <div className="divide-y divide-slate-50">
+              {recentUsers.map((user) => (
+                <div key={user.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <Avatar name={user.ten || user.name || user.email} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-slate-900">{user.ten || user.name || user.email}</p>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600">
+                      {roleLabels[user.vaiTro || user.role] || user.vaiTro || user.role}
+                    </span>
+                    {user.createdAt ? <p className="mt-1 text-[11px] text-slate-400">{formatDate(user.createdAt)}</p> : null}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
-            <p className="rounded-xl bg-purple-50/20 dark:bg-slate-900/10 border border-purple-100/30 dark:border-slate-800/40 px-4 py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium">
-              Không có việc cần xử lý.
-            </p>
+            <p className="py-6 text-center text-sm text-slate-400">Chưa có người dùng mới.</p>
           )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 font-semibold text-slate-900">Tổng quan nền tảng</h3>
+          <div className="space-y-3">
+            <OverviewRow icon={GraduationCap} label="Tổng lượt ghi danh" value={stats.totalEnrollments ?? 0} color="purple" />
+            <OverviewRow icon={Users} label="Người dùng hoạt động" value={stats.activeUsers ?? 0} color="blue" />
+            {(stats.activeEvents ?? 0) > 0 ? (
+              <OverviewRow icon={CalendarDays} label="Sự kiện đang mở" value={stats.activeEvents ?? 0} color="amber" />
+            ) : (
+              <OverviewRow icon={FileCheck} label="Mã giảm giá đang hoạt động" value={stats.activeCoupons ?? 0} color="amber" />
+            )}
+          </div>
         </section>
       </div>
 
-      <div className="grid grid-cols-1 gap-8 xl:grid-cols-3">
-        {/* Double-bezel Recent Users */}
-        <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)] xl:col-span-2">
-          <section className="bg-white dark:bg-slate-900 rounded-[calc(1.25rem-1.5px)] p-6 h-full flex flex-col justify-between">
-            <div>
-              <div className="mb-5 flex items-center justify-between border-b border-purple-50/50 dark:border-slate-800/80 pb-4">
-                <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 font-bold">Người dùng mới nhất</h3>
-                <Link to="/admin/users" className="text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-purple-600 dark:hover:text-purple-400 transition">
-                  Tất cả
-                </Link>
-              </div>
-              {loading ? (
-                <ListSkeleton />
-              ) : recentUsers.length > 0 ? (
-                <div className="space-y-4">
-                  {recentUsers.map((user) => (
-                    <div key={user.id} className="flex items-center gap-3.5 pb-4 border-b border-purple-50/30 dark:border-slate-800/20 last:pb-0 last:border-none">
-                      <Avatar name={user.ten || user.name || user.email} />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-200">{user.ten || user.name || user.email}</p>
-                        <p className="truncate text-[11px] text-slate-450 dark:text-slate-500 font-medium">{user.email}</p>
-                      </div>
-                      <div className="shrink-0 text-right flex flex-col items-end gap-1.5">
-                        <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:text-slate-400 border border-slate-200/30 dark:border-slate-700/20 tracking-wide uppercase">
-                          {roleLabels[user.vaiTro || user.role] || user.vaiTro || user.role}
-                        </span>
-                        {user.createdAt ? <p className="font-mono text-[10px] text-slate-405 dark:text-slate-500 font-medium">{formatDate(user.createdAt)}</p> : null}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">Chưa có người dùng mới.</p>
-              )}
-            </div>
-          </section>
-        </div>
-
-        {/* Double-bezel Platform Overview */}
-        <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)] lg:col-span-1">
-          <section className="bg-white dark:bg-slate-900 rounded-[calc(1.25rem-1.5px)] p-6 h-full flex flex-col justify-between">
-            <div>
-              <h3 className="mb-5 text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 font-bold">Tổng quan nền tảng</h3>
-              <div className="space-y-4">
-                <OverviewRow icon={GraduationCap} label="Tổng lượt ghi danh" value={stats.totalEnrollments ?? 0} color="purple" />
-                <OverviewRow icon={Users} label="Người dùng hoạt động" value={stats.activeUsers ?? 0} color="blue" />
-                {(stats.activeEvents ?? 0) > 0 ? (
-                  <OverviewRow icon={CalendarDays} label="Sự kiện đang mở" value={stats.activeEvents ?? 0} color="amber" />
-                ) : (
-                  <OverviewRow icon={FileCheck} label="Mã giảm giá đang hoạt động" value={stats.activeCoupons ?? 0} color="amber" />
-                )}
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-
       {!loading && recentActivities.length > 0 ? (
-        /* Double-bezel Recent Activities */
-        <div className="p-[1.5px] rounded-[1.25rem] bg-purple-50/40 dark:bg-slate-800/60 border border-purple-100/40 dark:border-slate-800/40 shadow-[0_2px_8px_rgba(147,51,234,0.01)]">
-          <section className="bg-white dark:bg-slate-900 rounded-[calc(1.25rem-1.5px)] p-6">
-            <h3 className="mb-5 text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100 font-bold">Hoạt động gần đây</h3>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {recentActivities.map((item, index) => (
-                <Link key={`${item.type || 'activity'}-${item.createdAt || index}`} to={item.link || '/admin'} className="flex items-center gap-3.5 p-3 rounded-xl border border-purple-50/40 dark:border-slate-800/40 bg-purple-50/5 dark:bg-slate-900/10 hover:border-purple-100 hover:bg-purple-50/10 dark:hover:bg-slate-900/20 transition duration-300">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-50/50 dark:bg-slate-800 text-purple-700 dark:text-purple-400">
-                    <FileCheck className="h-4.5 w-4.5" strokeWidth={1.5} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-semibold text-slate-900 dark:text-slate-200">{item.title}</p>
-                    <p className="truncate text-[11px] text-slate-450 dark:text-slate-500 font-medium">{item.description}</p>
-                  </div>
-                  <span className="shrink-0 font-mono text-[10px] text-slate-400 dark:text-slate-505">{item.createdAt ? formatDate(item.createdAt) : ''}</span>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </div>
+        <section className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <h3 className="mb-4 font-semibold text-slate-900">Hoạt động gần đây</h3>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {recentActivities.map((item, index) => (
+              <Link key={`${item.type || 'activity'}-${item.createdAt || index}`} to={item.link || '/admin'} className="flex items-center gap-3 rounded-xl border border-slate-100 p-3 transition hover:border-purple-100 hover:bg-purple-50/40">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                  <FileCheck className="h-4 w-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-slate-900">{item.title}</p>
+                  <p className="truncate text-xs text-slate-500">{item.description}</p>
+                </div>
+                <span className="shrink-0 text-[11px] text-slate-400">{item.createdAt ? formatDate(item.createdAt) : ''}</span>
+              </Link>
+            ))}
+          </div>
+        </section>
       ) : null}
     </div>
   );
@@ -700,18 +638,12 @@ const Dashboard = () => {
 };
 
 const CourseSkeleton = () => (
-  <div className="flex flex-col gap-4">
-    {[1, 2].map((item) => (
-      <div key={item} className="p-[1.5px] rounded-[1.5rem] bg-purple-50/20 dark:bg-slate-800/40 border border-purple-100/30 dark:border-slate-800/30 animate-pulse">
-        <div className="bg-white dark:bg-slate-900 rounded-[calc(1.5rem-1.5px)] p-4 flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="w-full sm:w-36 aspect-video shrink-0 rounded-xl bg-slate-105 dark:bg-slate-800" />
-          <div className="flex-1 w-full space-y-2">
-            <div className="h-3 w-16 bg-slate-105 dark:bg-slate-800 rounded" />
-            <div className="h-4.5 w-3/4 bg-slate-105 dark:bg-slate-800 rounded" />
-            <div className="h-3 w-28 bg-slate-105 dark:bg-slate-800 rounded" />
-            <div className="mt-3.5 h-1 w-full bg-slate-105 dark:bg-slate-800 rounded-full" />
-          </div>
-        </div>
+  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    {[1, 2, 3].map((item) => (
+      <div key={item} className="animate-pulse">
+        <div className="mb-3 aspect-video rounded-xl bg-slate-100" />
+        <div className="mb-2 h-3 w-24 rounded bg-slate-100" />
+        <div className="h-4 w-36 rounded bg-slate-100" />
       </div>
     ))}
   </div>
@@ -721,49 +653,35 @@ const AdminStatLink = ({ to, icon: Icon, label, value, subtitle, color, loading 
   if (loading) return <StatCard icon={Icon} label={label} value={value} subtitle={subtitle} color={color} loading />;
 
   return (
-    <Link to={to} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-200 dark:focus:ring-purple-900">
+    <Link to={to} className="block rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-200">
       <StatCard icon={Icon} label={label} value={value} subtitle={subtitle} color={color} />
     </Link>
   );
 };
 
-const AdminTaskItem = ({ icon: Icon, label, value, to, color }) => {
-  // Map older raw background colors to desaturated ones
-  let parsedColor = color;
-  if (color.includes('bg-rose-50')) {
-    parsedColor = 'bg-rose-50 text-rose-600 dark:bg-rose-950/20 dark:text-rose-450 border border-rose-105/30';
-  } else if (color.includes('bg-amber-50')) {
-    parsedColor = 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-450 border border-amber-105/30';
-  } else if (color.includes('bg-sky-50')) {
-    parsedColor = 'bg-sky-50 text-sky-600 dark:bg-sky-950/20 dark:text-sky-455 border border-sky-105/30';
-  } else if (color.includes('bg-orange-50')) {
-    parsedColor = 'bg-orange-50 text-orange-600 dark:bg-orange-950/20 dark:text-orange-450 border border-orange-105/30';
-  }
-
-  return (
-    <div className="flex items-center gap-3.5 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/20 p-3.5 hover:border-slate-205 dark:hover:border-slate-705 transition duration-300">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${parsedColor}`}>
-        <Icon className="h-5 w-5" strokeWidth={1.5} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-350">{label}</p>
-        <p className="text-lg font-bold text-slate-955 dark:text-slate-100 font-mono mt-0.5">{value}</p>
-      </div>
-      <Link to={to} className="rounded-full bg-purple-50 dark:bg-purple-950/30 px-4 py-1.5 text-xs font-semibold text-purple-700 dark:text-purple-400 border border-purple-100/50 dark:border-purple-900/30 hover:bg-purple-100 dark:hover:bg-purple-900/40 shadow-sm transition">
-        Xem
-      </Link>
+const AdminTaskItem = ({ icon: Icon, label, value, to, color }) => (
+  <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50/60 p-3">
+    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${color}`}>
+      <Icon className="h-5 w-5" />
     </div>
-  );
-};
+    <div className="min-w-0 flex-1">
+      <p className="truncate text-sm font-medium text-slate-900">{label}</p>
+      <p className="text-lg font-bold text-slate-950">{value}</p>
+    </div>
+    <Link to={to} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-purple-700 shadow-sm ring-1 ring-purple-100 transition hover:bg-purple-50">
+      Xem
+    </Link>
+  </div>
+);
 
 const ListSkeleton = () => (
-  <div className="space-y-4">
+  <div className="space-y-3">
     {[1, 2, 3].map((item) => (
-      <div key={item} className="flex animate-pulse items-center gap-3.5 pb-4 border-b border-slate-50 dark:border-slate-800/20 last:pb-0 last:border-none">
-        <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-855" />
-        <div className="flex-1 space-y-2.5">
-          <div className="h-3 w-28 rounded bg-slate-100 dark:bg-slate-855" />
-          <div className="h-3 w-40 rounded bg-slate-100 dark:bg-slate-855" />
+      <div key={item} className="flex animate-pulse items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-slate-100" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 w-28 rounded bg-slate-100" />
+          <div className="h-3 w-40 rounded bg-slate-100" />
         </div>
       </div>
     ))}
@@ -771,88 +689,61 @@ const ListSkeleton = () => (
 );
 
 const CourseDate = ({ label, value }) => (
-  <div className="flex flex-col gap-0.5">
-    <span className="text-[10px] text-slate-450 dark:text-slate-500 font-semibold uppercase tracking-wider">
+  <div>
+    <span className="flex items-center gap-1 text-slate-400">
+      <CalendarDays className="h-3 w-3" />
       {label}
     </span>
-    <span className="text-xs font-mono text-slate-700 dark:text-slate-300 font-medium">
-      {formatDate(value)}
-    </span>
+    <span className="mt-0.5 block font-medium text-slate-700">{formatDate(value)}</span>
   </div>
 );
 
-const QuestRow = ({ icon: Icon, title, subtitle, color, right, done, reward }) => {
-  // Map older raw backgrounds/texts to desaturated pastels
-  let parsedColor = color;
-  if (color === 'bg-orange-50 text-orange-505' || color === 'bg-orange-50 text-orange-500') {
-    parsedColor = 'bg-orange-50/80 text-orange-600 dark:bg-orange-950/20 dark:text-orange-400 border border-orange-100/30 dark:border-orange-900/20';
-  } else if (color === 'bg-green-50 text-green-600' || color === 'bg-emerald-50 text-green-600') {
-    parsedColor = 'bg-emerald-50/80 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100/30 dark:border-emerald-900/20';
-  } else if (color === 'bg-blue-50 text-blue-600') {
-    parsedColor = 'bg-blue-50/80 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 border border-blue-100/30 dark:border-blue-900/20';
-  } else if (color === 'bg-purple-50 text-purple-600') {
-    parsedColor = 'bg-indigo-50/80 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400 border border-indigo-100/30 dark:border-indigo-900/20';
-  }
-
-  return (
-    <div className="flex items-center gap-3.5">
-      <div className={`flex h-9.5 w-9.5 shrink-0 items-center justify-center rounded-xl ${parsedColor}`}>
-        <Icon className="h-4.5 w-4.5" strokeWidth={1.5} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{title}</p>
-        {subtitle && <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5">{subtitle}</p>}
-      </div>
-      {right ? (
-        <span className="text-sm font-bold text-slate-900 dark:text-slate-200 font-mono">{right}</span>
-      ) : (
-        <div className="shrink-0 text-right flex flex-col items-end">
-          <p className="text-[10px] font-bold text-slate-900 dark:text-slate-200 font-mono">{reward}</p>
-          <span className={`text-[10px] font-semibold mt-0.5 px-2 py-0.5 rounded-full ${
-            done 
-              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400 border border-emerald-100/30' 
-              : 'bg-slate-50 text-slate-400 dark:bg-slate-900 dark:text-slate-550 border border-slate-100 dark:border-slate-850'
-          }`}>
-            {done ? 'Đã xong' : 'Chưa xong'}
-          </span>
-        </div>
-      )}
+const QuestRow = ({ icon: Icon, title, subtitle, color, right, done, reward }) => (
+  <div className="flex items-center gap-3">
+    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}>
+      <Icon className="h-5 w-5" />
     </div>
-  );
-};
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-medium text-slate-900">{title}</p>
+      {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+    </div>
+    {right ? (
+      <span className="text-lg font-bold text-purple-700">{right}</span>
+    ) : (
+      <div className="shrink-0 text-right">
+        <p className="text-xs font-semibold text-purple-600">{reward}</p>
+        <p className={`text-sm font-bold ${done ? 'text-emerald-600' : 'text-slate-500'}`}>{done ? '1/1' : '0/1'}</p>
+      </div>
+    )}
+  </div>
+);
 
 const Avatar = ({ name = '' }) => (
-  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800 font-semibold text-slate-700 dark:text-slate-200 border border-slate-200/40 dark:border-slate-700/40 shadow-[0_1px_2px_rgba(0,0,0,0.02)]">
+  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-purple-300 to-pink-300 font-bold text-white">
     {(name || 'A').trim().charAt(0).toUpperCase()}
   </div>
 );
 
 const StatusPill = ({ active }) => (
-  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold tracking-wide ${
-    active 
-      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-450 border border-emerald-100/30 dark:border-emerald-900/20' 
-      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border border-slate-200/40 dark:border-slate-700/30'
-  }`}>
+  <span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
     {active ? 'Công khai' : 'Nháp'}
   </span>
 );
 
 const OverviewRow = ({ icon: Icon, label, value, color }) => {
   const classes = {
-    purple: 'bg-indigo-50/40 text-indigo-600 dark:bg-indigo-950/20 dark:text-indigo-400',
-    blue: 'bg-blue-50/40 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400',
-    amber: 'bg-amber-50/40 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400',
+    purple: 'border-purple-100 from-purple-50 to-pink-50 text-purple-700',
+    blue: 'border-blue-100 from-blue-50 to-cyan-50 text-blue-700',
+    amber: 'border-amber-100 from-amber-50 to-orange-50 text-amber-700',
   };
 
   return (
-    <div className="flex items-center justify-between rounded-xl border border-slate-100 dark:border-slate-800/80 bg-slate-50/30 dark:bg-slate-900/10 p-4 transition hover:bg-slate-50/50 dark:hover:bg-slate-900/20 duration-300">
-      <div className="flex items-center gap-3.5">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${classes[color]}`}>
-          <Icon className="h-4.5 w-4.5" strokeWidth={1.5} />
-        </div>
-        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{label}</span>
+    <div className={`flex items-center justify-between rounded-xl border bg-gradient-to-r p-4 ${classes[color]}`}>
+      <div className="flex items-center gap-3">
+        <Icon className="h-5 w-5" />
+        <span className="text-sm font-medium text-slate-900">{label}</span>
       </div>
-      <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-100 font-mono">{value}</span>
+      <span className="text-lg font-bold">{value}</span>
     </div>
   );
 };

@@ -343,18 +343,11 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
             .FirstOrDefaultAsync(item => item.Id == conversationId);
 
         if (conversation is null) return false;
-        if (!conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId)) return false;
 
-        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        if (user?.VaiTro == "ADMIN") return true;
-
-        var hasAdminParticipant = await db.NguoiThamGiaTroChuyen
-            .AnyAsync(p => p.CuocTroChuyenId == conversationId && p.NguoiDung!.VaiTro == "ADMIN");
-        if (hasAdminParticipant) return true;
-
-        if (string.IsNullOrWhiteSpace(conversation.KhoaHocId)) return false;
-
-        return await NguoiDungCoQuyenKhoaHocAsync(userId, conversation.KhoaHocId);
+        // Primary gate: user must be a participant in the conversation.
+        // They were explicitly added when the conversation was created,
+        // so being a participant is sufficient proof of access.
+        return conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId);
     }
 
     public async Task<bool> CoQuyenGuiTinNhanAsync(string userId, Guid conversationId)
@@ -374,29 +367,9 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
         if (attachment is null) return KetQuaChat<AnhChat>.NotFound("Không tìm thấy ảnh.");
 
         var conversation = attachment.TinNhan.CuocTroChuyen;
+
+        // Primary gate: user must be a participant in the conversation to view images.
         if (!conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId))
-            return KetQuaChat<AnhChat>.Forbidden("Bạn không có quyền xem ảnh này.");
-
-        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        bool hasAccess = false;
-        if (user?.VaiTro == "ADMIN")
-        {
-            hasAccess = true;
-        }
-        else
-        {
-            var hasAdminParticipant = conversation.CacNguoiThamGia.Any(p => p.NguoiDung?.VaiTro == "ADMIN" || db.NguoiDung.Any(u => u.Id == p.NguoiDungId && u.VaiTro == "ADMIN"));
-            if (hasAdminParticipant)
-            {
-                hasAccess = true;
-            }
-            else if (!string.IsNullOrWhiteSpace(conversation.KhoaHocId) && await NguoiDungCoQuyenKhoaHocAsync(userId, conversation.KhoaHocId))
-            {
-                hasAccess = true;
-            }
-        }
-
-        if (!hasAccess)
             return KetQuaChat<AnhChat>.Forbidden("Bạn không có quyền xem ảnh này.");
 
         var fullPath = Path.Combine(ThuMucAnhChat, attachment.TenFile);
@@ -486,27 +459,10 @@ public class DichVuChat(ApplicationDbContext db, IWebHostEnvironment env) : IDic
             .FirstOrDefaultAsync(item => item.Id == conversationId);
 
         if (conversation is null) return KetQuaChat<CuocTroChuyen>.NotFound("Không tìm thấy cuộc trò chuyện.");
+
+        // Primary gate: user must be a participant in the conversation.
         if (!conversation.CacNguoiThamGia.Any(participant => participant.NguoiDungId == userId))
             return KetQuaChat<CuocTroChuyen>.Forbidden("Bạn không thuộc cuộc trò chuyện này.");
-
-        var user = await db.NguoiDung.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
-        if (user?.VaiTro == "ADMIN") return KetQuaChat<CuocTroChuyen>.Ok(conversation);
-
-        var hasAdminParticipant = await db.NguoiThamGiaTroChuyen
-            .AnyAsync(p => p.CuocTroChuyenId == conversationId && p.NguoiDung!.VaiTro == "ADMIN");
-        if (hasAdminParticipant) return KetQuaChat<CuocTroChuyen>.Ok(conversation);
-
-        if (string.IsNullOrWhiteSpace(conversation.KhoaHocId))
-            return KetQuaChat<CuocTroChuyen>.Forbidden("Cuộc trò chuyện chưa gắn với lớp/khóa học hợp lệ.");
-
-        var participantIds = conversation.CacNguoiThamGia.Select(participant => participant.NguoiDungId).ToList();
-        var eligibleCount = await db.NguoiDung.AsNoTracking()
-            .Where(user => participantIds.Contains(user.Id))
-            .CountAsync(user => user.CacKhoaHoc.Any(course => course.Id == conversation.KhoaHocId) ||
-                                user.CacGhiDanh.Any(enrollment => enrollment.KhoaHocId == conversation.KhoaHocId));
-
-        if (eligibleCount != participantIds.Count)
-            return KetQuaChat<CuocTroChuyen>.Forbidden("Người gửi và người nhận không còn cùng lớp/khóa học.");
 
         return KetQuaChat<CuocTroChuyen>.Ok(conversation);
     }

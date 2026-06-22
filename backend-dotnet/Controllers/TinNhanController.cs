@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace LMS.Api.Controllers;
 
 [ApiController]
+[Route("api/chat")]
 [Route("api/[controller]")]
 [Authorize]
 public class TinNhanController(ApplicationDbContext db, IDichVuChat chat, IHubContext<ChatHub> hubContext) : ControllerBase
@@ -161,7 +162,7 @@ public class TinNhanController(ApplicationDbContext db, IDichVuChat chat, IHubCo
             request?.SubjectId ?? subjectId);
 
         if (!result.ThanhCong) return ChatError(result);
-        return Ok(new { CuocTroChuyenId = result.GiaTri });
+        return Ok(new { conversationId = result.GiaTri, cuocTroChuyenId = result.GiaTri });
     }
 
     [HttpPost("conversations/{conversationId:guid}/messages")]

@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const getLoginRedirectPath = (user) => {
+  if (user?.role === 'INSTRUCTOR') return '/instructor/dashboard';
+  if (user?.role === 'ADMIN') return '/admin';
+  return '/';
+};
+
 const OAuthCallback = () => {
   const { completeSocialLogin } = useAuth();
   const navigate = useNavigate();
@@ -18,7 +24,10 @@ const OAuthCallback = () => {
     }
 
     completeSocialLogin(token)
-      .then(() => navigate('/', { replace: true }))
+      .then((user) => {
+        sessionStorage.removeItem('skillio_student_preview');
+        navigate(getLoginRedirectPath(user), { replace: true });
+      })
       .catch(() => setError('Không thể hoàn tất đăng nhập mạng xã hội. Vui lòng thử lại.'));
   }, [completeSocialLogin, error, navigate, token]);
 

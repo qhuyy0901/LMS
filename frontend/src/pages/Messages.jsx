@@ -66,6 +66,9 @@ const uniqueContactsByAccount = (items = []) => {
   });
 };
 
+const getConversationIdFromResponse = (payload = {}) =>
+  payload.conversationId || payload.ConversationId || payload.cuocTroChuyenId || payload.CuocTroChuyenId;
+
 const Messages = () => {
   const { user } = useAuth();
   const { messages, setMessages, sendMessage, conversations, setConversations, onlineUsers, lastSeenMap, setActiveConversationId } = useChat();
@@ -161,7 +164,7 @@ const Messages = () => {
           classId: targetClassId,
           subjectId: targetSubjectId,
         });
-        const conversationId = response.data.conversationId || response.data.ConversationId;
+        const conversationId = getConversationIdFromResponse(response.data);
         const conversationResponse = await axios.get('/api/chat/conversations');
         const nextConversations = uniqueConversationsByAccount(conversationResponse.data);
         setConversations(nextConversations);
@@ -277,7 +280,7 @@ const Messages = () => {
         classId: contact.classId,
         subjectId: contact.subjectId,
       });
-      const conversationId = response.data.conversationId || response.data.ConversationId;
+      const conversationId = getConversationIdFromResponse(response.data);
 
       const conversationResponse = await axios.get('/api/chat/conversations');
       const nextConversations = uniqueConversationsByAccount(conversationResponse.data);

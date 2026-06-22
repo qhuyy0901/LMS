@@ -3,9 +3,9 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import RoleRoute from './components/RoleRoute';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ChatProvider } from './context/ChatContext';
-import { DashboardViewProvider } from './context/DashboardViewContext';
+import { DashboardViewProvider, useDashboardView } from './context/DashboardViewContext';
 import { SavedCoursesProvider } from './context/SavedCoursesContext';
 import { buildBackendUrl } from './utils/backendUrl';
 
@@ -63,6 +63,18 @@ const Pricing = lazy(() => import('./pages/Pricing'));
 const Register = lazy(() => import('./pages/Register'));
 const Reports = lazy(() => import('./pages/Reports'));
 const Settings = lazy(() => import('./pages/Settings'));
+const InstructorCourseForm = lazy(() => import('./pages/InstructorCourseForm'));
+
+const RoleLanding = () => {
+  const { user } = useAuth();
+  const { activeView, isImpersonating } = useDashboardView();
+
+  if (user?.role === 'INSTRUCTOR' && activeView === 'INSTRUCTOR' && !isImpersonating) {
+    return <Navigate to="/instructor/dashboard" replace />;
+  }
+
+  return <Dashboard />;
+};
 
 const PageFallback = () => (
   <div className="flex min-h-screen items-center justify-center bg-slate-50">
@@ -90,7 +102,7 @@ function App() {
                   <Route path="/payment-cancel" element={<PaymentCancel />} />
 
                   <Route path="/" element={<Layout />}>
-                    <Route index element={<Dashboard />} />
+                    <Route index element={<RoleLanding />} />
                     <Route path="events" element={<Events />} />
                     <Route path="student/events" element={<Events />} />
                     <Route path="student/events/:eventId" element={<EventDetails />} />
@@ -188,7 +200,7 @@ function App() {
                       path="instructor/courses/new"
                       element={
                         <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
-                          <ExternalRedirect to={buildBackendUrl('/Instructor/KhoaHoc/Create')} />
+                          <CourseEditor />
                         </RoleRoute>
                       }
                     />
@@ -196,7 +208,7 @@ function App() {
                       path="instructor/courses/:id/edit"
                       element={
                         <RoleRoute roles={['INSTRUCTOR', 'ADMIN']}>
-                          <ExternalCourseEditRedirect />
+                          <CourseEditor />
                         </RoleRoute>
                       }
                     />

@@ -230,6 +230,7 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
                     .ThenInclude(l => l.BaiKiemTra)
             .Include(c => c.CacDanhGia.OrderByDescending(r => r.NgayTao).Take(10))
                 .ThenInclude(r => r.NguoiDung)
+            .Include(c => c.CacHinhAnh)
             .FirstOrDefaultAsync(c => c.Id == khoaHocId);
 
         if (kh is null) return null;
@@ -272,7 +273,35 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
             danhGiaCuaToi = null;
         }
 
-        return ChiTietKhoaHocDto.TuKhoaHoc(kh, ghiDanh, baiHoanThanh, danhGiaCuaToi, laChuSoHuu, studentCount, purchaseCount);
+        var dto = ChiTietKhoaHocDto.TuKhoaHoc(kh, ghiDanh, baiHoanThanh, danhGiaCuaToi, laChuSoHuu, studentCount, purchaseCount);
+
+        // Build course images list (all uploaded images, fallback to thumbnail)
+        var courseImages = kh.CacHinhAnh
+            .OrderByDescending(img => img.AnhChinh)
+            .ThenBy(img => img.NgayTao)
+            .Select(img => new { id = img.Id, url = img.AnhUrl, imageUrl = img.AnhUrl, isPrimary = img.AnhChinh })
+            .Cast<object>()
+            .ToList();
+        if (courseImages.Count == 0 && !string.IsNullOrWhiteSpace(kh.AnhDaiDien))
+            courseImages.Add(new { id = "cover", url = kh.AnhDaiDien, imageUrl = kh.AnhDaiDien, isPrimary = true });
+
+        // Wrap the DTO in an anonymous object that includes courseImages
+        return new
+        {
+            dto.Id, dto.Title, dto.Slug, dto.ShortDescription, dto.Description, dto.DetailedDescription, dto.Thumbnail,
+            dto.Price, dto.AverageRating, dto.ReviewCount, dto.MinimumMemberTier,
+            dto.TotalDurationSeconds, dto.IsPublished,
+            dto.Category, dto.Level, dto.StudentCount, dto.PurchaseCount,
+            dto._count,
+            dto.InstructorName, dto.Instructor,
+            dto.Sections, dto.Lessons,
+            dto.IsEnrolled, dto.Progress, dto.CompletedLessons,
+            dto.UserReview, dto.Reviews,
+            dto.CanPreview, dto.CanReview, dto.CanPurchase,
+            dto.StartDate, dto.EndDate,
+            images = courseImages,
+            courseImages
+        };
     }
 
     public async Task<object?> LayBaiHocThuAsync(string khoaHocId)

@@ -122,63 +122,7 @@ public static class SeedData
         foreach (var name in categoryNames)
         {
             var dm = await LayHoacTaoDanhMuc(name);
-            if (dm == null)
-            {
-                dm = new DanhMuc
-                {
-                    Id = Guid.NewGuid().ToString("N"),
-                    Ten = name,
-                    Slug = TroGiup.TaoSlug(name),
-                    MoTa = $"Chuyên mục về {name}",
-                    HoatDong = true,
-                    NgayTao = now,
-                    NgayCapNhat = now
-                };
-                db.DanhMuc.Add(dm);
-                await db.SaveChangesAsync();
-            }
             categoryMap[name] = dm.Id;
-        }
-
-        // Migrate existing courses' DanhMucId if empty
-        var uncategorizedCourses = await db.KhoaHoc.Where(c => c.DanhMucId == null || c.DanhMucId == "").ToListAsync();
-        if (uncategorizedCourses.Any())
-        {
-            foreach (var categoryName in uncategorizedCourses
-                .Select(c => c.ChuyenMuc)
-                .Where(name => !string.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                var dm = await LayHoacTaoDanhMuc(categoryName);
-                categoryMap[categoryName] = dm.Id;
-            }
-
-            foreach (var course in uncategorizedCourses)
-            {
-                if (categoryMap.TryGetValue(course.ChuyenMuc, out var dmId))
-                {
-                    course.DanhMucId = dmId;
-                }
-                else
-                {
-                    // Create dynamic category for missing ones
-                    var newCat = new DanhMuc
-                    {
-                        Id = Guid.NewGuid().ToString("N"),
-                        Ten = course.ChuyenMuc,
-                        Slug = TroGiup.TaoSlug(course.ChuyenMuc),
-                        MoTa = $"Chuyên mục về {course.ChuyenMuc}",
-                        HoatDong = true,
-                        NgayTao = now,
-                        NgayCapNhat = now
-                    };
-                    db.DanhMuc.Add(newCat);
-                    await db.SaveChangesAsync();
-                    categoryMap[course.ChuyenMuc] = newCat.Id;
-                    course.DanhMucId = newCat.Id;
-                }
-            }
-            await db.SaveChangesAsync();
         }
 
         // Seed Courses
@@ -299,35 +243,12 @@ public static class SeedData
             }
 
             course.TongThoiLuongGiay = totalDuration;
-
-            // Seed reviews for this course
-            var reviewComments = new[]
-            {
-                "Khóa học rất chi tiết và thực tế, giảng viên giảng dễ hiểu.",
-                "Nội dung cập nhật mới nhất, bài tập thực hành rất hay.",
-                "Tài liệu phong phú, video chất lượng cao, rất đáng tiền học.",
-                "Tuyệt vời, giúp tôi giải quyết được nhiều vướng mắc trong công việc thực tế.",
-                "Khóa học có hệ thống bài giảng rõ ràng, logic, phù hợp cho mọi người học.",
-                "Thực sự là một khóa học chất lượng cao, hỗ trợ nhiệt tình từ giảng viên."
-            };
-
-            var review = new DanhGiaKhoaHoc
-            {
-                Id = TaoId.Moi(),
-                DiemDanhGia = random.Next(4, 6), // 4 or 5 stars
-                BinhLuan = reviewComments[random.Next(reviewComments.Length)],
-                NguoiDungId = student.Id,
-                KhoaHocId = course.Id,
-                NgayTao = now.AddDays(-random.Next(1, 10)),
-                NgayCapNhat = now
-            };
-            db.DanhGiaKhoaHoc.Add(review);
         }
 
         await db.SaveChangesAsync();
 
-        // Seed some enrollments for the student
-        var studentCourses = await db.KhoaHoc.Take(3).ToListAsync();
+        // Seed some enrollments for the student (up to 5 courses)
+        var studentCourses = await db.KhoaHoc.Take(5).ToListAsync();
         foreach (var sc in studentCourses)
         {
             if (!await db.GhiDanh.AnyAsync(e => e.NguoiDungId == student.Id && e.KhoaHocId == sc.Id))
@@ -343,6 +264,32 @@ public static class SeedData
                     NgayCapNhat = now
                 };
                 db.GhiDanh.Add(enrollment);
+            }
+
+            // Seed review for this course since the student is enrolled
+            if (!await db.DanhGiaKhoaHoc.AnyAsync(r => r.NguoiDungId == student.Id && r.KhoaHocId == sc.Id))
+            {
+                var reviewComments = new[]
+                {
+                    "Khóa học rất chi tiết và thực tế, giảng viên giảng dễ hiểu.",
+                    "Nội dung cập nhật mới nhất, bài tập thực hành rất hay.",
+                    "Tài liệu phong phú, video chất lượng cao, rất đáng tiền học.",
+                    "Tuyệt vời, giúp tôi giải quyết được nhiều vướng mắc trong công việc thực tế.",
+                    "Khóa học có hệ thống bài giảng rõ ràng, logic, phù hợp cho mọi người học.",
+                    "Thực sự là một khóa học chất lượng cao, hỗ trợ nhiệt tình từ giảng viên."
+                };
+
+                var review = new DanhGiaKhoaHoc
+                {
+                    Id = TaoId.Moi(),
+                    DiemDanhGia = random.Next(4, 6), // 4 or 5 stars
+                    BinhLuan = reviewComments[random.Next(reviewComments.Length)],
+                    NguoiDungId = student.Id,
+                    KhoaHocId = sc.Id,
+                    NgayTao = now.AddDays(-random.Next(1, 10)),
+                    NgayCapNhat = now
+                };
+                db.DanhGiaKhoaHoc.Add(review);
             }
         }
 
@@ -397,6 +344,132 @@ public static class SeedData
         }
 
         await db.SaveChangesAsync();
+
+        // Perform clean up and database synchronization
+        await CleanDatabaseAsync(db);
+    }
+
+    public static async Task CleanDatabaseAsync(ApplicationDbContext db)
+    {
+        var targetTemplates = GetTemplates();
+        var targetSlugs = targetTemplates.Select(t => t.DuongDanThanThien).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        // Get all courses from database
+        var allCourses = await db.KhoaHoc.ToListAsync();
+
+        int deletedCount = 0;
+        int adjustedReviewsCount = 0;
+
+        foreach (var course in allCourses)
+        {
+            // Check if the course is NOT in the target list of templates
+            if (!targetSlugs.Contains(course.DuongDanThanThien))
+            {
+                // Check if it has student enrollments
+                bool hasEnrollments = await db.GhiDanh.AnyAsync(e => e.KhoaHocId == course.Id);
+
+                if (hasEnrollments)
+                {
+                    // If it has enrollments, do not delete it, but make sure it is marked as published
+                    if (!course.DaXuatBan || course.TrangThai != "PUBLISHED")
+                    {
+                        course.DaXuatBan = true;
+                        course.TrangThai = "PUBLISHED";
+                        course.NgayCapNhat = DateTime.UtcNow;
+                    }
+                }
+                else
+                {
+                    // Delete it using order-of-dependency deletion to avoid FK violations
+                    var id = course.Id;
+                    
+                    var lessonIds = await db.BaiHoc.Where(l => l.KhoaHocId == id).Select(l => l.Id).ToListAsync();
+                    var quizIds = await db.BaiKiemTra.Where(q => lessonIds.Contains(q.BaiHocId)).Select(q => q.Id).ToListAsync();
+                    if (quizIds.Count > 0)
+                    {
+                        db.BaiNopKiemTra.RemoveRange(db.BaiNopKiemTra.Where(s => quizIds.Contains(s.BaiKiemTraId)));
+                        db.CauHoiKiemTra.RemoveRange(db.CauHoiKiemTra.Where(q => quizIds.Contains(q.BaiKiemTraId)));
+                        db.BaiKiemTra.RemoveRange(db.BaiKiemTra.Where(q => quizIds.Contains(q.Id)));
+                    }
+
+                    if (lessonIds.Count > 0)
+                    {
+                        db.BinhLuan.RemoveRange(db.BinhLuan.Where(c => lessonIds.Contains(c.BaiHocId)));
+                        db.TienDoBaiHoc.RemoveRange(db.TienDoBaiHoc.Where(p => lessonIds.Contains(p.BaiHocId)));
+                    }
+
+                    var couponIds = await db.MaGiamGia.Where(c => c.KhoaHocId == id).Select(c => c.Id).ToListAsync();
+                    if (couponIds.Count > 0)
+                    {
+                        db.LichSuDungMaGiamGia.RemoveRange(db.LichSuDungMaGiamGia.Where(u => couponIds.Contains(u.MaGiamGiaId)));
+                        db.NguoiNhanMaGiamGia.RemoveRange(db.NguoiNhanMaGiamGia.Where(r => couponIds.Contains(r.MaGiamGiaId)));
+                        db.MaGiamGia.RemoveRange(db.MaGiamGia.Where(c => couponIds.Contains(c.Id)));
+                    }
+
+                    db.DanhGiaKhoaHoc.RemoveRange(db.DanhGiaKhoaHoc.Where(r => r.KhoaHocId == id));
+                    db.ChungChi.RemoveRange(db.ChungChi.Where(c => c.KhoaHocId == id));
+                    db.KhoaHocDaLuu.RemoveRange(db.KhoaHocDaLuu.Where(s => s.KhoaHocId == id));
+                    db.LichSuDungMaGiamGia.RemoveRange(db.LichSuDungMaGiamGia.Where(u => u.KhoaHocId == id));
+                    db.KhoaHocAnh.RemoveRange(db.KhoaHocAnh.Where(img => img.KhoaHocId == id));
+
+                    await db.GiaoDichVi.Where(w => w.KhoaHocId == id).ExecuteUpdateAsync(s => s.SetProperty(w => w.KhoaHocId, (string?)null));
+                    await db.CuocTroChuyen.Where(c => c.KhoaHocId == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.KhoaHocId, (string?)null));
+                    await db.NguoiNhanMaGiamGia.Where(r => r.SourceCourseId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.SourceCourseId, (string?)null));
+
+                    db.BaiTap.RemoveRange(db.BaiTap.Where(assignment => assignment.KhoaHocId == id));
+                    db.BaiHoc.RemoveRange(db.BaiHoc.Where(lesson => lesson.KhoaHocId == id));
+                    db.ChuongHoc.RemoveRange(db.ChuongHoc.Where(section => section.KhoaHocId == id));
+                    
+                    db.KhoaHoc.Remove(course);
+                    deletedCount++;
+                }
+            }
+        }
+
+        await db.SaveChangesAsync();
+
+        // Now adjust reviews on remaining courses
+        var remainingCourses = await db.KhoaHoc.ToListAsync();
+        foreach (var course in remainingCourses)
+        {
+            var enrollments = await db.GhiDanh.Where(e => e.KhoaHocId == course.Id).Select(e => e.NguoiDungId).ToListAsync();
+            var reviews = await db.DanhGiaKhoaHoc.Where(r => r.KhoaHocId == course.Id).ToListAsync();
+
+            // 1. Delete reviews by users who are not enrolled
+            var invalidReviews = reviews.Where(r => !enrollments.Contains(r.NguoiDungId)).ToList();
+            if (invalidReviews.Count > 0)
+            {
+                db.DanhGiaKhoaHoc.RemoveRange(invalidReviews);
+                reviews = reviews.Except(invalidReviews).ToList();
+                adjustedReviewsCount += invalidReviews.Count;
+            }
+
+            // 2. Limit reviews: 0 enrollments -> 0 reviews; 1 enrollment -> max 1 review; 2 -> max 2
+            int maxAllowedReviews = enrollments.Count;
+            if (reviews.Count > maxAllowedReviews)
+            {
+                var reviewsToRemove = reviews.Skip(maxAllowedReviews).ToList();
+                db.DanhGiaKhoaHoc.RemoveRange(reviewsToRemove);
+                reviews = reviews.Take(maxAllowedReviews).ToList();
+                adjustedReviewsCount += reviewsToRemove.Count;
+            }
+
+            // Update stats
+            int reviewCount = reviews.Count;
+            double avgRating = reviewCount == 0 ? 0.0 : Math.Round(reviews.Average(r => r.DiemDanhGia), 1);
+
+            if (course.SoLuongDanhGia != reviewCount || Math.Abs(course.DiemDanhGiaTrungBinh - avgRating) > 0.01)
+            {
+                course.SoLuongDanhGia = reviewCount;
+                course.DiemDanhGiaTrungBinh = avgRating;
+                course.NgayCapNhat = DateTime.UtcNow;
+            }
+        }
+
+        await db.SaveChangesAsync();
+
+        Console.WriteLine($"[DB CLEANUP] Deleted {deletedCount} unwanted courses with 0 enrollments.");
+        Console.WriteLine($"[DB CLEANUP] Adjusted/deleted {adjustedReviewsCount} mismatch reviews.");
     }
 
     private class QuestionTemplate
@@ -437,12 +510,6 @@ public static class SeedData
                     DapAnDungIndex = 2,
                     GiaiThich = "Sử dụng AddScoped để đăng ký service có vòng đời tồn tại theo từng HTTP request."
                 });
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Routing trong ASP.NET Core Web API thường được cấu hình qua cơ chế nào?",
-                    CacLuaChon = new List<string> { "Attribute Routing", "Conventional Routing", "Static Routing", "Database Routing" },
-                    DapAnDungIndex = 0,
-                    GiaiThich = "Attribute Routing là cách cấu hình phổ biến nhất cho API bằng các attribute."
-                });
             }
         }
         else if (catLower.Contains("react"))
@@ -455,139 +522,7 @@ public static class SeedData
                     DapAnDungIndex = 2,
                     GiaiThich = "ReactJS là thư viện JavaScript mã nguồn mở được phát triển bởi Facebook để xây dựng giao diện người dùng đơn trang (SPA)."
                 });
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Hook nào dùng để quản lý state trong Functional Component?",
-                    CacLuaChon = new List<string> { "useEffect", "useState", "useContext", "useReducer" },
-                    DapAnDungIndex = 1,
-                    GiaiThich = "useState là Hook cơ bản nhất giúp lưu trữ và cập nhật trạng thái trong Functional Component."
-                });
             }
-            else
-            {
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Để tránh re-render không cần thiết của component con trong React, ta nên dùng cơ chế nào?",
-                    CacLuaChon = new List<string> { "React.memo", "useEffect", "useState", "useContext" },
-                    DapAnDungIndex = 0,
-                    GiaiThich = "React.memo là một higher-order component giúp ghi nhớ kết quả render của component con để tránh re-render khi props không đổi."
-                });
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Trong React Redux Toolkit, phương thức nào dùng để tạo một slice chứa reducer và actions?",
-                    CacLuaChon = new List<string> { "createStore", "createSlice", "createAction", "createReducer" },
-                    DapAnDungIndex = 1,
-                    GiaiThich = "createSlice tự động sinh ra các action creators và action types tương ứng với các reducers."
-                });
-            }
-        }
-        else if (catLower.Contains("node"))
-        {
-            if (sectionPos == 1)
-            {
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Node.js chạy trên Engine JavaScript nào?",
-                    CacLuaChon = new List<string> { "SpiderMonkey", "Chakra", "V8 của Google Chrome", "Rhino" },
-                    DapAnDungIndex = 2,
-                    GiaiThich = "Node.js được xây dựng dựa trên engine JavaScript V8 của Google Chrome."
-                });
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Framework phổ biến nhất để xây dựng web server trên Node.js là gì?",
-                    CacLuaChon = new List<string> { "ExpressJS", "Django", "Spring Boot", "Laravel" },
-                    DapAnDungIndex = 0,
-                    GiaiThich = "ExpressJS là web framework tối giản và linh hoạt được sử dụng rộng rãi nhất trong Node.js."
-                });
-            }
-            else
-            {
-                questions.Add(new QuestionTemplate {
-                    NoiDungCauHoi = "Trong NestJS, decorator nào dùng để khai báo một Class là một Service có thể tiêm vào (Injectable)?",
-                    CacLuaChon = new List<string> { "@Controller()", "@Module()", "@Injectable()", "@Service()" },
-                    DapAnDungIndex = 2,
-                    GiaiThich = "@Injectable() báo cho NestJS container biết Class này có thể được tiêm vào các class khác."
-                });
-            }
-        }
-        else if (catLower.Contains("python") || catLower.Contains("django"))
-        {
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Từ khóa nào dùng để định nghĩa hàm trong Python?",
-                CacLuaChon = new List<string> { "function", "void", "def", "func" },
-                DapAnDungIndex = 2,
-                GiaiThich = "Trong Python, bạn dùng từ khóa 'def' để bắt đầu định nghĩa một hàm."
-            });
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Kiểu dữ liệu nào lưu trữ các cặp key-value trong Python?",
-                CacLuaChon = new List<string> { "List", "Tuple", "Dictionary", "Set" },
-                DapAnDungIndex = 2,
-                GiaiThich = "Dictionary (dict) trong Python lưu trữ dưới dạng các cặp khóa-giá trị."
-            });
-        }
-        else if (catLower.Contains("java") || catLower.Contains("spring"))
-        {
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "JVM là viết tắt của từ gì?",
-                CacLuaChon = new List<string> { "Java Virtual Machine", "Java Version Manager", "Java Variable Method", "Java Virtual Method" },
-                DapAnDungIndex = 0,
-                GiaiThich = "JVM (Java Virtual Machine) là trình ảo hóa thực thi mã bytecode của Java."
-            });
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Từ khóa nào được dùng để kế thừa một Class khác trong Java?",
-                CacLuaChon = new List<string> { "implements", "extends", "inherits", "parent" },
-                DapAnDungIndex = 1,
-                GiaiThich = "Dùng extends cho kế thừa class trong Java."
-            });
-        }
-        else if (catLower.Contains("ai") || catLower.Contains("machine") || catLower.Contains("data"))
-        {
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Thư viện Python nào phổ biến nhất cho tính toán mảng và ma trận?",
-                CacLuaChon = new List<string> { "Pandas", "Matplotlib", "NumPy", "Scikit-Learn" },
-                DapAnDungIndex = 2,
-                GiaiThich = "NumPy cung cấp các cấu trúc mảng đa chiều hiệu năng cao cho Python."
-            });
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Thuật toán K-Means là thuật toán thuộc nhóm nào?",
-                CacLuaChon = new List<string> { "Học có giám sát", "Học không giám sát", "Học tăng cường", "Mạng nơ-ron sâu" },
-                DapAnDungIndex = 1,
-                GiaiThich = "K-Means là thuật toán thuộc nhóm Học không giám sát (Unsupervised Learning)."
-            });
-        }
-        else if (catLower.Contains("mạng") || catLower.Contains("ccna"))
-        {
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Mô hình OSI có bao nhiêu tầng?",
-                CacLuaChon = new List<string> { "4", "5", "7 (Physical, Data Link, Network, Transport, Session, Presentation, Application)", "9" },
-                DapAnDungIndex = 2,
-                GiaiThich = "Mô hình OSI chuẩn có 7 tầng."
-            });
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Thiết bị nào hoạt động ở tầng 3 (Network) của mô hình OSI?",
-                CacLuaChon = new List<string> { "Hub", "Switch L2", "Router", "Repeater" },
-                DapAnDungIndex = 2,
-                GiaiThich = "Router xử lý địa chỉ IP (tầng 3) để định tuyến các gói tin."
-            });
-        }
-        else if (catLower.Contains("marketing"))
-        {
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "SEO là viết tắt của từ gì?",
-                CacLuaChon = new List<string> { "Search Engine Optimization", "Social Engine Optimization", "Site Efficiency Optimization", "Social Engagement Opportunity" },
-                DapAnDungIndex = 0,
-                GiaiThich = "SEO là tối ưu hóa công cụ tìm kiếm."
-            });
-        }
-        else if (catLower.Contains("ui") || catLower.Contains("ux"))
-        {
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "UI là viết tắt của từ gì?",
-                CacLuaChon = new List<string> { "User Interaction", "User Interface (Giao diện người dùng)", "User Integration", "User Identity" },
-                DapAnDungIndex = 1,
-                GiaiThich = "UI (User Interface) là giao diện người dùng hiển thị trực quan."
-            });
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Công cụ thiết kế UI/UX phổ biến nhất hiện nay là gì?",
-                CacLuaChon = new List<string> { "Photoshop", "Illustrator", "Figma", "CorelDraw" },
-                DapAnDungIndex = 2,
-                GiaiThich = "Figma là công cụ thiết kế UI/UX phổ biến nhất hiện nay."
-            });
         }
 
         if (questions.Count == 0)
@@ -598,12 +533,6 @@ public static class SeedData
                 DapAnDungIndex = 0,
                 GiaiThich = "Chúc mừng bạn chọn đúng đáp án A."
             });
-            questions.Add(new QuestionTemplate {
-                NoiDungCauHoi = "Hãy chọn đáp án đúng nhất để hoàn thành bài học này:",
-                CacLuaChon = new List<string> { "Lựa chọn 1", "Lựa chọn 2 (Đúng)", "Lựa chọn 3", "Lựa chọn 4" },
-                DapAnDungIndex = 1,
-                GiaiThich = "Lựa chọn 2 là câu trả lời chính xác dựa trên bài giảng."
-            });
         }
 
         return questions;
@@ -613,7 +542,7 @@ public static class SeedData
     {
         return new List<CourseTemplate>
         {
-            // 1. ASP.NET Core
+            // 1. ASP.NET Core Web API
             new CourseTemplate
             {
                 TieuDe = "Xây dựng Web API chuyên nghiệp với ASP.NET Core",
@@ -666,58 +595,6 @@ public static class SeedData
                     }
                 }
             },
-            new CourseTemplate
-            {
-                TieuDe = "ASP.NET Core MVC từ cơ bản đến nâng cao",
-                DuongDanThanThien = "aspnet-core-mvc-co-ban-den-nang-cao",
-                MoTaNgan = "Học mô hình MVC, Razor View Engine và kết nối database xây dựng website bán hàng.",
-                MoTa = "Khóa học dẫn dắt bạn qua toàn bộ các khía cạnh của mô hình MVC trong ASP.NET Core. Thích hợp cho người bắt đầu làm quen với lập trình Web.",
-                MoTaChiTiet = "Bạn sẽ tự tay code một website thương mại điện tử hoàn chỉnh từ trang quản trị (Admin) đến giao diện khách hàng, xử lý giỏ hàng và thanh toán trực tuyến.",
-                ChuyenMuc = "ASP.NET Core",
-                TrinhDo = "BEGINNER",
-                Gia = 399000,
-                DiemDanhGiaTrungBinh = 4.7,
-                SoLuongDanhGia = 28,
-                HangThanhVienToiThieu = "BRONZE",
-                AnhDaiDien = "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Làm quen với mô hình MVC",
-                        LessonTitles = new List<string>
-                        {
-                            "Kiến trúc MVC là gì?",
-                            "Cách hoạt động của Route Engine",
-                            "Tạo Controller và Action",
-                            "Sử dụng ViewData, ViewBag và TempData"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "View & Razor View Engine",
-                        LessonTitles = new List<string>
-                        {
-                            "Cú pháp Razor cơ bản",
-                            "Tạo Layout Page và Partial Views",
-                            "Sử dụng Tag Helpers để tạo Form",
-                            "Xử lý Validation phía Client"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Làm việc với cơ sở dữ liệu",
-                        LessonTitles = new List<string>
-                        {
-                            "Kết nối Database với EF Core",
-                            "Thực hiện CRUD cho bảng Sản phẩm",
-                            "Sử dụng ViewComponent để chia nhỏ giao diện",
-                            "Triển khai Web lên Hosting IIS"
-                        }
-                    }
-                }
-            },
-
             // 2. ReactJS
             new CourseTemplate
             {
@@ -770,59 +647,7 @@ public static class SeedData
                     }
                 }
             },
-            new CourseTemplate
-            {
-                TieuDe = "ReactJS nâng cao: Quản lý State với Redux Toolkit",
-                DuongDanThanThien = "reactjs-nang-cao-redux-toolkit",
-                MoTaNgan = "Học tối ưu render Component, Custom Hooks và kiến trúc Redux Toolkit chuyên nghiệp.",
-                MoTa = "Dành cho các nhà phát triển React muốn nâng cao kỹ năng xử lý các ứng dụng quy mô lớn, tối ưu hóa hiệu năng render và cấu trúc code khoa học.",
-                MoTaChiTiet = "Chúng ta sẽ đi sâu vào cơ chế tối ưu render, viết custom hook tái sử dụng, và tích hợp RTK Query để quản lý cache API hoàn hảo.",
-                ChuyenMuc = "ReactJS",
-                TrinhDo = "ADVANCED",
-                Gia = 599000,
-                DiemDanhGiaTrungBinh = 4.9,
-                SoLuongDanhGia = 20,
-                HangThanhVienToiThieu = "GOLD",
-                AnhDaiDien = "https://images.unsplash.com/photo-1627398242454-45a1465c2079?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Kiến trúc Component & Performance Optimization",
-                        LessonTitles = new List<string>
-                        {
-                            "Các React design patterns phổ biến",
-                            "Tối ưu hóa render với memo, useMemo và useCallback Hooks",
-                            "Lazy Loading và Code Splitting với Suspense",
-                            "Xử lý Custom Hooks cho logic tái sử dụng"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Redux Toolkit cốt lõi",
-                        LessonTitles = new List<string>
-                        {
-                            "Tại sao cần Redux trong dự án lớn?",
-                            "Cài đặt và thiết lập Store với Redux Toolkit",
-                            "Tạo Slice, Actions và Reducers",
-                            "Kết nối React Component với Redux Store"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Xử lý Async Actions & Middleware",
-                        LessonTitles = new List<string>
-                        {
-                            "Call API bất đồng bộ với createAsyncThunk",
-                            "Quản lý State của API (loading, success, error)",
-                            "Giới thiệu RTK Query để tối ưu hóa caching",
-                            "Thực hành xây dựng giỏ hàng hoàn chỉnh"
-                        }
-                    }
-                }
-            },
-
-            // 3. NodeJS
+            // 3. NodeJS Express API
             new CourseTemplate
             {
                 TieuDe = "NodeJS & ExpressJS: Xây dựng RESTful API thực chiến",
@@ -874,420 +699,7 @@ public static class SeedData
                     }
                 }
             },
-            new CourseTemplate
-            {
-                TieuDe = "NodeJS nâng cao: NestJS Framework & TypeScript",
-                DuongDanThanThien = "nestjs-framework-typescript-nang-cao",
-                MoTaNgan = "Kiến trúc doanh nghiệp NestJS, kết nối PostgreSQL với TypeORM và viết Unit Test.",
-                MoTa = "Học NestJS - framework Node.js có cấu trúc rõ ràng, hỗ trợ TypeScript tuyệt hảo, phù hợp cho các dự án lớn, phức tạp của doanh nghiệp.",
-                MoTaChiTiet = "Tìm hiểu Dependency Injection sâu rộng, viết custom guards, interceptors, và làm việc chuyên sâu với TypeORM và microservices.",
-                ChuyenMuc = "NodeJS",
-                TrinhDo = "ADVANCED",
-                Gia = 699000,
-                DiemDanhGiaTrungBinh = 4.9,
-                SoLuongDanhGia = 18,
-                HangThanhVienToiThieu = "GOLD",
-                AnhDaiDien = "https://images.unsplash.com/photo-1507721999472-8ed4421c4b2e?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Làm quen với NestJS",
-                        LessonTitles = new List<string>
-                        {
-                            "Tại sao nên chọn NestJS cho dự án Node.js?",
-                            "Kiến trúc Module, Controller và Service trong NestJS",
-                            "Sử dụng TypeScript để quản lý kiểu dữ liệu chặt chẽ",
-                            "Cơ chế Dependency Injection trong NestJS"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Kết nối Database & Validations",
-                        LessonTitles = new List<string>
-                        {
-                            "Sử dụng TypeORM kết nối PostgreSQL / MySQL",
-                            "Tạo Entity và thực hiện Relations (One-to-Many, Many-to-Many)",
-                            "Validation dữ liệu đầu vào bằng DTO và ValidationPipe",
-                            "Xử lý exception toàn cục bằng Exception Filters"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Bảo mật & Microservices",
-                        LessonTitles = new List<string>
-                        {
-                            "Tích hợp Passport và JWT Guard",
-                            "Phân quyền theo Role-based Access Control (RBAC)",
-                            "Giới thiệu kiến trúc Microservices trong NestJS",
-                            "Viết Unit Test cho Controller và Service với Jest"
-                        }
-                    }
-                }
-            },
-
-            // 4. Python
-            new CourseTemplate
-            {
-                TieuDe = "Lập trình Python cơ bản cho người mới bắt đầu",
-                DuongDanThanThien = "lap-trinh-python-co-ban-moi-bat-dau",
-                MoTaNgan = "Học biến, vòng lặp, hàm, cấu trúc dữ liệu và lập trình hướng đối tượng căn bản.",
-                MoTa = "Khóa học lập trình Python toàn diện, dễ tiếp cận nhất cho người chưa có kinh nghiệm. Phù hợp làm nền tảng trước khi học AI hay Data Science.",
-                MoTaChiTiet = "Bạn sẽ học cách lập trình giải quyết các bài toán logic và thực hành xây dựng các ứng dụng console đơn giản nhưng thú vị.",
-                ChuyenMuc = "Python",
-                TrinhDo = "BEGINNER",
-                Gia = 199000,
-                DiemDanhGiaTrungBinh = 4.6,
-                SoLuongDanhGia = 50,
-                HangThanhVienToiThieu = "BRONZE",
-                AnhDaiDien = "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Cú pháp & Biến cơ bản",
-                        LessonTitles = new List<string>
-                        {
-                            "Tại sao nên học Python?",
-                            "Cài đặt Python và chạy Hello World",
-                            "Kiểu dữ liệu, Biến và Cú pháp cơ bản",
-                            "Các cấu trúc điều kiện (if, elif, else)"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Cấu trúc lặp & Tập hợp dữ liệu",
-                        LessonTitles = new List<string>
-                        {
-                            "Vòng lặp for và while",
-                            "Làm việc với List và Tuple",
-                            "Làm việc với Dictionary và Set",
-                            "Định nghĩa và gọi Hàm trong Python"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Thao tác File & Lập trình hướng đối tượng cơ bản",
-                        LessonTitles = new List<string>
-                        {
-                            "Đọc và ghi file văn bản",
-                            "Khái niệm Class và Object cơ bản",
-                            "Xử lý ngoại lệ (Try-Except)",
-                            "Thực hành xây dựng game Tic-Tac-Toe bằng Python console"
-                        }
-                    }
-                }
-            },
-            new CourseTemplate
-            {
-                TieuDe = "Lập trình Web với Python Django Framework",
-                DuongDanThanThien = "lap-trinh-web-python-django",
-                MoTaNgan = "Học cấu trúc dự án Django, Django ORM, Admin Panel và thiết lập REST API.",
-                MoTa = "Học cách xây dựng website nhanh chóng và bảo mật với Django - framework phát triển web phổ biến nhất của Python.",
-                MoTaChiTiet = "Chúng ta sẽ thiết kế database bằng Model, chạy migration, tạo giao diện người dùng và thiết lập API nhanh chóng với Django REST Framework.",
-                ChuyenMuc = "Python",
-                TrinhDo = "INTERMEDIATE",
-                Gia = 459000,
-                DiemDanhGiaTrungBinh = 4.7,
-                SoLuongDanhGia = 22,
-                HangThanhVienToiThieu = "SILVER",
-                AnhDaiDien = "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Kiến trúc MVT trong Django",
-                        LessonTitles = new List<string>
-                        {
-                            "Django Framework là gì và cách khởi tạo dự án",
-                            "Hiểu luồng dữ liệu URL, View, Model (MVT)",
-                            "Sử dụng Django Template Engine để tạo giao diện",
-                            "Cấu hình Database SQLite mặc định"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Django ORM & Admin Panel",
-                        LessonTitles = new List<string>
-                        {
-                            "Định nghĩa Model và chạy Migrations",
-                            "Truy vấn dữ liệu thông qua Django ORM",
-                            "Tự tùy biến trang quản trị Django Admin",
-                            "Xử lý Form và ModelForm trong Django"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Authentication & Django REST Framework",
-                        LessonTitles = new List<string>
-                        {
-                            "Hệ thống đăng nhập mặc định của Django",
-                            "Giới thiệu Django REST Framework để xây dựng API",
-                            "Tạo Serializer và API Views",
-                            "Deploy dự án Django lên PythonAnywhere"
-                        }
-                    }
-                }
-            },
-
-            // 5. Java
-            new CourseTemplate
-            {
-                TieuDe = "Lập trình Java core từ cơ bản đến hướng đối tượng",
-                DuongDanThanThien = "lap-trinh-java-core-co-ban-oop",
-                MoTaNgan = "Làm quen cú pháp Java, kiểu dữ liệu, các nguyên lý OOP cốt lõi và Java Collections.",
-                MoTa = "Khóa học nền tảng vững chắc nhất về Java, giúp bạn làm chủ 4 tính chất của Lập trình hướng đối tượng (OOP) và cấu trúc dữ liệu Collections.",
-                MoTaChiTiet = "Khóa học chuẩn bị cho bạn các kỹ năng cần thiết trước khi bước vào lập trình web doanh nghiệp hoặc lập trình app Android.",
-                ChuyenMuc = "Java",
-                TrinhDo = "BEGINNER",
-                Gia = 299000,
-                DiemDanhGiaTrungBinh = 4.6,
-                SoLuongDanhGia = 44,
-                HangThanhVienToiThieu = "BRONZE",
-                AnhDaiDien = "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Cú pháp cơ bản & Cấu trúc lập trình",
-                        LessonTitles = new List<string>
-                        {
-                            "Cơ chế biên dịch và máy ảo Java (JVM)",
-                            "Cài đặt JDK và IDE IntelliJ",
-                            "Khai báo biến, Hằng và Kiểu dữ liệu",
-                            "Câu lệnh điều kiện và vòng lặp trong Java"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Lập trình hướng đối tượng (OOP) cốt lõi",
-                        LessonTitles = new List<string>
-                        {
-                            "Khái niệm Class, Object và Constructor",
-                            "Tính Đóng gói (Encapsulation) và Kế thừa (Inheritance)",
-                            "Tính Đa hình (Polymorphism) và nạp chồng/ghi đè",
-                            "Trừu tượng (Abstraction) với Abstract Class và Interface"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Collections & Xử lý ngoại lệ",
-                        LessonTitles = new List<string>
-                        {
-                            "Làm việc với List, Set, Map trong Java",
-                            "Xử lý Exception với try-catch-finally",
-                            "Đọc ghi file nhị phân và file text",
-                            "Thực hành xây dựng phần mềm Quản lý học sinh bằng Java"
-                        }
-                    }
-                }
-            },
-            new CourseTemplate
-            {
-                TieuDe = "Lập trình Backend với Spring Boot thực chiến",
-                DuongDanThanThien = "lap-trinh-spring-boot-thuc-chien",
-                MoTaNgan = "Thiết lập dự án Spring Boot, Spring Data JPA, Spring Security và bảo mật JWT.",
-                MoTa = "Học cách xây dựng các hệ thống API có tính chịu tải cao và bảo mật bằng Spring Boot - framework hàng đầu của Java.",
-                MoTaChiTiet = "Đi sâu vào Dependency Injection, Hibernate/JPA, bảo mật với JWT và cách triển khai dự án doanh nghiệp thực tế.",
-                ChuyenMuc = "Java",
-                TrinhDo = "INTERMEDIATE",
-                Gia = 599000,
-                DiemDanhGiaTrungBinh = 4.9,
-                SoLuongDanhGia = 27,
-                HangThanhVienToiThieu = "SILVER",
-                AnhDaiDien = "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Spring Boot cơ bản & Dependency Injection",
-                        LessonTitles = new List<string>
-                        {
-                            "Giới thiệu Spring Ecosystem và Spring Boot",
-                            "Tạo dự án Spring Boot đầu tiên với Spring Initializr",
-                            "Hiểu IoC (Inversion of Control) và Dependency Injection",
-                            "Cấu hình ứng dụng qua file application.properties"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "REST API & JPA/Hibernate",
-                        LessonTitles = new List<string>
-                        {
-                            "Tạo REST Controller với @RestController",
-                            "Kết nối MySQL Database dùng Spring Data JPA",
-                            "Viết truy vấn nâng cao với JPQL và Native Query",
-                            "Validation dữ liệu đầu vào với Jakarta Validation"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Bảo mật & Triển khai",
-                        LessonTitles = new List<string>
-                        {
-                            "Tích hợp Spring Security và JWT",
-                            "Xử lý phân quyền truy cập chi tiết cho API",
-                            "Viết Unit Test cho Service dùng JUnit 5 và Mockito",
-                            "Đóng gói ứng dụng thành file JAR và chạy trên Server"
-                        }
-                    }
-                }
-            },
-
-            // 6. AI
-            new CourseTemplate
-            {
-                TieuDe = "Nhập môn Trí tuệ Nhân tạo (AI) và Machine Learning",
-                DuongDanThanThien = "nhap-mon-ai-machine-learning",
-                MoTaNgan = "Học thuật toán học có giám sát, không giám sát và đánh giá mô hình học máy với Python.",
-                MoTa = "Khóa học giới thiệu khái niệm cốt lõi về Trí tuệ nhân tạo, Machine Learning và các ứng dụng thực tế của chúng.",
-                MoTaChiTiet = "Bạn sẽ học cách lập trình và chạy thử các mô hình dự đoán từ dữ liệu thực tế bằng thư viện Scikit-Learn của Python.",
-                ChuyenMuc = "AI",
-                TrinhDo = "BEGINNER",
-                Gia = 399000,
-                DiemDanhGiaTrungBinh = 4.7,
-                SoLuongDanhGia = 33,
-                HangThanhVienToiThieu = "BRONZE",
-                AnhDaiDien = "https://images.unsplash.com/photo-1677442136019-21780efad99a?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Tổng quan AI & Thuật toán học có giám sát",
-                        LessonTitles = new List<string>
-                        {
-                            "Trí tuệ nhân tạo là gì? Phân biệt AI, ML và DL",
-                            "Cài đặt Anaconda và sử dụng Jupyter Notebook",
-                            "Hồi quy tuyến tính (Linear Regression) cơ bản",
-                            "Thuật toán phân lớp KNN và Decision Tree"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Học không giám sát & Đánh giá mô hình",
-                        LessonTitles = new List<string>
-                        {
-                            "Thuật toán phân cụm K-Means",
-                            "Cách đánh giá mô hình phân lớp (Accuracy, Precision, Recall, F1)",
-                            "Giảm chiều dữ liệu với PCA",
-                            "Sử dụng thư viện Scikit-Learn thực hành"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Học sâu & Trực quan hóa dữ liệu AI",
-                        LessonTitles = new List<string>
-                        {
-                            "Giới thiệu mạng nơ-ron nhân tạo (ANN)",
-                            "Thực hành xây dựng mô hình dự báo giá nhà",
-                            "Sử dụng Matplotlib và Seaborn để vẽ biểu đồ kết quả",
-                            "Định hướng phát triển nghề nghiệp trong ngành AI"
-                        }
-                    }
-                }
-            },
-            new CourseTemplate
-            {
-                TieuDe = "Phát triển ứng dụng Generative AI với OpenAI API & LangChain",
-                DuongDanThanThien = "phat-trien-ung-dung-generative-ai-langchain",
-                MoTaNgan = "Học Prompt Engineering nâng cao, xây dựng ứng dụng chatbot RAG hỏi đáp trên file PDF.",
-                MoTa = "Làm chủ Generative AI - công nghệ cách mạng hiện nay. Học cách kết nối OpenAI API, thiết kế Prompt chuyên nghiệp và sử dụng LangChain xây dựng chatbot.",
-                MoTaChiTiet = "Chúng ta sẽ cùng làm một ứng dụng hoàn chỉnh tích hợp Vector Database để trả lời thông minh dựa trên tài liệu cá nhân.",
-                ChuyenMuc = "AI",
-                TrinhDo = "ADVANCED",
-                Gia = 799000,
-                DiemDanhGiaTrungBinh = 4.9,
-                SoLuongDanhGia = 22,
-                HangThanhVienToiThieu = "DIAMOND",
-                AnhDaiDien = "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Khái niệm Generative AI & OpenAI API",
-                        LessonTitles = new List<string>
-                        {
-                            "Generative AI là gì? Hiểu về LLMs",
-                            "Cách lấy API Key và tích hợp OpenAI SDK",
-                            "Kỹ thuật viết Prompt hiệu quả (Prompt Engineering)",
-                            "Xử lý tham số temperature, max_tokens để kiểm soát kết quả"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "LangChain Framework",
-                        LessonTitles = new List<string>
-                        {
-                            "Giới thiệu LangChain và các module chính",
-                            "Sử dụng PromptTemplates để tái cấu trúc câu lệnh",
-                            "Tạo Chains để liên kết nhiều LLM calls",
-                            "Quản lý lịch sử hội thoại với Memory"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Xây dựng ứng dụng RAG (Retrieval-Augmented Generation)",
-                        LessonTitles = new List<string>
-                        {
-                            "Hiểu về Vector Databases và Embeddings",
-                            "Sử dụng FAISS / Pinecone làm cơ sở dữ liệu tri thức",
-                            "Xây dựng ứng dụng Chatbot hỏi đáp trên tài liệu PDF cá nhân",
-                            "Deploy ứng dụng AI lên Streamlit Cloud"
-                        }
-                    }
-                }
-            },
-            new CourseTemplate
-            {
-                TieuDe = "Ứng dụng AI nâng cao trong sáng tạo nội dung và thiết kế",
-                DuongDanThanThien = "ung-dung-ai-sang-tao-noi-dung-thiet-ke",
-                MoTaNgan = "Làm chủ ChatGPT, Midjourney, Stable Diffusion và ElevenLabs sản xuất video & ảnh.",
-                MoTa = "Dành cho nhà sáng tạo nội dung, nhà thiết kế muốn nhân 10 tốc độ làm việc nhờ sự trợ giúp của các công cụ Generative AI.",
-                MoTaChiTiet = "Khóa học tập trung thực hành tạo ảnh nghệ thuật, giọng đọc AI tự nhiên và biên tập video tự động.",
-                ChuyenMuc = "AI",
-                TrinhDo = "INTERMEDIATE",
-                Gia = 359000,
-                DiemDanhGiaTrungBinh = 4.8,
-                SoLuongDanhGia = 37,
-                HangThanhVienToiThieu = "SILVER",
-                AnhDaiDien = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Sản xuất văn bản & kịch bản thông minh",
-                        LessonTitles = new List<string>
-                        {
-                            "Dùng ChatGPT & Claude để viết bài SEO chuẩn",
-                            "Dịch thuật và địa phương hóa nội dung bằng AI",
-                            "Tạo kịch bản video ngắn tự động lên xu hướng",
-                            "Biên tập và chuẩn hóa giọng văn của thương hiệu"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Thiết kế hình ảnh và đồ họa với AI",
-                        LessonTitles = new List<string>
-                        {
-                            "Làm quen với Midjourney và cách viết Prompt",
-                            "Tạo ảnh thiết kế nhanh với Stable Diffusion và Canva AI",
-                            "Chỉnh sửa ảnh chuyên nghiệp bằng công cụ Generative Fill",
-                            "Tạo avatar AI đại diện thương hiệu"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Tạo video và âm thanh tự động",
-                        LessonTitles = new List<string>
-                        {
-                            "Dùng Runway / Pika để chuyển văn bản thành video ngắn",
-                            "Tạo giọng đọc AI tự nhiên bằng ElevenLabs",
-                            "Xây dựng quy trình tự động hóa sản xuất video ngắn",
-                            "Kiểm thử bản quyền và xuất bản nội dung AI"
-                        }
-                    }
-                }
-            },
+            // 4. Machine Learning
             new CourseTemplate
             {
                 TieuDe = "Machine Learning thực hành: Dự báo và phân loại",
@@ -1339,163 +751,7 @@ public static class SeedData
                     }
                 }
             },
-
-            // 7. Data Science
-            new CourseTemplate
-            {
-                TieuDe = "Khoa học dữ liệu: Từ cơ bản đến trực quan hóa",
-                DuongDanThanThien = "khoa-hoc-du-lieu-truc-quan-hoa",
-                MoTaNgan = "Thống kê toán học, biến đổi dữ liệu với Pandas và vẽ biểu đồ Plotly sinh động.",
-                MoTa = "Nắm bắt các nguyên lý toán học thống kê và cách chuyển đổi số liệu thô thành những biểu đồ báo cáo ý nghĩa, hỗ trợ quyết định kinh doanh.",
-                MoTaChiTiet = "Phù hợp cho các bạn muốn chuyển ngành sang Data Analyst hoặc Data Scientist mà chưa có nền tảng sâu về toán.",
-                ChuyenMuc = "Data Science",
-                TrinhDo = "BEGINNER",
-                Gia = 349000,
-                DiemDanhGiaTrungBinh = 4.6,
-                SoLuongDanhGia = 41,
-                HangThanhVienToiThieu = "BRONZE",
-                AnhDaiDien = "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Toán học & Xác suất thống kê trong Data Science",
-                        LessonTitles = new List<string>
-                        {
-                            "Tầm quan trọng của thống kê trong phân tích dữ liệu",
-                            "Các chỉ số cơ bản: Mean, Median, Mode, Standard Deviation",
-                            "Đại số tuyến tính cơ bản: Vector và Matrix",
-                            "Hiểu về phân phối chuẩn (Normal Distribution)"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Làm sạch & Biến đổi dữ liệu với Pandas",
-                        LessonTitles = new List<string>
-                        {
-                            "Thao tác trên DataFrame trong Pandas",
-                            "Lọc, gom nhóm (Group By) và nối bảng (Merge/Join)",
-                            "Xử lý dữ liệu bị khuyết (Handling Missing Values)",
-                            "Chuyển đổi kiểu dữ liệu và chuẩn hóa dữ liệu số"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Trực quan hóa Insight",
-                        LessonTitles = new List<string>
-                        {
-                            "Vẽ biểu đồ phân bố, biểu đồ đường, biểu đồ cột",
-                            "Tạo biểu đồ tương tác với Plotly",
-                            "Xây dựng báo cáo dữ liệu hoàn chỉnh (Data Storytelling)",
-                            "Lập kế hoạch phân tích cho một dự án thực tế"
-                        }
-                    }
-                }
-            },
-            new CourseTemplate
-            {
-                TieuDe = "Thực hành Data Science chuyên sâu với Python",
-                DuongDanThanThien = "thuc-hanh-data-science-chuyen-sau",
-                MoTaNgan = "Cào dữ liệu web (Scraping), xử lý dữ liệu lớn, Feature Engineering và tối ưu hóa GridSearch.",
-                MoTa = "Khóa học thực hành chuyên sâu tập trung vào kỹ năng xử lý dữ liệu phức tạp, thu thập dữ liệu tự động và xây dựng pipeline học máy chuyên nghiệp.",
-                MoTaChiTiet = "Bạn sẽ được cào dữ liệu từ các website thật, tối ưu hóa các tham số mô hình thông qua GridSearchCV.",
-                ChuyenMuc = "Data Science",
-                TrinhDo = "INTERMEDIATE",
-                Gia = 499000,
-                DiemDanhGiaTrungBinh = 4.8,
-                SoLuongDanhGia = 29,
-                HangThanhVienToiThieu = "SILVER",
-                AnhDaiDien = "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Thu thập dữ liệu & Web Scraping",
-                        LessonTitles = new List<string>
-                        {
-                            "Thu thập dữ liệu từ các API công khai",
-                            "Cào dữ liệu từ trang web bằng BeautifulSoup và Selenium",
-                            "Đọc ghi dữ liệu định dạng JSON, XML, SQL",
-                            "Xử lý lưu trữ dữ liệu khối lượng lớn"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Kỹ nghệ đặc trưng (Feature Engineering)",
-                        LessonTitles = new List<string>
-                        {
-                            "Lựa chọn đặc trưng (Feature Selection)",
-                            "Mã hóa biến phân loại (One-Hot, Label Encoding)",
-                            "Tạo các đặc trưng mới từ dữ liệu thời gian",
-                            "Xử lý mất cân bằng dữ liệu với SMOTE"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Xây dựng & Tối ưu mô hình ML",
-                        LessonTitles = new List<string>
-                        {
-                            "Phân tách tập Train/Test và Cross Validation",
-                            "Tìm kiếm tham số tốt nhất với GridSearchCV",
-                            "Đánh giá mô hình bằng ROC-AUC và Precision-Recall Curve",
-                            "Thực hành làm dự án dự đoán tỷ lệ rời bỏ khách hàng"
-                        }
-                    }
-                }
-            },
-
-            // 8. Mạng máy tính
-            new CourseTemplate
-            {
-                TieuDe = "Quản trị mạng máy tính: CCNA 200-301 nâng cao",
-                DuongDanThanThien = "quan-tri-mang-ccna-nang-cao",
-                MoTaNgan = "Cấu hình định tuyến OSPF, thiết lập ACL bảo mật và NAT chuyển đổi IP.",
-                MoTa = "Tiếp nối phần cơ bản, khóa học đi sâu vào kỹ năng thực hành cấu hình thiết bị mạng Cisco thật, định tuyến động và tối ưu hóa bảo mật hệ thống mạng nội bộ.",
-                MoTaChiTiet = "Bạn sẽ làm chủ OSPFv2, Access Control List, NAT và chẩn đoán sự cố mạng bằng các lệnh Cisco IOS nâng cao.",
-                ChuyenMuc = "Mạng máy tính",
-                TrinhDo = "INTERMEDIATE",
-                Gia = 459000,
-                DiemDanhGiaTrungBinh = 4.8,
-                SoLuongDanhGia = 26,
-                HangThanhVienToiThieu = "SILVER",
-                AnhDaiDien = "https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Định tuyến nâng cao & OSPF",
-                        LessonTitles = new List<string>
-                        {
-                            "Định tuyến tĩnh và định tuyến động",
-                            "Cấu hình giao thức định tuyến OSPFv2 đơn vùng",
-                            "Hiểu về bảng định tuyến và cơ chế so khớp địa chỉ IP",
-                            "Cấu hình Router-on-a-stick để định tuyến giữa các VLAN"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Giao thức bảo mật & NAT",
-                        LessonTitles = new List<string>
-                        {
-                            "Hiểu cách hoạt động của NAT tĩnh và NAT động",
-                            "Cấu hình Access Control List để lọc gói tin",
-                            "Bảo mật cổng mạng (Port Security) trên Switch",
-                            "Cấu hình dịch vụ DHCP tự động cấp IP cho doanh nghiệp"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Dịch vụ mạng WAN & Khắc phục sự cố",
-                        LessonTitles = new List<string>
-                        {
-                            "Tìm hiểu công nghệ mạng WAN: VPN, MPLS, SD-WAN",
-                            "Sử dụng công cụ Ping và Traceroute để chẩn đoán",
-                            "Các lệnh show thông dụng của Cisco IOS để debug",
-                            "LAB tổng hợp: Xây dựng sơ đồ mạng đa chi nhánh"
-                        }
-                    }
-                }
-            },
+            // 5. Network Security
             new CourseTemplate
             {
                 TieuDe = "An ninh mạng và Bảo mật hệ thống căn bản",
@@ -1547,112 +803,7 @@ public static class SeedData
                     }
                 }
             },
-
-            // 9. UI/UX
-            new CourseTemplate
-            {
-                TieuDe = "Tư duy thiết kế UI/UX thực chiến",
-                DuongDanThanThien = "tu-duy-thiet-ke-uiux-thuc-chien",
-                MoTaNgan = "Học nghiên cứu người dùng, vẽ Sitemap, Wireframe và áp dụng quy tắc màu sắc UI.",
-                MoTa = "Khóa học xây dựng tư duy thiết kế lấy người dùng làm trung tâm (User-Centered Design). Học cách thiết kế giao diện web đẹp, trực quan và tối ưu trải nghiệm học tập.",
-                MoTaChiTiet = "Bạn sẽ thực hành từ UX Research, tạo Wireframe đến áp dụng các quy tắc thiết kế UI (màu sắc, typography, khoảng trắng) để có sản phẩm Landing Page hoàn chỉnh.",
-                ChuyenMuc = "UI/UX",
-                TrinhDo = "BEGINNER",
-                Gia = 299000,
-                DiemDanhGiaTrungBinh = 4.8,
-                SoLuongDanhGia = 24,
-                HangThanhVienToiThieu = "BRONZE",
-                AnhDaiDien = "https://images.unsplash.com/photo-1561070791-26c113006238?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Nghiên cứu người dùng (UX Research)",
-                        LessonTitles = new List<string>
-                        {
-                            "UI và UX khác nhau như thế nào?",
-                            "Cách lập bảng hỏi và phỏng vấn người dùng",
-                            "Xây dựng chân dung người dùng tiêu biểu (User Persona)",
-                            "Vẽ bản đồ hành trình trải nghiệm (Customer Journey Map)"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Kiến trúc thông tin & Wireframe",
-                        LessonTitles = new List<string>
-                        {
-                            "Sắp xếp thông tin website khoa học (Information Architecture)",
-                            "Tạo sơ đồ trang web (Sitemap)",
-                            "Vẽ Wireframe trên giấy (Lo-Fi) đến bản nháp kỹ thuật số",
-                            "Thiết kế luồng thao tác của người dùng (User Flow)"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Nguyên lý thị giác & Thiết kế UI",
-                        LessonTitles = new List<string>
-                        {
-                            "Cách sử dụng màu sắc hài hòa trong UI (Quy tắc 60-30-10)",
-                            "Typography: Chọn font và kích thước chuẩn cho web/mobile",
-                            "Quy tắc khoảng trắng và bố cục cân bằng",
-                            "Thực hành thiết kế màn hình Landing Page đầu tiên"
-                        }
-                    }
-                }
-            },
-            new CourseTemplate
-            {
-                TieuDe = "Thiết kế Mobile App UI/UX nâng cao",
-                DuongDanThanThien = "thiet-ke-mobile-app-uiux-nang-cao",
-                MoTaNgan = "Học Material Design, iOS Guidelines, xây dựng Figma UI System và micro-interactions.",
-                MoTa = "Học thiết kế giao diện ứng dụng di động chuyên nghiệp trên Figma. Nắm chắc đặc thù màn hình cảm ứng, Material Design và iOS Guidelines.",
-                MoTaChiTiet = "Khóa học hướng dẫn chi tiết cách tạo bộ Styles, Variables, Auto Layout và Smart Animate tạo hiệu ứng chuyển động chân thực nhất.",
-                ChuyenMuc = "UI/UX",
-                TrinhDo = "ADVANCED",
-                Gia = 499000,
-                DiemDanhGiaTrungBinh = 4.9,
-                SoLuongDanhGia = 18,
-                HangThanhVienToiThieu = "GOLD",
-                AnhDaiDien = "https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Đặc thù thiết kế trên Mobile",
-                        LessonTitles = new List<string>
-                        {
-                            "Khác biệt giữa thiết kế Web và Mobile App",
-                            "Tìm hiểu iOS Human Interface Guidelines",
-                            "Tìm hiểu Material Design của Google",
-                            "Khu vực tương tác thuận tiện bằng ngón tay (Thumb Zone)"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Xây dựng hệ thống UI System trong Figma",
-                        LessonTitles = new List<string>
-                        {
-                            "Tạo bộ màu sắc, typography và hiệu ứng toàn cục (Styles)",
-                            "Tạo các Component thông minh có nhiều biến thể (Variants)",
-                            "Ứng dụng Auto Layout nâng cao để co giãn màn hình",
-                            "Quản lý thư viện Design System chuyên nghiệp trong dự án"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Interactive Prototyping & Motion UI",
-                        LessonTitles = new List<string>
-                        {
-                            "Tạo hiệu ứng chuyển cảnh mượt mà giữa các màn hình",
-                            "Sử dụng Smart Animate để tạo micro-interactions",
-                            "Thiết kế hiệu ứng vuốt chạm (Gesture) chân thực",
-                            "Bàn giao thiết kế cho lập trình viên (Developer Handoff)"
-                        }
-                    }
-                }
-            },
-
-            // 10. Digital Marketing
+            // 6. Digital Marketing
             new CourseTemplate
             {
                 TieuDe = "Digital Marketing tổng quan cho doanh nghiệp nhỏ",
@@ -1704,59 +855,7 @@ public static class SeedData
                     }
                 }
             },
-            new CourseTemplate
-            {
-                TieuDe = "Quảng cáo Google Ads & Facebook Ads từ cơ bản đến tối ưu",
-                DuongDanThanThien = "quang-cao-google-ads-facebook-ads",
-                MoTaNgan = "Cấu hình chiến dịch Facebook Ads, nghiên cứu từ khóa Google và chạy Re-marketing tối ưu chi phí.",
-                MoTa = "Khóa học thực chiến hướng dẫn từng bước thiết lập tài khoản quảng cáo, cài đặt Pixel/Tag đo lường, đấu thầu từ khóa và nhắm trúng mục tiêu khách hàng.",
-                MoTaChiTiet = "Tối ưu hóa ngân sách quảng cáo của bạn, tránh lãng phí tiền và tăng tỷ lệ chuyển đổi đơn hàng thông qua tiếp thị lại (Re-marketing).",
-                ChuyenMuc = "Digital Marketing",
-                TrinhDo = "INTERMEDIATE",
-                Gia = 499000,
-                DiemDanhGiaTrungBinh = 4.8,
-                SoLuongDanhGia = 31,
-                HangThanhVienToiThieu = "SILVER",
-                AnhDaiDien = "https://images.unsplash.com/photo-1533750516457-a7f992034fec?w=600&auto=format&fit=crop",
-                CacChuongHoc = new List<SectionTemplate>
-                {
-                    new SectionTemplate
-                    {
-                        TieuDe = "Quảng cáo Facebook Ads thực chiến",
-                        LessonTitles = new List<string>
-                        {
-                            "Thiết lập Trình quản lý doanh nghiệp (Business Manager)",
-                            "Cấu trúc một chiến dịch quảng cáo Facebook",
-                            "Cách nhắm mục tiêu khách hàng chi tiết (Targeting)",
-                            "Cài đặt Facebook Pixel để đo lường chuyển đổi"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Quảng cáo Google Ads tìm kiếm",
-                        LessonTitles = new List<string>
-                        {
-                            "Cơ chế đấu thầu từ khóa của Google Ads",
-                            "Nghiên cứu từ khóa hiệu quả bằng Google Keyword Planner",
-                            "Viết mẫu quảng cáo thu hút nhấp chuột",
-                            "Cấu hình ngân sách và chiến lược giá thầu"
-                        }
-                    },
-                    new SectionTemplate
-                    {
-                        TieuDe = "Tối ưu chi phí & Re-marketing",
-                        LessonTitles = new List<string>
-                        {
-                            "Cách đọc báo cáo quảng cáo để phát hiện lãng phí",
-                            "Chạy chiến dịch tiếp thị lại (Re-marketing) bám đuổi khách",
-                            "Thực hiện A/B testing hình ảnh và kịch bản quảng cáo",
-                            "Quy trình xử lý khi tài khoản quảng cáo bị vô hiệu hóa"
-                        }
-                    }
-                }
-            },
-
-            // 11. CCNA Original (Keep consistent)
+            // 7. CCNA 200-301
             new CourseTemplate
             {
                 TieuDe = "CCNA 200-301 cho người mới bắt đầu",

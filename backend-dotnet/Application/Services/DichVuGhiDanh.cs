@@ -150,12 +150,12 @@ public class DichVuGhiDanh(ApplicationDbContext db) : IDichVuGhiDanh
                 .ThenInclude(kh => kh!.CacBaiHoc)
             .Include(e => e.KhoaHoc)
                 .ThenInclude(kh => kh!.CacChuongHoc)
-            .Include(e => e.KhoaHoc)
-                .ThenInclude(kh => kh!.CacGhiDanh)
             .OrderByDescending(e => e.NgayTao)
             .ToListAsync();
 
-        var courseIds = ghiDanhs.Select(e => e.KhoaHocId).ToList();
+        if (ghiDanhs.Count == 0) return Array.Empty<object>();
+
+        var courseIds = ghiDanhs.Select(e => e.KhoaHocId).Distinct().ToList();
         var lessonCounts = await db.BaiHoc.AsNoTracking()
             .Where(lesson => courseIds.Contains(lesson.KhoaHocId))
             .GroupBy(lesson => lesson.KhoaHocId)

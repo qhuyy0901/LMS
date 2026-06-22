@@ -685,6 +685,7 @@ const CourseEditor = () => {
   };
 
   const unpublishCourse = async () => {
+    if (!window.confirm('Bạn có chắc muốn chuyển khóa học này về bản nháp?')) return;
     const courseId = course?.id || id;
     try {
       const updated = await api.patch(`/api/instructor/courses/${courseId}/publish`, { isPublished: false });
@@ -1268,7 +1269,7 @@ const CourseEditor = () => {
         </button>
         <button
           onClick={unpublishCourse}
-          disabled={!course?.id || !course?.isPublished}
+          disabled={!course?.id || (!course?.isPublished && course?.trangThai !== 'HIDDEN' && course?.status !== 'HIDDEN')}
           className="w-full rounded-full border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-50"
         >
           Chuyển về bản nháp

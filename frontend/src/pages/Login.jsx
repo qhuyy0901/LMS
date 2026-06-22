@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -31,6 +31,7 @@ export default function Login() {
 
   const { login, startSocialLogin } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const normalizedEmail = useMemo(() => email.trim(), [email]);
 
@@ -63,7 +64,8 @@ export default function Login() {
       setIsLoading(true);
       const user = await login(normalizedEmail, password);
       sessionStorage.removeItem('skillio_student_preview');
-      navigate(getLoginRedirectPath(user), { replace: true });
+      const fromPath = location.state?.from || getLoginRedirectPath(user);
+      navigate(fromPath, { replace: true });
     } catch (err) {
       setError(err.response?.data?.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
     } finally {

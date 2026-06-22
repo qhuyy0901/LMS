@@ -239,6 +239,21 @@ await using (var scope = app.Services.CreateAsyncScope())
         END;
     ");
 
+    // Ensure MaGiamGia table has the required columns if they were not created due to schema mismatch
+    await db.Database.ExecuteSqlRawAsync(@"
+        IF OBJECT_ID(N'[MaGiamGia]') IS NOT NULL
+        BEGIN
+            IF COL_LENGTH(N'[MaGiamGia]', N'IsPrivate') IS NULL
+            BEGIN
+                ALTER TABLE [MaGiamGia] ADD [IsPrivate] bit NOT NULL DEFAULT 0;
+            END;
+            IF COL_LENGTH(N'[MaGiamGia]', N'TrangThai') IS NULL
+            BEGIN
+                ALTER TABLE [MaGiamGia] ADD [TrangThai] nvarchar(50) NOT NULL DEFAULT 'ACTIVE';
+            END;
+        END;
+    ");
+
     if (app.Environment.IsDevelopment())
     {
         await SeedData.SeedAsync(db);

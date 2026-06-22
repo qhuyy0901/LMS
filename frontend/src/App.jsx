@@ -41,6 +41,7 @@ const AdminSettings = lazy(() => import('./pages/AdminSettings'));
 const AdminTransactions = lazy(() => import('./pages/AdminTransactions'));
 const AdminUsers = lazy(() => import('./pages/AdminUsers'));
 const CourseDetails = lazy(() => import('./pages/CourseDetails'));
+const Checkout = lazy(() => import('./pages/Checkout'));
 const CourseEditor = lazy(() => import('./pages/CourseEditor'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Events = lazy(() => import('./pages/Events'));
@@ -117,6 +118,7 @@ function App() {
 
                     <Route path="explore" element={<Explore />} />
                     <Route path="course/:id" element={<CourseDetails />} />
+                    <Route path="checkout/:courseId" element={<Checkout />} />
                     <Route path="instructors" element={<Navigate to="/" replace />} />
                     <Route path="giang-vien" element={<Navigate to="/" replace />} />
                     <Route path="messages" element={<Messages />} />

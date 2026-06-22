@@ -119,7 +119,6 @@ public class DichVuNguoiDung(ApplicationDbContext db) : IDichVuNguoiDung
                 certificateNo = c.SoChungChi,
                 c.MaXacThuc,
                 verifyCode = c.MaXacThuc,
-                c.PdfUrl,
                 pdfUrl = c.PdfUrl,
                 c.NgayCap,
                 issuedAt = c.NgayCap,

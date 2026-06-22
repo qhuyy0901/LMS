@@ -167,9 +167,6 @@ const MyLearning = () => {
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white md:text-3xl">
             Học tập của tôi
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 font-normal mt-1.5 leading-relaxed">
-            Quản lý tiến trình học, xem chứng chỉ và tiếp tục bài học của bạn.
-          </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row">
           <button

@@ -5,6 +5,7 @@ import {
   BookOpen,
   Eye,
   EyeOff,
+  FileX,
   FilePenLine,
   Layers,
   Plus,
@@ -179,6 +180,18 @@ export default function InstructorCourses() {
     }
   };
 
+  const moveToDraft = async (course) => {
+    if (!window.confirm('Bạn có chắc muốn chuyển khóa học này về bản nháp?')) return;
+    setNotice('');
+    try {
+      await axios.patch(`/api/instructor/courses/${course.id}/publish`, { isPublished: false });
+      setNotice('Đã chuyển khóa học về bản nháp.');
+      await loadCourses();
+    } catch (error) {
+      setNotice(error.response?.data?.message || 'Không thể chuyển khóa học về bản nháp.');
+    }
+  };
+
   const deleteCourse = async (course) => {
     if (!window.confirm('Bạn có chắc muốn xóa khóa học này không?')) return;
 
@@ -289,6 +302,7 @@ export default function InstructorCourses() {
                 onEdit={() => navigate(`/instructor/courses/${course.id}/edit`)}
                 onPublish={() => publishCourse(course)}
                 onHide={() => hideCourse(course)}
+                onMoveToDraft={() => moveToDraft(course)}
                 onDelete={() => deleteCourse(course)}
                 onCurriculum={() => navigate(`/instructor/courses/${course.id}`)}
               />
@@ -311,7 +325,7 @@ export default function InstructorCourses() {
   );
 }
 
-function CourseRow({ course, onEdit, onPublish, onHide, onDelete, onCurriculum }) {
+function CourseRow({ course, onEdit, onPublish, onHide, onMoveToDraft, onDelete, onCurriculum }) {
   const currentStatus = normalizeStatus(course);
   const sectionCount = course.sectionCount ?? course.sections?.length ?? 0;
   const lessonCount = course.lessonCount ?? course.totalLessons ?? 0;
@@ -360,6 +374,7 @@ function CourseRow({ course, onEdit, onPublish, onHide, onDelete, onCurriculum }
         <ActionButton icon={FilePenLine} label="Sửa khóa học" onClick={onEdit} />
         <ActionButton icon={Layers} label="Quản lý giáo trình" onClick={onCurriculum} />
         <ActionButton icon={UploadCloud} label="Xuất bản" onClick={onPublish} disabled={currentStatus === 'PUBLIC'} />
+        <ActionButton icon={FileX} label="Chuyển về bản nháp" onClick={onMoveToDraft} disabled={currentStatus === 'DRAFT'} />
         <ActionButton icon={EyeOff} label="Ẩn khóa học" onClick={onHide} disabled={currentStatus === 'HIDDEN'} />
         <ActionButton icon={Trash2} label="Xóa khóa học" onClick={onDelete} danger disabled={!canDelete} title={deleteTitle} />
       </div>

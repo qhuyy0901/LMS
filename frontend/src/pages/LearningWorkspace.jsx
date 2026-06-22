@@ -669,7 +669,7 @@ export default function LearningWorkspace() {
                             </div>
                             <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
                               <div 
-                                className="h-full bg-gradient-to-r from-purple-500 to-indigo-650 rounded-full transition-all duration-300"
+                                className="h-full bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full transition-all duration-300"
                                 style={{ width: `${((currentQuestionIndex + 1) / quiz.questions.length) * 100}%` }}
                               ></div>
                             </div>
@@ -677,7 +677,7 @@ export default function LearningWorkspace() {
 
                           {/* Question Card */}
                           <div className="bg-white border border-slate-200 shadow-sm rounded-2xl p-6 relative">
-                            <span className="text-[9px] font-bold tracking-wider text-purple-650 bg-purple-100/60 px-2 py-0.5 rounded-full uppercase">
+                            <span className="text-[9px] font-bold tracking-wider text-purple-600 bg-purple-100/60 px-2 py-0.5 rounded-full uppercase">
                               Câu hỏi {currentQuestionIndex + 1}
                             </span>
                             <h3 className="text-sm font-bold text-slate-800 mt-4 leading-relaxed">
@@ -726,7 +726,7 @@ export default function LearningWorkspace() {
                                   onClick={() => setCurrentQuestionIndex(qIdx)}
                                   className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-all border ${
                                     isActive
-                                      ? 'border-purple-600 bg-purple-650 text-white shadow shadow-purple-100 scale-105'
+                                      ? 'border-purple-600 bg-purple-600 text-white shadow shadow-purple-100 scale-105'
                                       : isAnswered
                                         ? 'border-purple-200 bg-purple-50 text-purple-600'
                                         : 'border-slate-200 bg-white text-slate-400 hover:border-slate-300'

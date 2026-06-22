@@ -291,37 +291,33 @@ export default function CourseDetails() {
   };
 
   const handleEnroll = async () => {
+    if (!user) {
+      navigate('/login', { state: { from: `/course/${id}` } });
+      return;
+    }
+
     if (isImpersonating) {
       window.alert('Chế độ xem thử chỉ mô phỏng trải nghiệm sinh viên và không phát sinh đăng ký hoặc giao dịch.');
       return;
     }
 
+    if (coursePrice > 0) {
+      navigate(`/checkout/${id}`, { state: { couponCode: couponResult?.valid ? couponResult.couponCode : '' } });
+      return;
+    }
+
     setEnrolling(true);
     try {
-      if (coursePrice > 0) {
-        const response = await axios.post('/api/payments/create-checkout-session', {
-          type: 'course',
-          courseId: id,
-          couponCode: couponResult?.valid ? couponResult.couponCode : undefined,
-        });
-
-        if (response.data.successUrl) {
-          window.location.href = response.data.successUrl;
-        }
-      } else {
-        await axios.post(`/api/courses/${id}/enroll`);
-        setCourse((prev) => ({
-          ...prev,
-          isEnrolled: true,
-          progress: 0,
-          canReview: false,
-          studentCount: getStudentCount(prev) + 1,
-        }));
-      }
+      await axios.post(`/api/courses/${id}/enroll`);
+      setCourse((prev) => ({
+        ...prev,
+        isEnrolled: true,
+        progress: 0,
+        canReview: false,
+        studentCount: getStudentCount(prev) + 1,
+      }));
     } catch (err) {
-      const shortfall = err.response?.data?.shortfall;
-      const message = err.response?.data?.message || err.message;
-      window.alert(shortfall ? `${message}. Bạn cần nạp thêm ${formatCurrency(shortfall)} vào ví.` : message);
+      window.alert(err.response?.data?.message || err.message);
     } finally {
       setEnrolling(false);
     }
@@ -815,7 +811,7 @@ export default function CourseDetails() {
                   onClick={() => navigate(`/learn/${id}`)}
                   className="group flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 font-semibold text-white transition-colors hover:bg-slate-800"
                 >
-                  Tiếp tục học
+                  Vào học
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </button>
               </div>

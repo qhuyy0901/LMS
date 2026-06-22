@@ -2,6 +2,8 @@
 @import "tailwindcss";
 /* You can still import your existing main.css if you want, but it's better to just use tailwind */
 
+@variant dark ([data-theme="dark"] &);
+
 @theme {
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: 'Geist Mono', 'SF Mono', 'JetBrains Mono', monospace;

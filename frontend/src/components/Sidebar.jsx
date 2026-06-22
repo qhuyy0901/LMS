@@ -45,7 +45,7 @@ const Sidebar = () => {
   };
 
   return (
-    <aside className={`relative hidden shrink-0 border-r border-slate-100 transition-[width,padding] duration-300 lg:flex lg:flex-col ${
+    <aside className={`relative hidden shrink-0 border-r border-purple-100/40 dark:border-slate-800/80 bg-white dark:bg-slate-900 transition-[width,padding] duration-300 lg:flex lg:flex-col ${
       collapsed ? 'w-20 px-3 py-6' : 'w-64 p-6'
     }`}>
       <button
@@ -53,7 +53,7 @@ const Sidebar = () => {
         onClick={toggleSidebar}
         title={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
         aria-label={collapsed ? 'Mở rộng menu' : 'Thu gọn menu'}
-        className="absolute -right-4 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700"
+        className="absolute -right-4 top-7 z-20 flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 dark:text-slate-400 shadow-sm transition hover:border-purple-200 dark:hover:border-purple-800 hover:bg-purple-50 dark:hover:bg-purple-950/30 hover:text-purple-700 dark:hover:text-purple-400"
       >
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
       </button>
@@ -65,11 +65,11 @@ const Sidebar = () => {
         title="Tải lại trang"
         className={`mb-8 flex items-center rounded-xl text-left transition hover:opacity-80 ${collapsed ? 'justify-center' : 'gap-2'}`}
       >
-        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200/50">
+        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-700 rounded-xl flex items-center justify-center shadow-lg shadow-purple-200/50 dark:shadow-none">
           <Zap className="w-5 h-5 text-white" />
         </div>
         {!collapsed && (
-          <span className="text-2xl font-semibold tracking-tight text-purple-700">
+          <span className="text-2xl font-semibold tracking-tight text-purple-700 dark:text-purple-400">
             Skillio
           </span>
         )}
@@ -82,12 +82,12 @@ const Sidebar = () => {
           // Section headers
           if (item.section) {
             if (collapsed) {
-              return <div key={`section-${index}`} className={index === 0 ? 'h-2' : 'mt-5 h-px bg-slate-100'} />;
+              return <div key={`section-${index}`} className={index === 0 ? 'h-2' : 'mt-5 h-px bg-purple-100/30 dark:bg-slate-800'} />;
             }
             return (
               <p
                 key={`section-${index}`}
-                className={`text-xs font-semibold uppercase tracking-wider text-slate-400 ${
+                className={`text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 ${
                   index === 0 ? 'mb-3' : 'mt-7 mb-3'
                 }`}
               >

@@ -9,7 +9,6 @@ import {
   EyeOff,
   GraduationCap,
   KeyRound,
-  Landmark,
   LogOut,
   BanknoteArrowDown,
   ReceiptText,
@@ -69,18 +68,22 @@ const Toggle = ({ checked, onChange }) => (
     type="button"
     aria-pressed={checked}
     onClick={() => onChange(!checked)}
-    className={`relative h-6 w-11 rounded-full transition-colors ${checked ? 'bg-purple-600' : 'bg-slate-200'}`}
+    className={`relative h-5 w-9 rounded-full transition-colors duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] shrink-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 ${
+      checked ? 'bg-purple-600' : 'bg-slate-200 dark:bg-slate-800'
+    }`}
   >
     <span
-      className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-        checked ? 'translate-x-5' : ''
+      className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        checked ? 'translate-x-4' : 'translate-x-0'
       }`}
     />
   </button>
 );
 
 const FieldLabel = ({ children }) => (
-  <label className="mb-1.5 block text-xs font-semibold text-slate-500">{children}</label>
+  <label className="mb-2 block text-[10px] uppercase font-mono tracking-widest text-slate-400 dark:text-slate-500 font-medium">
+    {children}
+  </label>
 );
 
 const StatusMessage = ({ message }) => {
@@ -88,10 +91,10 @@ const StatusMessage = ({ message }) => {
 
   return (
     <div
-      className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+      className={`mb-6 rounded-xl border px-4 py-3 text-sm transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         message.type === 'error'
-          ? 'border-rose-100 bg-rose-50 text-rose-700'
-          : 'border-emerald-100 bg-emerald-50 text-emerald-700'
+          ? 'border-rose-100 bg-rose-50/50 text-rose-700 dark:border-rose-950/10 dark:bg-rose-950/20'
+          : 'border-emerald-100 bg-emerald-50/50 text-emerald-700 dark:border-emerald-950/10 dark:bg-emerald-950/20'
       }`}
     >
       {message.text}
@@ -144,7 +147,7 @@ const Settings = () => {
     ? tabs.filter((item) => item.id === 'profile' || item.id === 'security' || item.id === 'notifications')
     : isInstructor
       ? tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications')
-      : tabs.filter((item) => item.id !== 'billing' && item.id !== 'notifications' && item.id !== 'learning');
+      : tabs;
 
   useEffect(() => {
     setActiveTab(normalizeTab(searchParams.get('tab')));
@@ -155,9 +158,6 @@ const Settings = () => {
       setActiveTab('profile');
       setSearchParams({}, { replace: true });
     } else if (isInstructor && (activeTab === 'billing' || activeTab === 'notifications')) {
-      setActiveTab('profile');
-      setSearchParams({}, { replace: true });
-    } else if (!isAdmin && !isInstructor && (activeTab === 'billing' || activeTab === 'notifications' || activeTab === 'learning')) {
       setActiveTab('profile');
       setSearchParams({}, { replace: true });
     }
@@ -429,40 +429,50 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <div className="animate-fade-in-up space-y-6">
-        <div className="h-20 rounded-2xl bg-slate-100 animate-pulse" />
+      <div className="animate-fade-in-up space-y-6 pb-24">
+        <div className="h-20 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 p-2 animate-pulse">
+          <div className="bg-white dark:bg-slate-950 rounded-[calc(2rem-8px)] h-full border border-slate-100/50" />
+        </div>
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
-          <div className="h-96 rounded-2xl bg-slate-100 animate-pulse" />
-          <div className="h-96 rounded-2xl bg-slate-100 animate-pulse xl:col-span-3" />
+          <div className="p-1.5 rounded-[1.8rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 animate-pulse h-[300px]">
+            <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] h-full border border-slate-100/50" />
+          </div>
+          <div className="p-2 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 animate-pulse xl:col-span-3 h-[450px]">
+            <div className="bg-white dark:bg-slate-950 rounded-[calc(2rem-8px)] h-full border border-slate-100/50" />
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="animate-fade-in-up">
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="animate-fade-in-up pb-24">
+      {/* ─── Header layout with spring actions ─── */}
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="mb-1 text-2xl font-semibold tracking-tight text-slate-900 md:text-3xl">Tài khoản cá nhân</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white md:text-3xl">Thiết lập tài khoản</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-normal mt-1.5 leading-relaxed">
+            Quản lý thông tin bảo mật, tùy chọn thông báo, số dư ví và chi tiết cá nhân.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={loadSettings}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-slate-450 hover:bg-slate-50 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] disabled:opacity-50 cursor-pointer"
           >
-            <RotateCcw className="h-4 w-4" />
-            Tải lại
+            <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <span>Tải lại</span>
           </button>
           <button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-purple-700 disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-purple-600 hover:bg-purple-750 text-white px-4 py-2.5 text-xs font-medium active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] disabled:opacity-50 shadow-sm shadow-purple-100 dark:shadow-none cursor-pointer"
           >
-            <Check className="h-4 w-4" />
-            {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+            <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+            <span>{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
           </button>
         </div>
       </div>
@@ -470,592 +480,530 @@ const Settings = () => {
       <StatusMessage message={message} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
+        {/* ─── Sidebar Navigation Tabs Container ─── */}
         <aside className="xl:col-span-1">
-          <div className="sticky top-4 flex flex-col gap-1 rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
-            {visibleTabs.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => selectTab(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors ${
-                    isActive
-                      ? item.danger
-                        ? 'bg-rose-50 font-semibold text-rose-700'
-                        : 'bg-purple-50 font-semibold text-purple-700'
-                      : item.danger
-                        ? 'text-rose-600 hover:bg-rose-50'
-                        : 'text-slate-600 hover:bg-slate-50'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </button>
-              );
-            })}
+          <div className="p-1.5 rounded-[1.8rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.015)]">
+            <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] p-2.5 border border-slate-100/50 dark:border-slate-850/50 flex flex-col gap-1">
+              {visibleTabs.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => selectTab(item.id)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-medium transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] border cursor-pointer ${
+                      isActive
+                        ? item.danger
+                          ? 'bg-rose-500/5 text-rose-700 border-rose-500/10 dark:bg-rose-950/20 dark:text-rose-405 dark:border-rose-900/20'
+                          : 'bg-purple-500/5 text-purple-700 border-purple-500/10 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-900/20'
+                        : item.danger
+                          ? 'text-rose-600 dark:text-rose-405 hover:bg-rose-500/5 border-transparent'
+                          : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/50 border-transparent'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </aside>
 
-        <main className="xl:col-span-3">
-          {activeTab === 'profile' && (
-            <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Hồ sơ cá nhân</h2>
-              </div>
+        {/* ─── Active Content Panel Block (Concentric double-bezel wrapper) ─── */}
+        <main className="xl:col-span-3 p-2 rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.02)]">
+          <div className="bg-white dark:bg-slate-950 rounded-[calc(2rem-8px)] p-6 md:p-8 border border-slate-100/50 dark:border-slate-850/50 h-full">
+            
+            {/* ─── Profile Tab Content ─── */}
+            {activeTab === 'profile' && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-slate-800 dark:text-slate-200">Hồ sơ cá nhân</h2>
+                </div>
 
-              <div className="mb-6 flex flex-col gap-4 rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 to-pink-50 p-4 md:flex-row md:items-center">
-                <UserAvatar src={avatarUrl} name={displayName} className="h-16 w-16 shrink-0 rounded-2xl shadow-sm" fallbackClassName="text-xl" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-900">Ảnh đại diện</p>
-                  <p className="text-xs text-slate-500">PNG, JPG hoặc WebP dưới 2MB. Ảnh sẽ được lưu và hiển thị trên tài khoản của bạn.</p>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png, image/jpeg, image/webp"
-                  className="hidden"
-                  onChange={handleAvatarUpload}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60"
-                >
-                  <Upload className="h-4 w-4" />
-                  {uploadingAvatar ? 'Đang tải...' : 'Tải lên'}
-                </button>
-                {avatarUrl && (
-                  <button
-                    type="button"
-                    onClick={handleAvatarDelete}
-                    disabled={uploadingAvatar}
-                    className="text-sm font-semibold text-slate-500 hover:text-rose-600 disabled:opacity-60"
-                  >
-                    Xóa
-                  </button>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <FieldLabel>Họ và tên</FieldLabel>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
+                <div className="flex flex-col gap-4 rounded-2xl border border-slate-100/60 dark:border-slate-800/40 bg-slate-50/50 dark:bg-slate-900/30 p-4 md:flex-row md:items-center">
+                  <UserAvatar
+                    src={avatarUrl}
+                    name={displayName}
+                    className="h-16 w-16 shrink-0 rounded-[1.2rem] shadow-sm border border-slate-100/10"
+                    fallbackClassName="text-xl"
                   />
-                </div>
-                <div>
-                  <FieldLabel>Email</FieldLabel>
-                  <input
-                    type="email"
-                    value={user?.email || ''}
-                    disabled
-                    className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Số điện thoại</FieldLabel>
-                  <input
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                    placeholder="Ví dụ: 0909 123 456"
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Tên hiển thị</FieldLabel>
-                  <input
-                    type="text"
-                    value={displayName.toLowerCase().replace(/\s+/g, '.')}
-                    disabled
-                    className="w-full cursor-not-allowed rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-500 outline-none"
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <FieldLabel>Giới thiệu</FieldLabel>
-                  <textarea
-                    rows="4"
-                    value={formData.bio}
-                    onChange={(event) => setFormData({ ...formData, bio: event.target.value })}
-                    placeholder="Viết vài dòng về mục tiêu học tập hoặc lĩnh vực bạn quan tâm."
-                    className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  />
-                </div>
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'security' && (
-            <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Bảo mật tài khoản</h2>
-              </div>
-
-              <form onSubmit={handlePasswordChange} className="max-w-xl space-y-4">
-                <div>
-                  <FieldLabel>Mật khẩu hiện tại</FieldLabel>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordForm.currentPassword}
-                    onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Mật khẩu mới</FieldLabel>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordForm.newPassword}
-                    onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  />
-                </div>
-                <div>
-                  <FieldLabel>Nhập lại mật khẩu mới</FieldLabel>
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordForm.confirmPassword}
-                    onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((value) => !value)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    {showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                  >
-                    <KeyRound className="h-4 w-4" />
-                    Đổi mật khẩu
-                  </button>
-                </div>
-              </form>
-            </section>
-          )}
-
-          {activeTab === 'notifications' && (
-            <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Thông báo</h2>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {[
-                  ['emailDigest', 'Email tóm tắt hằng tuần', 'Tổng kết tiến độ học và gợi ý khóa học phù hợp.'],
-                  ['courseReminders', 'Nhắc lịch học', 'Nhắc bạn quay lại học khi có bài đang dang dở.'],
-                  ['promotionEmails', 'Ưu đãi khóa học', 'Nhận thông tin giảm giá và khóa học mới.'],
-                ].map(([key, title, description]) => (
-                  <div key={key} className="flex items-center justify-between gap-4 py-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">{title}</p>
-                      <p className="text-xs text-slate-400">{description}</p>
-                    </div>
-                    <Toggle checked={Boolean(formData.settings[key])} onChange={(value) => updateSetting(key, value)} />
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">Ảnh đại diện</p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500 font-normal leading-relaxed mt-0.5">
+                      PNG, JPG hoặc WebP dưới 2MB. Ảnh sẽ được hiển thị trên tài khoản của bạn.
+                    </p>
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-
-
-          {activeTab === 'learning' && (
-            <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold tracking-tight text-slate-900">Tùy chọn học tập</h2>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {isInstructor && (
-                  <form onSubmit={handleSaveGoogleMeet} className="pb-5">
-                    <div className="mb-3">
-                      <p className="text-sm font-semibold text-slate-900">Liên kết Google Meet</p>
-                    </div>
-                    <div className="flex flex-col gap-3 lg:flex-row">
-                      <input
-                        type="url"
-                        value={googleMeetLink}
-                        onChange={(event) => setGoogleMeetLink(event.target.value)}
-                        placeholder="https://meet.google.com/abc-defg-hij"
-                        className="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                      />
-                      <button
-                        type="submit"
-                        disabled={saving}
-                        className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
-                      >
-                        <Check className="h-4 w-4" />
-                        Lưu liên kết Google Meet
-                      </button>
-                    </div>
-                  </form>
-                )}
-                <div className="flex items-center justify-between gap-4 py-4">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Tự động phát video</p>
-                  </div>
-                  <Toggle checked={formData.settings.autoPlayVideo} onChange={(value) => updateSetting('autoPlayVideo', value)} />
-                </div>
-                <div className="flex items-center justify-between gap-4 py-4">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Hiển thị phụ đề</p>
-                    <p className="text-xs text-slate-400">Luôn bật phụ đề tiếng Việt nếu bài học có hỗ trợ.</p>
-                  </div>
-                  <Toggle checked={formData.settings.showSubtitles} onChange={(value) => updateSetting('showSubtitles', value)} />
-                </div>
-                <div className="py-4">
-                  <FieldLabel>Chất lượng video mặc định</FieldLabel>
-                  <select
-                    value={formData.settings.videoQuality}
-                    onChange={(event) => updateSetting('videoQuality', event.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100 md:w-1/2"
-                  >
-                    <option value="auto">Tự động</option>
-                    <option value="1080p">1080p HD</option>
-                    <option value="720p">720p HD</option>
-                    <option value="480p">480p tiết kiệm dữ liệu</option>
-                  </select>
-                </div>
-              </div>
-            </section>
-          )}
-
-          {activeTab === 'billing' && !isInstructor && (
-            <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-              {isInstructor ? (
-                <>
-                  <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="text-xl font-semibold tracking-tight text-slate-900">Doanh thu & tài khoản nhận tiền</h2>
-                    </div>
-                    <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png, image/jpeg, image/webp"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingAvatar}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-350 hover:bg-slate-50 dark:hover:bg-slate-900 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] disabled:opacity-50 shadow-sm cursor-pointer"
+                    >
+                      <Upload className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <span>{uploadingAvatar ? 'Đang tải...' : 'Tải lên'}</span>
+                    </button>
+                    {avatarUrl && (
                       <button
                         type="button"
-                        onClick={() => setShowBalance((v) => !v)}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                        title={showBalance ? 'Ẩn số tiền' : 'Hiện số tiền'}
+                        onClick={handleAvatarDelete}
+                        disabled={uploadingAvatar}
+                        className="text-xs font-semibold text-slate-450 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
                       >
-                        {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        {showBalance ? 'Ẩn' : 'Hiện'}
+                        Xóa
                       </button>
-                      <button
-                        type="button"
-                        onClick={handleOpenWithdraw}
-                        disabled={(revenueProfile?.availableBalance || 0) < 100000}
-                        className="inline-flex items-center justify-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <BanknoteArrowDown className="h-4 w-4" />
-                        Yêu cầu rút tiền
-                      </button>
-                    </div>
+                    )}
                   </div>
+                </div>
 
-                  <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <div className="rounded-2xl border border-purple-100 bg-purple-50 p-5">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-purple-700">Tổng doanh thu</p>
-                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.totalRevenue || 0) : '••••••'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Số dư khả dụng để rút</p>
-                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.availableBalance || 0) : '••••••'}</p>
-                    </div>
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Đã rút</p>
-                      <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(revenueProfile?.paidRevenue || 0) : '••••••'}</p>
-                    </div>
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 pt-2">
+                  <div>
+                    <FieldLabel>Họ và tên</FieldLabel>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-300 font-medium placeholder-slate-400"
+                    />
                   </div>
+                  <div>
+                    <FieldLabel>Địa chỉ email</FieldLabel>
+                    <input
+                      type="email"
+                      value={user?.email || ''}
+                      disabled
+                      className="w-full cursor-not-allowed rounded-xl border border-slate-200 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-900/30 px-3.5 py-2.5 text-sm text-slate-450 dark:text-slate-500 outline-none"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Số điện thoại</FieldLabel>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                      placeholder="Ví dụ: 0909 123 456"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-300 font-medium placeholder-slate-400"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Tên hiển thị</FieldLabel>
+                    <input
+                      type="text"
+                      value={displayName.toLowerCase().replace(/\s+/g, '.')}
+                      disabled
+                      className="w-full cursor-not-allowed rounded-xl border border-slate-200 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-900/30 px-3.5 py-2.5 text-sm text-slate-450 dark:text-slate-500 outline-none"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <FieldLabel>Tiểu sử / Giới thiệu</FieldLabel>
+                    <textarea
+                      rows="4"
+                      value={formData.bio}
+                      onChange={(event) => setFormData({ ...formData, bio: event.target.value })}
+                      placeholder="Viết vài dòng về mục tiêu học tập hoặc lĩnh vực bạn quan tâm."
+                      className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-300 font-medium placeholder-slate-400"
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
 
-                  <form onSubmit={handleSavePayoutAccount} className="mb-6 rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                    <div className="mb-4 flex items-center gap-2">
-                      <Landmark className="h-5 w-5 text-purple-600" />
-                      <h3 className="text-sm font-semibold text-slate-900">Tài khoản nhận tiền</h3>
-                    </div>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                      <div>
-                        <FieldLabel>Tên ngân hàng</FieldLabel>
-                        <input
-                          value={payoutAccount.bankName}
-                          onChange={(event) => setPayoutAccount((prev) => ({ ...prev, bankName: event.target.value }))}
-                          placeholder="Ví dụ: Vietcombank"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Số tài khoản</FieldLabel>
-                        <input
-                          value={payoutAccount.accountNumber}
-                          onChange={(event) => setPayoutAccount((prev) => ({ ...prev, accountNumber: event.target.value }))}
-                          placeholder="Nhập số tài khoản"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                        />
-                      </div>
-                      <div>
-                        <FieldLabel>Chủ tài khoản</FieldLabel>
-                        <input
-                          value={payoutAccount.accountHolder}
-                          onChange={(event) => setPayoutAccount((prev) => ({ ...prev, accountHolder: event.target.value }))}
-                          placeholder="Nhập tên chủ tài khoản"
-                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                        />
-                      </div>
-                    </div>
+            {/* ─── Security Tab Content ─── */}
+            {activeTab === 'security' && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-slate-800 dark:text-slate-200">Bảo mật tài khoản</h2>
+                </div>
+
+                <form onSubmit={handlePasswordChange} className="max-w-xl space-y-4 pt-2">
+                  <div>
+                    <FieldLabel>Mật khẩu hiện tại</FieldLabel>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={passwordForm.currentPassword}
+                      onChange={(event) => setPasswordForm({ ...passwordForm, currentPassword: event.target.value })}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-300 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Mật khẩu mới</FieldLabel>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={passwordForm.newPassword}
+                      onChange={(event) => setPasswordForm({ ...passwordForm, newPassword: event.target.value })}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-300 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <FieldLabel>Xác nhận mật khẩu mới</FieldLabel>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={passwordForm.confirmPassword}
+                      onChange={(event) => setPasswordForm({ ...passwordForm, confirmPassword: event.target.value })}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-300 font-medium"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((value) => !value)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.5} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />}
+                      <span>{showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}</span>
+                    </button>
                     <button
                       type="submit"
                       disabled={saving}
-                      className="mt-4 inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 dark:bg-slate-800 hover:bg-slate-850 px-4 py-2.5 text-xs font-medium text-white active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] disabled:opacity-60 cursor-pointer"
                     >
-                      <Check className="h-4 w-4" />
-                      Lưu tài khoản nhận tiền
+                      <KeyRound className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <span>Đổi mật khẩu</span>
                     </button>
-                  </form>
+                  </div>
+                </form>
+              </section>
+            )}
 
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <ReceiptText className="h-4 w-4 text-slate-500" />
-                      <h3 className="text-sm font-semibold text-slate-900">Lịch sử doanh thu</h3>
+            {/* ─── Notifications Tab Content ─── */}
+            {activeTab === 'notifications' && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-slate-800 dark:text-slate-200">Tùy chọn nhận thông báo</h2>
+                </div>
+                <div className="divide-y divide-slate-100/60 dark:divide-slate-800/40 pt-2">
+                  {[
+                    ['emailDigest', 'Email tóm tắt hằng tuần', 'Tổng kết tiến độ học và gợi ý khóa học phù hợp.'],
+                    ['courseReminders', 'Nhắc lịch học', 'Nhắc bạn quay lại học khi có bài đang dang dở.'],
+                    ['promotionEmails', 'Ưu đãi khóa học', 'Nhận thông tin giảm giá và khóa học mới.'],
+                  ].map(([key, title, description]) => (
+                    <div key={key} className="flex items-center justify-between gap-4 py-4.5">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-855 dark:text-slate-200">{title}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-normal mt-0.5 leading-relaxed">{description}</p>
+                      </div>
+                      <Toggle checked={Boolean(formData.settings[key])} onChange={(value) => updateSetting(key, value)} />
                     </div>
-                    {(revenueProfile?.recentTransactions || []).length > 0 ? (
-                      revenueProfile.recentTransactions.map((item) => (
-                        <div key={item.id} className="flex flex-col gap-3 rounded-xl border border-slate-100 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* ─── Learning Tab Content ─── */}
+            {activeTab === 'learning' && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-slate-800 dark:text-slate-200">Tùy chọn học tập</h2>
+                </div>
+                <div className="divide-y divide-slate-100/60 dark:divide-slate-800/40 pt-2">
+                  {isInstructor && (
+                    <form onSubmit={handleSaveGoogleMeet} className="pb-6">
+                      <div className="mb-3.5">
+                        <FieldLabel>Liên kết Google Meet giảng dạy</FieldLabel>
+                      </div>
+                      <div className="flex flex-col gap-3 lg:flex-row">
+                        <input
+                          type="url"
+                          value={googleMeetLink}
+                          onChange={(event) => setGoogleMeetLink(event.target.value)}
+                          placeholder="https://meet.google.com/abc-defg-hij"
+                          className="min-w-0 flex-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-350"
+                        />
+                        <button
+                          type="submit"
+                          disabled={saving}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-purple-600 hover:bg-purple-750 text-white px-5 py-2.5 text-xs font-medium hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-sm shadow-purple-100 dark:shadow-none shrink-0 cursor-pointer"
+                        >
+                          <Check className="h-3.5 w-3.5" strokeWidth={1.5} />
+                          <span>Lưu liên kết Meet</span>
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  <div className="flex items-center justify-between gap-4 py-4.5">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-855 dark:text-slate-200">Tự động phát video</p>
+                    </div>
+                    <Toggle checked={formData.settings.autoPlayVideo} onChange={(value) => updateSetting('autoPlayVideo', value)} />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 py-4.5">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-855 dark:text-slate-200">Hiển thị phụ đề</p>
+                      <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed font-normal">Luôn bật phụ đề tiếng Việt nếu bài học có hỗ trợ.</p>
+                    </div>
+                    <Toggle checked={formData.settings.showSubtitles} onChange={(value) => updateSetting('showSubtitles', value)} />
+                  </div>
+                  <div className="py-4.5">
+                    <FieldLabel>Chất lượng video mặc định</FieldLabel>
+                    <select
+                      value={formData.settings.videoQuality}
+                      onChange={(event) => updateSetting('videoQuality', event.target.value)}
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs text-slate-600 dark:text-slate-400 outline-none transition duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 md:w-1/2 cursor-pointer"
+                    >
+                      <option value="auto">Tự động</option>
+                      <option value="1080p">1080p HD</option>
+                      <option value="720p">720p HD</option>
+                      <option value="480p">480p tiết kiệm dữ liệu</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ─── Billing Tab Content ─── */}
+            {activeTab === 'billing' && !isInstructor && (
+              <section className="space-y-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold tracking-tight text-slate-850 dark:text-slate-200">Ví & giao dịch</h2>
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500 font-normal">Theo dõi số dư, danh hiệu hội viên và lịch sử giao dịch.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowBalance((v) => !v)}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-50 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] cursor-pointer"
+                    >
+                      {showBalance ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.5} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.5} />}
+                      <span>{showBalance ? 'Ẩn số dư' : 'Hiện số dư'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate('/upgrade')}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-full bg-purple-600 hover:bg-purple-750 text-white px-4 py-2.5 text-xs font-medium hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] shadow-sm shadow-purple-100 dark:shadow-none cursor-pointer"
+                    >
+                      <Wallet className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      <span>Nạp ví</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* ── Ví metrics cards with concentric double bezels ── */}
+                <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3 pt-2">
+                  <div className="p-1.5 rounded-[1.8rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-sm">
+                    <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] p-5 border border-slate-100/50 dark:border-slate-850/50">
+                      <p className="mb-2 text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-400 uppercase">Danh hiệu hội viên</p>
+                      <p className="text-xl font-semibold tracking-tight text-slate-850 dark:text-slate-200">{walletProfile?.memberTierLabel || 'Đồng'}</p>
+                      <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 font-normal leading-relaxed">Tự động nâng hạng theo tổng chi tiêu.</p>
+                    </div>
+                  </div>
+                  <div className="p-1.5 rounded-[1.8rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-sm">
+                    <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] p-5 border border-slate-100/50 dark:border-slate-850/50">
+                      <p className="mb-2 text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-400 uppercase">Số dư ví</p>
+                      <p className="text-xl font-semibold tracking-tight text-slate-850 dark:text-slate-200 font-mono">
+                        {showBalance ? formatCurrency(walletProfile?.walletBalance || 0) : '••••••'}
+                      </p>
+                      <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 font-normal leading-relaxed">Sử dụng để mua các khóa học trả phí.</p>
+                    </div>
+                  </div>
+                  <div className="p-1.5 rounded-[1.8rem] bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100/60 dark:border-slate-800/40 shadow-sm">
+                    <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] p-5 border border-slate-100/50 dark:border-slate-850/50">
+                      <p className="mb-2 text-[10px] font-mono tracking-widest text-purple-600 dark:text-purple-400 uppercase">Tổng chi tiêu</p>
+                      <p className="text-xl font-semibold tracking-tight text-slate-850 dark:text-slate-200 font-mono">
+                        {showBalance ? formatCurrency(walletProfile?.totalSpent || 0) : '••••••'}
+                      </p>
+                      <p className="mt-2 text-[10px] text-slate-400 dark:text-slate-500 font-normal leading-relaxed">Tổng ngân sách đã chi tiêu trên hệ thống.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  <div className="flex items-center gap-2">
+                    <ReceiptText className="h-4 w-4 text-slate-400 dark:text-slate-650" strokeWidth={1.5} />
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-700 dark:text-slate-350">Lịch sử giao dịch ví</h3>
+                  </div>
+                  
+                  {walletHistory.length > 0 ? (
+                    <div className="space-y-3.5">
+                      {walletHistory.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-3 rounded-2xl border border-slate-100/60 dark:border-slate-850 p-4 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:border-purple-200 hover:bg-purple-500/[0.01] sm:flex-row sm:items-center sm:justify-between"
+                        >
                           <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              {item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL' ? 'Yêu cầu rút tiền' : item.course?.title || 'Doanh thu khóa học'}
-                            </p>
-                            <p className="text-xs text-slate-400">
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{item.note || item.type}</p>
+                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-mono">
                               {new Date(item.createdAt).toLocaleString('vi-VN')}
-                              {item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL'
-                                ? ` · ${item.bankName} · ${item.accountHolder}${item.note ? ` · ${item.note}` : ''}`
-                                : ` · ${item.user?.name || item.user?.email || 'Học viên'}`}
+                              {item.course?.title ? ` · ${item.course.title}` : ''}
                             </p>
                           </div>
                           <div className="sm:text-right">
-                            <p className={`text-sm font-semibold ${item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL' ? 'text-purple-600' : 'text-emerald-600'}`}>
-                              {showBalance ? formatCurrency(item.amount || 0) : '••••••'}
+                            <p className={`text-sm font-semibold font-mono ${item.amount >= 0 ? 'text-emerald-600' : 'text-slate-800 dark:text-slate-200'}`}>
+                              {showBalance ? item.amountText : '••••••'}
                             </p>
-                            <p className={`text-[11px] ${item.type === 'WITHDRAWAL' || item.type === 'DEMO_WITHDRAWAL' ? 'text-emerald-600' : 'text-amber-600'}`}>
-                              {item.statusLabel}
+                            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 font-mono">
+                              Số dư sau GD: {showBalance ? item.balanceAfterText : '••••••'}
                             </p>
                           </div>
                         </div>
-                      ))
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                        Chưa có giao dịch doanh thu nào
-                      </div>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold tracking-tight text-slate-900">Ví & giao dịch</h2>
-                  <p className="mt-1 text-xs text-slate-400">Theo dõi số dư, danh hiệu hội viên và lịch sử giao dịch.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowBalance((v) => !v)}
-                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    {showBalance ? 'Ẩn' : 'Hiện'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/upgrade')}
-                    className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
-                  >
-                    <Wallet className="h-4 w-4" />
-                    Nạp ví
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Danh hiệu</p>
-                  <p className="text-2xl font-bold text-slate-900">{walletProfile?.memberTierLabel || 'Đồng'}</p>
-                  <p className="mt-2 text-xs text-slate-500">Tự động nâng cấp theo tổng chi tiêu.</p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Số dư ví</p>
-                  <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(walletProfile?.walletBalance || 0) : '••••••'}</p>
-                  <p className="mt-2 text-xs text-slate-500">Dùng để mua khóa học trả phí.</p>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Tổng chi tiêu</p>
-                  <p className="text-2xl font-bold text-slate-900">{showBalance ? formatCurrency(walletProfile?.totalSpent || 0) : '••••••'}</p>
-                  <p className="mt-2 text-xs text-slate-500">Dùng để xếp hạng hội viên.</p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold text-slate-900">Lịch sử giao dịch</h3>
-                {walletHistory.length > 0 ? (
-                  walletHistory.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex flex-col gap-3 rounded-xl border border-slate-100 p-3 transition-colors hover:bg-slate-50 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{item.note || item.type}</p>
-                        <p className="text-xs text-slate-400">
-                          {new Date(item.createdAt).toLocaleString('vi-VN')}
-                          {item.course?.title ? ` - ${item.course.title}` : ''}
-                        </p>
-                      </div>
-                      <div className="sm:text-right">
-                        <p className={`text-sm font-semibold ${item.amount >= 0 ? 'text-emerald-600' : 'text-slate-900'}`}>
-                          {showBalance ? item.amountText : '••••••'}
-                        </p>
-                        <p className="text-[11px] text-slate-400">Số dư sau GD: {showBalance ? item.balanceAfterText : '••••••'}</p>
-                      </div>
+                      ))}
                     </div>
-                  ))
-                ) : (
-                  <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
-                    Chưa có giao dịch nào trong ví.
-                  </div>
-                )}
-              </div>
-                </>
-              )}
-            </section>
-          )}
-
-          {activeTab === 'danger' && (
-            <section className="rounded-2xl border border-rose-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold tracking-tight text-rose-700">Dữ liệu & tài khoản</h2>
-                <p className="mt-1 text-xs text-slate-400">Các hành động quan trọng liên quan đến dữ liệu cá nhân.</p>
-              </div>
-              <div className="space-y-3">
-                <div className="flex flex-col gap-3 rounded-xl border border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Xuất dữ liệu của tôi</p>
-                    <p className="text-xs text-slate-500">Tải hồ sơ, tiến độ học, chứng chỉ và giao dịch dưới dạng JSON.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleExportData}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    <Download className="h-4 w-4" />
-                    Xuất dữ liệu
-                  </button>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-850 p-8 text-center text-xs text-slate-450 dark:text-slate-500 font-mono">
+                      Chưa có giao dịch nào trong ví.
+                    </div>
+                  )}
                 </div>
-                <div className="flex flex-col gap-3 rounded-xl border border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">Đăng xuất khỏi thiết bị này</p>
-                    <p className="text-xs text-slate-500">Xóa phiên đăng nhập hiện tại khỏi trình duyệt.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      logout();
-                      navigate('/login');
-                    }}
-                    className="inline-flex items-center justify-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-50"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Đăng xuất
-                  </button>
-                </div>
+              </section>
+            )}
 
-              </div>
-            </section>
-          )}
+            {/* ─── Danger Zone Tab Content ─── */}
+            {activeTab === 'danger' && (
+              <section className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold text-rose-700 dark:text-rose-405">Dữ liệu & tài khoản</h2>
+                  <p className="mt-1 text-xs text-slate-400 dark:text-slate-500 font-normal leading-relaxed">
+                    Hành động bảo mật và sao lưu dữ liệu cá nhân quan trọng.
+                  </p>
+                </div>
+                
+                <div className="space-y-4 pt-2">
+                  <div className="p-1.5 rounded-[1.8rem] bg-rose-500/[0.02] dark:bg-rose-950/5 border border-rose-100/40 dark:border-rose-900/10">
+                    <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] p-4 border border-rose-100/20 dark:border-rose-900/5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-850 dark:text-slate-200">Xuất dữ liệu của tôi</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-normal leading-relaxed">
+                          Tải xuống thông tin cá nhân, lịch sử học, chứng chỉ và giao dịch dạng JSON.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleExportData}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-medium text-slate-700 dark:text-slate-350 hover:bg-slate-50 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] shrink-0 shadow-sm cursor-pointer"
+                      >
+                        <Download className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        <span>Xuất dữ liệu</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-1.5 rounded-[1.8rem] bg-rose-500/[0.02] dark:bg-rose-950/5 border border-rose-100/40 dark:border-rose-900/10">
+                    <div className="bg-white dark:bg-slate-950 rounded-[calc(1.8rem-6px)] p-4 border border-rose-100/20 dark:border-rose-900/5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-850 dark:text-slate-200">Đăng xuất khỏi thiết bị này</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 font-normal leading-relaxed">
+                          Đóng và kết thúc phiên đăng nhập của tài khoản trên trình duyệt này.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          logout();
+                          navigate('/login');
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-full border border-rose-200 dark:border-rose-900/30 bg-white dark:bg-slate-950 px-4 py-2.5 text-xs font-medium text-rose-650 dark:text-rose-405 hover:bg-rose-50/20 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] shrink-0 cursor-pointer"
+                      >
+                        <LogOut className="h-3.5 w-3.5" strokeWidth={1.5} />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+          </div>
         </main>
       </div>
 
+      {/* ─── Withdraw Request Modal (Instructor only, overlay uses backdrop-blur) ─── */}
       {showWithdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4" onClick={() => !withdrawing && setShowWithdrawModal(false)}>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          onClick={() => !withdrawing && setShowWithdrawModal(false)}
+        >
           <form
             onSubmit={handleWithdrawDemo}
             onClick={(event) => event.stopPropagation()}
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-[2rem] bg-white dark:bg-slate-950 p-1.5 shadow-2xl relative border border-slate-100/60 dark:border-slate-800/40"
           >
-            <div className="mb-5 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold text-slate-900">Yêu cầu rút tiền</h2>
-                <p className="mt-1 text-xs text-slate-500">Yêu cầu sẽ được ghi nhận ở trạng thái Pending để quản trị viên xử lý.</p>
+            <div className="bg-white dark:bg-slate-950 rounded-[calc(2rem-6px)] border border-slate-150/40 dark:border-slate-850/50 p-6">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-semibold tracking-tight text-slate-900 dark:text-white">Yêu cầu rút tiền</h2>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+                    Yêu cầu rút tiền khả dụng sẽ được quản trị viên duyệt và xử lý.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Đóng"
+                  disabled={withdrawing}
+                  onClick={() => setShowWithdrawModal(false)}
+                  className="rounded-full p-2 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900 hover:text-slate-700 dark:hover:text-slate-200 transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                >
+                  <X className="h-4 w-4" strokeWidth={1.5} />
+                </button>
               </div>
-              <button
-                type="button"
-                aria-label="Đóng"
-                disabled={withdrawing}
-                onClick={() => setShowWithdrawModal(false)}
-                className="rounded-full p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
 
-            <div className="mb-4 rounded-xl border border-purple-100 bg-purple-50 p-4 text-sm">
-              <p className="font-semibold text-slate-900">Tài khoản nhận tiền</p>
-              <p className="mt-1 text-slate-600">{payoutAccount.bankName} · {payoutAccount.accountNumber}</p>
-              <p className="text-slate-600">{payoutAccount.accountHolder}</p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <FieldLabel>Số tiền muốn rút</FieldLabel>
-                <input
-                  type="number"
-                  min="100000"
-                  step="1000"
-                  required
-                  autoFocus
-                  value={withdrawForm.soTien}
-                  onChange={(event) => setWithdrawForm((prev) => ({ ...prev, soTien: event.target.value }))}
-                  placeholder="Tối thiểu 100.000 đ"
-                  className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                />
-                <p className="mt-1 text-xs text-slate-500">Số dư khả dụng: {formatCurrency(revenueProfile?.availableBalance || 0)}</p>
+              <div className="mb-5 rounded-2xl border border-purple-100/50 dark:border-purple-900/30 bg-purple-500/[0.02] dark:bg-purple-950/10 p-4 text-xs leading-relaxed font-normal">
+                <p className="font-semibold text-slate-800 dark:text-slate-200 uppercase font-mono tracking-wider text-[9px] mb-1.5">
+                  Tài khoản nhận tiền
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 font-mono font-medium">
+                  {payoutAccount.bankName} · {payoutAccount.accountNumber}
+                </p>
+                <p className="text-slate-600 dark:text-slate-400 font-mono mt-0.5">{payoutAccount.accountHolder}</p>
               </div>
-              <div>
-                <FieldLabel>Ghi chú nếu cần</FieldLabel>
-                <textarea
-                  rows={3}
-                  maxLength={500}
-                  value={withdrawForm.ghiChu}
-                  onChange={(event) => setWithdrawForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
-                  placeholder="Ghi chú cho yêu cầu rút tiền"
-                  className="w-full resize-none rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none transition-colors focus:border-purple-400 focus:ring-4 focus:ring-purple-100"
-                />
-              </div>
-            </div>
 
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                disabled={withdrawing}
-                onClick={() => setShowWithdrawModal(false)}
-                className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={withdrawing}
-                className="inline-flex items-center gap-2 rounded-full bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700 disabled:opacity-60"
-              >
-                <BanknoteArrowDown className="h-4 w-4" />
-                {withdrawing ? 'Đang xử lý...' : 'Xác nhận rút tiền'}
-              </button>
+              <div className="space-y-4">
+                <div>
+                  <FieldLabel>Số tiền muốn rút</FieldLabel>
+                  <input
+                    type="number"
+                    min="100000"
+                    step="1000"
+                    required
+                    autoFocus
+                    value={withdrawForm.soTien}
+                    onChange={(event) => setWithdrawForm((prev) => ({ ...prev, soTien: event.target.value }))}
+                    placeholder="Tối thiểu 100.000 đ"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-350 font-mono font-medium"
+                  />
+                  <p className="mt-1.5 text-[10.5px] text-slate-400 dark:text-slate-500 font-normal leading-relaxed font-mono">
+                    Số dư khả dụng: {formatCurrency(revenueProfile?.availableBalance || 0)}
+                  </p>
+                </div>
+                <div>
+                  <FieldLabel>Ghi chú nếu cần</FieldLabel>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    value={withdrawForm.ghiChu}
+                    onChange={(event) => setWithdrawForm((prev) => ({ ...prev, ghiChu: event.target.value }))}
+                    placeholder="Ghi chú thêm cho yêu cầu rút tiền của bạn..."
+                    className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-xs outline-none transition focus:border-purple-400 focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-950/20 text-slate-800 dark:text-slate-350 font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3 border-t border-slate-100/60 dark:border-slate-900/40 pt-4.5">
+                <button
+                  type="button"
+                  disabled={withdrawing}
+                  onClick={() => setShowWithdrawModal(false)}
+                  className="rounded-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-4.5 py-2 text-xs font-medium text-slate-600 dark:text-slate-450 hover:bg-slate-50 disabled:opacity-50 active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:scale-[1.02] cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={withdrawing}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-purple-600 hover:bg-purple-750 text-white px-4.5 py-2 text-xs font-medium hover:scale-[1.02] active:scale-[0.98] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] disabled:opacity-60 shadow-sm shadow-purple-100 dark:shadow-none cursor-pointer"
+                >
+                  <BanknoteArrowDown className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  <span>{withdrawing ? 'Đang gửi...' : 'Xác nhận rút'}</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>

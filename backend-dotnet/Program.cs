@@ -197,15 +197,16 @@ if (!string.IsNullOrWhiteSpace(googleClientId) && !string.IsNullOrWhiteSpace(goo
 builder.Services.AddAuthorization();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("Frontend", policy =>
+    options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy
-            .WithOrigins(
+        policy.WithOrigins(
+                "https://lms-alpha-hazel.vercel.app",
                 frontendUrl,
                 "http://localhost:5173",
                 "http://localhost:5174",
                 "http://127.0.0.1:5173",
-                "http://127.0.0.1:5174")
+                "http://127.0.0.1:5174"
+            )
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -265,7 +266,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors("Frontend");
+app.UseCors("FrontendPolicy");
 app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();

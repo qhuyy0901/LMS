@@ -287,6 +287,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasKey(item => item.Id);
             entity.HasIndex(item => item.BaiHocId);
             entity.HasIndex(item => item.NguoiDungId);
+            entity.HasIndex(item => item.KhoaHocId);
             entity.HasOne(item => item.NguoiDung)
                 .WithMany(item => item.CacBinhLuan)
                 .HasForeignKey(item => item.NguoiDungId)
@@ -294,10 +295,16 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.HasOne(item => item.BaiHoc)
                 .WithMany(item => item.CacBinhLuan)
                 .HasForeignKey(item => item.BaiHocId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(item => item.BinhLuanCha)
                 .WithMany(item => item.CacPhanHoi)
                 .HasForeignKey(item => item.BinhLuanChaId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(item => item.KhoaHoc)
+                .WithMany(item => item.CacBinhLuan)
+                .HasForeignKey(item => item.KhoaHocId)
+                .IsRequired(false)
                 .OnDelete(DeleteBehavior.NoAction);
         });
 

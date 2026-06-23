@@ -214,13 +214,71 @@ public class KhoaHocController(IDichVuKhoaHoc dichVu, ApplicationDbContext db) :
         return await dichVu.GuiDanhGiaAsync(id, userId, yeuCau.Rating, yeuCau.Comment);
     }
 
-    /// <summary>Xóa đánh giá của mình</summary>
-    [Authorize]
     [HttpDelete("/api/courses/{id}/reviews/me")]
     public async Task<IResult> XoaDanhGia(string id)
     {
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
         return await dichVu.XoaDanhGiaAsync(id, userId);
+    }
+
+    [Authorize]
+    [HttpGet("/api/courses/{courseId}/lessons/{lessonId}/download")]
+    public async Task<IActionResult> DownloadTaiLieu(string courseId, string lessonId, [FromServices] Microsoft.AspNetCore.Hosting.IWebHostEnvironment env)
+    {
+        var userId = TroGiup.LayUserId(User);
+        if (userId is null) return Unauthorized();
+
+        var course = await db.KhoaHoc.AsNoTracking().FirstOrDefaultAsync(c => c.Id == courseId);
+        if (course is null) return NotFound(new { message = "Khóa học không tồn tại" });
+
+        var isFree = course.Gia == 0;
+        var isInstructor = course.GiangVienId == userId;
+        var isAdmin = User.IsInRole("ADMIN");
+        var isEnrolled = await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == courseId);
+
+        if (!isFree && !isInstructor && !isAdmin && !isEnrolled)
+        {
+            return StatusCode(403, new { message = "Bạn cần mua hoặc ghi danh khóa học để tải tài liệu này." });
+        }
+
+        var lesson = await db.BaiHoc.AsNoTracking().FirstOrDefaultAsync(l => l.Id == lessonId && l.KhoaHocId == courseId);
+        if (lesson is null) return NotFound(new { message = "Bài học không tồn tại" });
+
+        if (string.IsNullOrWhiteSpace(lesson.FileUrl))
+        {
+            return NotFound(new { message = "Bài học này không có tài liệu đính kèm." });
+        }
+
+        var fileUrl = lesson.FileUrl.TrimStart('/');
+        var webRootPath = env.WebRootPath ?? Path.Combine(Directory.GetCurrentDirectory(), "wwwroot");
+        var filePath = Path.Combine(webRootPath, fileUrl);
+
+        if (!System.IO.File.Exists(filePath))
+        {
+            var alternatePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", fileUrl);
+            if (!System.IO.File.Exists(alternatePath))
+            {
+                alternatePath = Path.Combine(Directory.GetCurrentDirectory(), fileUrl);
+                if (!System.IO.File.Exists(alternatePath))
+                {
+                    return NotFound(new { message = "Tài liệu không tồn tại" });
+                }
+                filePath = alternatePath;
+            }
+            else
+            {
+                filePath = alternatePath;
+            }
+        }
+
+        var contentType = "application/octet-stream";
+        if (filePath.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase)) contentType = "application/pdf";
+        else if (filePath.EndsWith(".docx", StringComparison.OrdinalIgnoreCase)) contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else if (filePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) contentType = "application/zip";
+
+        var fileName = Path.GetFileName(filePath);
+        var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        return File(fileBytes, contentType, fileName);
     }
 }

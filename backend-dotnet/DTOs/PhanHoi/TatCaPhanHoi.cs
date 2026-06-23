@@ -146,7 +146,7 @@ public record ChiTietKhoaHocDto(
             tongThoiLuong, kh.DaXuatBan,
             kh.DanhMuc?.Ten ?? kh.ChuyenMuc, kh.TrinhDo, studentCount, purchaseCount, new { enrollments = studentCount, purchases = purchaseCount, reviews = kh.SoLuongDanhGia },
             kh.GiangVien?.Ten ?? "Giảng viên",
-            kh.GiangVien == null ? null : new { kh.GiangVien.Id, kh.GiangVien.Ten, kh.GiangVien.AnhDaiDien, kh.GiangVien.TieuSu },
+            kh.GiangVien == null ? null : new { kh.GiangVien.Id, Name = kh.GiangVien.Ten, Avatar = kh.GiangVien.AnhDaiDien, Bio = kh.GiangVien.TieuSu },
             sections, baiGiang,
             ghiDanh is not null, ghiDanh?.TienDo ?? 0, baiHoanThanh, danhGiaCuaToi,
             kh.CacDanhGia.Select(DanhGiaDto.TuDanhGia),
@@ -223,7 +223,7 @@ public record ChiTietBaiDto(string Id, string Title, string? Content, string? Vi
 public record DanhGiaDto(string Id, int Rating, string? Comment, DateTime CreatedAt, object? User)
 {
     public static DanhGiaDto TuDanhGia(DanhGiaKhoaHoc dg) =>
-        new(dg.Id, dg.DiemDanhGia, dg.BinhLuan, dg.NgayTao, dg.NguoiDung == null ? null : new { dg.NguoiDung.Id, dg.NguoiDung.Ten });
+        new(dg.Id, dg.DiemDanhGia, dg.BinhLuan, dg.NgayTao, dg.NguoiDung == null ? null : new { dg.NguoiDung.Id, Name = dg.NguoiDung.Ten });
 }
 
 /// <summary>Bình luận bài giảng</summary>
@@ -231,8 +231,8 @@ public record BinhLuanDto(string Id, string Content, DateTime CreatedAt, object?
 {
     public static BinhLuanDto TuBinhLuan(BinhLuan bl) =>
         new(bl.Id, bl.NoiDung, bl.NgayTao,
-            bl.NguoiDung == null ? null : new { bl.NguoiDung.Id, bl.NguoiDung.Ten, bl.NguoiDung.VaiTro },
-            bl.CacPhanHoi.OrderBy(r => r.NgayTao).Select(TuBinhLuan));
+            bl.NguoiDung == null ? null : new { bl.NguoiDung.Id, Name = bl.NguoiDung.Ten, Role = bl.NguoiDung.VaiTro },
+            bl.CacPhanHoi == null ? Array.Empty<BinhLuanDto>() : bl.CacPhanHoi.OrderBy(r => r.NgayTao).Select(TuBinhLuan));
 }
 
 // ═══════════════════════════════════════════════════════════════

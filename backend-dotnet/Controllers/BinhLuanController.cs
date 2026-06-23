@@ -19,7 +19,7 @@ public class BinhLuanController(ApplicationDbContext db) : ControllerBase
     public async Task<IResult> DanhSachBinhLuan(string courseId, string lessonId)
     {
         var userId = TroGiup.LayUserId(User);
-        if (!await KiemTraQuyenTruyCap(userId, courseId))
+        if (!await KiemTraQuyenTruyCap(userId, courseId, lessonId))
             return Results.Json(new { message = "Bạn không có quyền truy cập bài học này" }, statusCode: 403);
 
         var ds = await db.BinhLuan.AsNoTracking()
@@ -38,15 +38,27 @@ public class BinhLuanController(ApplicationDbContext db) : ControllerBase
         if (LaXemThuSinhVien()) return Results.BadRequest(new { message = "Chế độ xem thử không thể gửi bình luận." });
         var userId = TroGiup.LayUserId(User);
         if (userId is null) return Results.Unauthorized();
-        if (!await KiemTraQuyenTruyCap(userId, courseId))
-            return Results.Json(new { message = "Bạn không có quyền truy cập bài học này" }, statusCode: 403);
+
+        // Must be enrolled student or instructor/admin to POST comments
+        var laGiangVien = await db.KhoaHoc.AnyAsync(c => c.Id == courseId && c.GiangVienId == userId);
+        var laAdmin = await db.NguoiDung.AnyAsync(u => u.Id == userId && u.VaiTro == "ADMIN");
+        var daGhiDanh = await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == courseId);
+
+        if (!laGiangVien && !laAdmin && !daGhiDanh)
+        {
+            return Results.Json(new { message = "Bạn phải mua hoặc ghi danh khóa học mới được đặt câu hỏi." }, statusCode: 403);
+        }
+
         if (string.IsNullOrWhiteSpace(yeuCau.Content))
             return Results.BadRequest(new { message = "Nội dung bình luận không được để trống" });
 
         var now = DateTime.UtcNow;
         var bl = new BinhLuan
         {
-            Id = TaoId.Moi(), NoiDung = yeuCau.Content.Trim(), BaiHocId = lessonId, NguoiDungId = userId,
+            Id = TaoId.Moi(), NoiDung = yeuCau.Content.Trim(),
+            BaiHocId = string.IsNullOrWhiteSpace(lessonId) ? null : lessonId,
+            NguoiDungId = userId,
+            KhoaHocId = courseId,
             BinhLuanChaId = string.IsNullOrWhiteSpace(yeuCau.ParentId) ? null : yeuCau.ParentId,
             NgayTao = now, NgayCapNhat = now
         };
@@ -78,13 +90,30 @@ public class BinhLuanController(ApplicationDbContext db) : ControllerBase
         return Results.Created($"/api/courses/{courseId}/lessons/{lessonId}/comments/{bl.Id}", BinhLuanDto.TuBinhLuan(daLuu));
     }
 
-    private async Task<bool> KiemTraQuyenTruyCap(string? userId, string khoaHocId)
+    private async Task<bool> KiemTraQuyenTruyCap(string? userId, string khoaHocId, string? lessonId = null)
     {
         if (userId is null) return false;
-        if (LaXemThuSinhVien())
-            return await db.KhoaHoc.AnyAsync(c => c.Id == khoaHocId && c.DaXuatBan && c.GiangVienId == userId);
-        return await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId) ||
-               await db.KhoaHoc.AnyAsync(c => c.Id == khoaHocId && c.GiangVienId == userId);
+        
+        // Admin always has access
+        var laAdmin = await db.NguoiDung.AnyAsync(u => u.Id == userId && u.VaiTro == "ADMIN");
+        if (laAdmin) return true;
+
+        // Instructor of the course has access
+        var laGiangVien = await db.KhoaHoc.AnyAsync(c => c.Id == khoaHocId && c.GiangVienId == userId);
+        if (laGiangVien) return true;
+
+        // Enrolled student has access
+        var daGhiDanh = await db.GhiDanh.AnyAsync(e => e.NguoiDungId == userId && e.KhoaHocId == khoaHocId);
+        if (daGhiDanh) return true;
+
+        // If not enrolled, check if they are previewing a previewable lesson
+        if (lessonId is not null)
+        {
+            var laBaiHocThu = await db.BaiHoc.AnyAsync(l => l.Id == lessonId && l.KhoaHocId == khoaHocId && l.ChoXemTruoc);
+            if (laBaiHocThu) return true;
+        }
+
+        return false;
     }
 
     private bool LaXemThuSinhVien() =>

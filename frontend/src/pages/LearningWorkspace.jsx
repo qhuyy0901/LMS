@@ -9,11 +9,13 @@ import {
 } from 'lucide-react';
 import { getFileUrl } from '../utils/fileUtils';
 import { useDashboardView } from '../context/DashboardViewContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function LearningWorkspace() {
   const { courseId } = useParams();
   const navigate = useNavigate();
   const { isImpersonating } = useDashboardView();
+  const { user } = useAuth();
   
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -242,6 +244,50 @@ export default function LearningWorkspace() {
       ...prev,
       [sectionId]: !prev[sectionId]
     }));
+  };
+
+  const handleDownloadResource = async (fileUrl) => {
+    if (!activeLesson) return;
+    try {
+      const response = await axios.get(`/api/courses/${courseId}/lessons/${activeLesson.id}/download`, {
+        responseType: 'blob'
+      });
+      
+      const contentDisposition = response.headers['content-disposition'];
+      let fileName = fileUrl.split('/').pop() || 'document';
+      if (contentDisposition) {
+        const matches = /filename="?([^";]+)"?/g.exec(contentDisposition);
+        if (matches && matches[1]) {
+          fileName = matches[1];
+        }
+      }
+      
+      const blob = new Blob([response.data], { type: response.headers['content-type'] });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', fileName);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Lỗi khi tải tài liệu:', err);
+      if (err.response && err.response.data instanceof Blob) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const errorObj = JSON.parse(reader.result);
+            alert(errorObj.message || 'Tài liệu không tồn tại');
+          } catch {
+            alert('Tài liệu không tồn tại');
+          }
+        };
+        reader.readAsText(err.response.data);
+      } else {
+        alert(err.response?.data?.message || 'Tài liệu không tồn tại');
+      }
+    }
   };
 
   const handleQuizSubmit = async () => {
@@ -937,27 +983,34 @@ export default function LearningWorkspace() {
               {/* Tab: HỎI ĐÁP (Q&A) */}
               {activeTab === 'qna' && (
                 <div className="max-w-3xl animate-fade-in-up">
-                  {!isImpersonating && <form onSubmit={handlePostComment} className="flex items-center gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-200/60 focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-50 transition-all">
-                    <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-5 h-5 text-purple-600" />
+                  {!isImpersonating && (course?.isEnrolled || user?.role === 'ADMIN' || course?.giangVienId === user?.id) ? (
+                    <form onSubmit={handlePostComment} className="flex items-center gap-4 mb-8 p-4 bg-slate-50 rounded-2xl border border-slate-200/60 focus-within:border-purple-300 focus-within:ring-4 focus-within:ring-purple-50 transition-all">
+                      <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                        <MessageSquare className="w-5 h-5 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <input 
+                          type="text" 
+                          placeholder="Đặt câu hỏi hoặc chia sẻ ý kiến về bài học này..."
+                          className="w-full bg-transparent border-none focus:ring-0 text-sm outline-none"
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                        />
+                      </div>
+                      <button 
+                        type="submit" 
+                        disabled={!newComment.trim()}
+                        className="bg-purple-600 text-white p-2.5 rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <Send className="w-4 h-4" />
+                      </button>
+                    </form>
+                  ) : !isImpersonating && (
+                    <div className="mb-8 p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm font-semibold flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 text-amber-700" />
+                      <span>Bạn cần mua hoặc ghi danh khóa học để đặt câu hỏi.</span>
                     </div>
-                    <div className="flex-1">
-                      <input 
-                        type="text" 
-                        placeholder="Đặt câu hỏi hoặc chia sẻ ý kiến về bài học này..."
-                        className="w-full bg-transparent border-none focus:ring-0 text-sm outline-none"
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                      />
-                    </div>
-                    <button 
-                      type="submit" 
-                      disabled={!newComment.trim()}
-                      className="bg-purple-600 text-white p-2.5 rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
-                  </form>}
+                  )}
 
                   <div className="space-y-6">
                     {loadingComments ? (
@@ -990,8 +1043,12 @@ export default function LearningWorkspace() {
                                 <button className="hover:text-purple-600 transition">Thích</button>
                                 <button 
                                   onClick={() => {
-                                    setReplyingToId(comment.id);
-                                    setReplyText('');
+                                    if (course?.isEnrolled || user?.role === 'ADMIN' || course?.giangVienId === user?.id) {
+                                      setReplyingToId(comment.id);
+                                      setReplyText('');
+                                    } else {
+                                      alert('Bạn cần mua hoặc ghi danh khóa học để phản hồi.');
+                                    }
                                   }}
                                   className="hover:text-purple-600 transition"
                                 >
@@ -1061,7 +1118,7 @@ export default function LearningWorkspace() {
                       ))
                     ) : (
                       <div className="text-center py-12 text-slate-400">
-                        Chưa có câu hỏi hay thảo luận nào ở đây. Hãy bắt đầu câu hỏi đầu tiên!
+                        Chưa có câu hỏi nào cho khóa học này
                       </div>
                     )}
                   </div>
@@ -1072,22 +1129,35 @@ export default function LearningWorkspace() {
               {activeTab === 'resources' && (
                 <div className="max-w-3xl animate-fade-in-up">
                   <h3 className="font-bold text-slate-900 mb-4">Tài nguyên đính kèm</h3>
-                  <div className="grid gap-3">
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-sm transition-all group cursor-pointer">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500 group-hover:bg-red-100 transition-colors">
-                          <FileText className="w-5 h-5" />
+                  {activeLesson?.fileUrl ? (
+                    <div className="grid gap-3">
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-slate-200 hover:border-purple-300 hover:shadow-sm transition-all group">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center text-red-500 group-hover:bg-red-100 transition-colors">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {activeLesson.fileUrl.split('/').pop() || 'tai-lieu-dinh-kem'}
+                            </p>
+                            <p className="text-xs text-slate-500">Tài nguyên bài học</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">Slide_BaiGiang_TongHop.pdf</p>
-                          <p className="text-xs text-slate-500">PDF Document • 4.8 MB</p>
-                        </div>
+                        <button 
+                          onClick={() => handleDownloadResource(activeLesson.fileUrl)}
+                          className="text-slate-400 hover:text-purple-600 transition-colors p-2 rounded-lg hover:bg-slate-100"
+                          title="Tải xuống tài liệu"
+                        >
+                          <Download className="w-5 h-5" />
+                        </button>
                       </div>
-                      <button className="text-slate-400 hover:text-purple-600 transition-colors">
-                        <Download className="w-5 h-5" />
-                      </button>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="text-center py-12 text-slate-400 border border-dashed border-slate-200 rounded-2xl">
+                      <FileText className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <p className="text-sm">Bài học này chưa có tài liệu đính kèm.</p>
+                    </div>
+                  )}
                 </div>
               )}
 

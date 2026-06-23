@@ -200,60 +200,6 @@ public class GiangVienController(ApplicationDbContext db, IWebHostEnvironment en
         await db.SaveChangesAsync();
 
         return Results.Created($"/api/instructor/courses/{khoaHoc.Id}", MapCourse(khoaHoc));
-
-        var selectedCategoryName = "Lập trình";
-        string? danhMucId = null;
-        if (!string.IsNullOrWhiteSpace(yeuCau.DanhMuc))
-        {
-            var dm = await db.DanhMuc.AsNoTracking().FirstOrDefaultAsync(d => d.Id == yeuCau.DanhMuc || d.Ten == yeuCau.DanhMuc);
-            if (dm is not null)
-            {
-                selectedCategoryName = dm.Ten;
-                danhMucId = dm.Id;
-            }
-            else
-            {
-                selectedCategoryName = yeuCau.DanhMuc.Trim();
-            }
-        }
-
-        var now = DateTime.UtcNow;
-        var khoaHoc = new KhoaHoc
-        {
-            Id = TaoId.Moi(),
-            TieuDe = tieuDe,
-            DuongDanThanThien = await TaoSlugDuyNhat(tieuDe),
-            MoTaNgan = yeuCau.MoTaNgan,
-            MoTa = moTa,
-            MoTaChiTiet = yeuCau.MoTaChiTiet,
-            AnhDaiDien = anhBia ?? yeuCau.Thumbnail,
-            DanhMucId = danhMucId,
-            ChuyenMuc = selectedCategoryName,
-            TrinhDo = string.IsNullOrWhiteSpace(yeuCau.TrinhDo) ? "BEGINNER" : yeuCau.TrinhDo.Trim(),
-            Gia = yeuCau.Gia,
-            HangThanhVienToiThieu = "BRONZE",
-            GiangVienId = TroGiup.LayUserId(User)!,
-            DaXuatBan = false,
-            TrangThai = "DRAFT",
-            NgayTao = now,
-            NgayCapNhat = now
-        };
-
-        db.KhoaHoc.Add(khoaHoc);
-        if (!string.IsNullOrWhiteSpace(khoaHoc.AnhDaiDien))
-        {
-            khoaHoc.CacHinhAnh.Add(new KhoaHocAnh
-            {
-                Id = TaoId.Moi(),
-                KhoaHocId = khoaHoc.Id,
-                AnhUrl = khoaHoc.AnhDaiDien,
-                AnhChinh = true,
-                NgayTao = now
-            });
-        }
-        await db.SaveChangesAsync();
-
-        return Results.Created($"/api/instructor/courses/{khoaHoc.Id}", MapCourse(khoaHoc));
     }
 
     [HttpPut("/api/instructor/courses/{id}")]

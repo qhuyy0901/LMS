@@ -551,6 +551,7 @@ public class DichVuKhoaHoc(ApplicationDbContext db) : IDichVuKhoaHoc
             noiDung = includeContent ? lesson.NoiDung : null,
             content = includeContent ? lesson.NoiDung : null,
             videoUrl = includeContent ? lesson.VideoUrl : null,
+            fileUrl = includeContent ? lesson.FileUrl : null,
             anhMinhHoa = includeContent ? lesson.IllustrationUrl : null,
             illustrationUrl = includeContent ? lesson.IllustrationUrl : null,
             thoiLuongGiay = lesson.ThoiLuongGiay ?? 0,

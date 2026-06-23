@@ -8,7 +8,7 @@ namespace LMS.Api.Controllers;
 /// <summary>Controller người dùng: hồ sơ, avatar, ví, thông báo, chứng chỉ.</summary>
 [ApiController]
 [Authorize]
-public class NguoiDungController(IDichVuNguoiDung dichVu) : ControllerBase
+public class NguoiDungController(IDichVuNguoiDung dichVu, IDichVuThanhToan thanhToanDichVu) : ControllerBase
 {
     /// <summary>Lấy thông tin hồ sơ cá nhân</summary>
     /// <summary>Lấy thông tin hồ sơ cá nhân.</summary>
@@ -66,6 +66,16 @@ public class NguoiDungController(IDichVuNguoiDung dichVu) : ControllerBase
         if (userId is null) return Results.Unauthorized();
 
         return Results.Ok(await dichVu.LayLichSuGiaoDichAsync(userId));
+    }
+
+    /// <summary>Lấy danh sách yêu cầu nạp tiền của tôi.</summary>
+    [HttpGet("/api/user/topup-requests")]
+    public async Task<IResult> LayYeuCauNapViCuaToi()
+    {
+        var userId = TroGiup.LayUserId(User);
+        if (userId is null) return Results.Unauthorized();
+
+        return await thanhToanDichVu.LayDanhSachYeuCauNapViCuaToiAsync(userId);
     }
 
     /// <summary>Danh sách chứng chỉ.</summary>

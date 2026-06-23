@@ -61,12 +61,25 @@ const withdrawStatusLabel = {
   REJECTED: 'Đã từ chối',
 };
 
+const topupStatusClasses = {
+  pending: 'bg-amber-50 text-amber-700 border border-amber-100',
+  approved: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+  rejected: 'bg-rose-50 text-rose-700 border border-rose-100',
+};
+
+const topupStatusLabel = {
+  pending: 'Chờ duyệt',
+  approved: 'Đã duyệt',
+  rejected: 'Đã từ chối',
+};
+
 export default function AdminTransactions({ initialTab = 'all' }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || initialTab || 'all';
 
   const [transactions, setTransactions] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [topupRequests, setTopupRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState('');
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -110,6 +123,19 @@ export default function AdminTransactions({ initialTab = 'all' }) {
     }
   }, []);
 
+  const fetchTopupRequests = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get('/api/admin/topup-requests');
+      setTopupRequests(response.data.items || response.data || []);
+    } catch (err) {
+      setError(err.response?.data?.message || err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId });
     setQuery('');
@@ -117,10 +143,12 @@ export default function AdminTransactions({ initialTab = 'all' }) {
   };
 
   const handleRefresh = () => {
-    if (activeTab !== 'withdrawals') {
-      fetchTransactions();
-    } else {
+    if (activeTab === 'withdrawals') {
       fetchWithdrawals();
+    } else if (activeTab === 'topup-requests') {
+      fetchTopupRequests();
+    } else {
+      fetchTransactions();
     }
   };
 
@@ -147,13 +175,38 @@ export default function AdminTransactions({ initialTab = 'all' }) {
     }
   };
 
-  useEffect(() => {
-    if (activeTab !== 'withdrawals') {
-      fetchTransactions();
-    } else {
-      fetchWithdrawals();
+  const handleApproveTopup = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn phê duyệt yêu cầu nạp tiền này?')) return;
+    try {
+      await axios.post(`/api/admin/topup-requests/${id}/approve`);
+      alert('Đã phê duyệt nạp tiền thành công.');
+      fetchTopupRequests();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Lỗi khi phê duyệt.');
     }
-  }, [activeTab, fetchTransactions, fetchWithdrawals]);
+  };
+
+  const handleRejectTopup = async (id) => {
+    const reason = window.prompt('Nhập lý do từ chối (không bắt buộc):');
+    if (reason === null) return;
+    try {
+      await axios.post(`/api/admin/topup-requests/${id}/reject`, { ghiChu: reason });
+      alert('Đã từ chối yêu cầu.');
+      fetchTopupRequests();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Lỗi khi từ chối.');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'withdrawals') {
+      fetchWithdrawals();
+    } else if (activeTab === 'topup-requests') {
+      fetchTopupRequests();
+    } else {
+      fetchTransactions();
+    }
+  }, [activeTab, fetchTransactions, fetchWithdrawals, fetchTopupRequests]);
 
   const filteredWithdrawals = withdrawals.filter((item) => {
     if (statusFilter && item.status !== statusFilter) return false;
@@ -165,6 +218,18 @@ export default function AdminTransactions({ initialTab = 'all' }) {
       item.bankName?.toLowerCase().includes(lowerQuery) ||
       item.accountNumber?.toLowerCase().includes(lowerQuery) ||
       item.accountHolder?.toLowerCase().includes(lowerQuery)
+    );
+  });
+
+  const filteredTopupRequests = topupRequests.filter((item) => {
+    if (statusFilter && item.trangThai !== statusFilter) return false;
+    if (!query) return true;
+    const lowerQuery = query.toLowerCase();
+    return (
+      item.studentName?.toLowerCase().includes(lowerQuery) ||
+      item.studentEmail?.toLowerCase().includes(lowerQuery) ||
+      item.maGiaoDich?.toLowerCase().includes(lowerQuery) ||
+      item.noiDungChuyenKhoan?.toLowerCase().includes(lowerQuery)
     );
   });
 
@@ -303,6 +368,84 @@ export default function AdminTransactions({ initialTab = 'all' }) {
     )
   };
 
+  const columnsTopupRequests = [
+    { title: 'Học viên', data: 'studentName', className: 'px-5 py-4' },
+    { title: 'Số tiền', data: 'soTien', className: 'px-5 py-4 font-semibold text-slate-950' },
+    { title: 'Mã GD', data: 'maGiaoDich', className: 'px-5 py-4' },
+    { title: 'Nội dung chuyển khoản', data: 'noiDungChuyenKhoan', className: 'px-5 py-4' },
+    { title: 'Thời gian', data: 'ngayTao', className: 'px-5 py-4 text-slate-500' },
+    { title: 'Trạng thái', data: 'trangThai', className: 'px-5 py-4 text-center' },
+    { title: 'Lý do từ chối', data: 'lyDoTuChoi', className: 'px-5 py-4 max-w-[200px] truncate' },
+    { title: 'Thao tác', data: 'id', className: 'px-5 py-4 text-right', orderable: false }
+  ];
+
+  const slotsTopupRequests = {
+    0: (data, row) => (
+      <div>
+        <p className="font-medium text-slate-900">{row.studentName || 'Học viên'}</p>
+        <p className="text-xs text-slate-500">{row.studentEmail || ''}</p>
+      </div>
+    ),
+    1: (data, row) => (
+      <span>
+        {formatCurrency(row.soTien)}
+      </span>
+    ),
+    2: (data, row) => (
+      <span className="font-medium text-slate-700">
+        {row.maGiaoDich}
+      </span>
+    ),
+    3: (data, row) => (
+      <span className="text-slate-600">
+        {row.noiDungChuyenKhoan}
+      </span>
+    ),
+    4: (data, row) => (
+      <span>
+        {new Date(row.ngayTao).toLocaleString('vi-VN')}
+      </span>
+    ),
+    5: (data, row) => {
+      const statusKey = String(row.trangThai || 'Pending').toLowerCase();
+      const statusClass = topupStatusClasses[statusKey] || 'bg-amber-50 text-amber-700 border border-amber-100';
+      const statusText = topupStatusLabel[statusKey] || row.trangThai;
+      return (
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium border ${statusClass}`}>
+          {statusText}
+        </span>
+      );
+    },
+    6: (data, row) => (
+      <span title={row.lyDoTuChoi}>
+        {row.lyDoTuChoi || '-'}
+      </span>
+    ),
+    7: (data, row) => {
+      const isPending = String(row.trangThai).toLowerCase() === 'pending';
+      return isPending ? (
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={() => handleApproveTopup(row.id)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition"
+            title="Phê duyệt"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => handleRejectTopup(row.id)}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+            title="Từ chối"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : (
+        <span className="text-xs text-slate-400">-</span>
+      );
+    }
+  };
+
   return (
     <div className="animate-fade-in-up space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -318,6 +461,7 @@ export default function AdminTransactions({ initialTab = 'all' }) {
           { id: 'deposit', label: 'Nạp ví' },
           { id: 'purchase', label: 'Mua khóa học' },
           { id: 'withdrawals', label: 'Yêu cầu rút tiền' },
+          { id: 'topup-requests', label: 'Yêu cầu nạp ví' },
         ].map((tab) => (
           <button
             key={tab.id}
@@ -340,6 +484,8 @@ export default function AdminTransactions({ initialTab = 'all' }) {
           placeholder={
             activeTab === 'withdrawals'
               ? "Tìm theo tên giảng viên, email hoặc ngân hàng"
+              : activeTab === 'topup-requests'
+              ? "Tìm theo tên, email, mã GD hoặc nội dung"
               : "Tìm theo email, mã GD hoặc nội dung"
           }
           pageSize={pageSize}
@@ -356,6 +502,12 @@ export default function AdminTransactions({ initialTab = 'all' }) {
                   <option value="PENDING">Chờ duyệt (PENDING)</option>
                   <option value="COMPLETED">Đã thanh toán (COMPLETED)</option>
                   <option value="REJECTED">Đã từ chối (REJECTED)</option>
+                </>
+              ) : activeTab === 'topup-requests' ? (
+                <>
+                  <option value="Pending">Chờ duyệt (Pending)</option>
+                  <option value="Approved">Đã duyệt (Approved)</option>
+                  <option value="Rejected">Đã từ chối (Rejected)</option>
                 </>
               ) : (
                 <>
@@ -376,20 +528,29 @@ export default function AdminTransactions({ initialTab = 'all' }) {
             </button>
           }
         />
-        {activeTab !== 'withdrawals' ? (
+        {activeTab === 'withdrawals' ? (
           <DataTable
-            data={transactions}
-            columns={columnsTransactions}
-            slots={slotsTransactions}
+            data={filteredWithdrawals}
+            columns={columnsWithdrawals}
+            slots={slotsWithdrawals}
+            loading={loading}
+            error={error}
+            pageSize={pageSize}
+          />
+        ) : activeTab === 'topup-requests' ? (
+          <DataTable
+            data={filteredTopupRequests}
+            columns={columnsTopupRequests}
+            slots={slotsTopupRequests}
             loading={loading}
             error={error}
             pageSize={pageSize}
           />
         ) : (
           <DataTable
-            data={filteredWithdrawals}
-            columns={columnsWithdrawals}
-            slots={slotsWithdrawals}
+            data={transactions}
+            columns={columnsTransactions}
+            slots={slotsTransactions}
             loading={loading}
             error={error}
             pageSize={pageSize}

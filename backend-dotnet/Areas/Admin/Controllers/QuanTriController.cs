@@ -1,3 +1,4 @@
+using System.Data;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -812,6 +813,170 @@ public class QuanTriController(ApplicationDbContext db) : ControllerBase
         await db.SaveChangesAsync();
 
         return Results.Ok(new { message = "Đã từ chối yêu cầu rút tiền." });
+    }
+
+    [HttpGet("/api/admin/topup-requests")]
+    public async Task<IResult> DanhSachYeuCauNapVi(string? status = null, int page = 1, int pageSize = 20)
+    {
+        var loi = TroGiup.YeuCauAdmin(User);
+        if (loi is not null) return loi;
+
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var query = db.YeuCauNapVi
+            .Include(y => y.NguoiDung)
+            .OrderByDescending(y => y.NgayTao)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(status))
+        {
+            var trangThai = status.Trim().ToLowerInvariant();
+            if (trangThai == "pending") query = query.Where(y => y.TrangThai == "Pending");
+            if (trangThai == "approved") query = query.Where(y => y.TrangThai == "Approved");
+            if (trangThai == "rejected") query = query.Where(y => y.TrangThai == "Rejected");
+        }
+
+        var tong = await query.CountAsync();
+        var ds = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
+
+        var res = ds.Select(y => new
+        {
+            y.Id,
+            y.NguoiDungId,
+            StudentName = y.NguoiDung != null ? y.NguoiDung.Ten : "Học viên",
+            StudentEmail = y.NguoiDung != null ? y.NguoiDung.Email : "",
+            y.SoTien,
+            y.NoiDungChuyenKhoan,
+            y.TrangThai,
+            y.MaGiaoDich,
+            y.NgayTao,
+            y.NgayDuyet,
+            y.LyDoTuChoi
+        });
+
+        return Results.Ok(TroGiup.PhanTrang(res, tong, page, pageSize));
+    }
+
+    [HttpPost("/api/admin/topup-requests/{id}/approve")]
+    public async Task<IResult> PheDuyetYeuCauNapVi(string id)
+    {
+        var loi = TroGiup.YeuCauAdmin(User);
+        if (loi is not null) return loi;
+
+        var strategy = db.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
+            try
+            {
+                var yeuCau = await db.YeuCauNapVi
+                    .Include(y => y.NguoiDung)
+                    .FirstOrDefaultAsync(y => y.Id == id);
+
+                if (yeuCau is null) return Results.NotFound(new { message = "Không tìm thấy yêu cầu nạp ví" });
+
+                if (yeuCau.TrangThai != "Pending")
+                    return Results.BadRequest(new { message = "Yêu cầu này đã được xử lý rồi." });
+
+                var user = yeuCau.NguoiDung;
+                if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng của yêu cầu này" });
+
+                yeuCau.TrangThai = "Approved";
+                yeuCau.NgayDuyet = DateTime.UtcNow;
+
+                user.SoDuVi += yeuCau.SoTien;
+                TroGiup.DongBoHangThanhVien(user);
+                user.NgayCapNhat = DateTime.UtcNow;
+
+                var now = DateTime.UtcNow;
+                var thanhToanNgoai = new ThanhToan
+                {
+                    Id = TaoId.Moi(),
+                    NguoiDungId = user.Id,
+                    SoTien = yeuCau.SoTien,
+                    NhaCungCap = "MANUAL",
+                    PhienNhaCungCapId = yeuCau.MaGiaoDich,
+                    TrangThai = "COMPLETED",
+                    NoiDung = $"Nạp ví chuyển khoản {TroGiup.DinhDangTienVND(yeuCau.SoTien)}",
+                    NgayHoanThanh = now,
+                    NgayTao = now,
+                    NgayCapNhat = now
+                };
+                db.ThanhToan.Add(thanhToanNgoai);
+
+                db.GiaoDichVi.Add(new GiaoDichVi
+                {
+                    Id = TaoId.Moi(),
+                    NguoiDungId = user.Id,
+                    LoaiGiaoDich = "TOP_UP",
+                    SoTien = yeuCau.SoTien,
+                    SoDuSauGiaoDich = user.SoDuVi,
+                    NoiDung = $"Nạp ví chuyển khoản {TroGiup.DinhDangTienVND(yeuCau.SoTien)} (Admin duyệt)",
+                    ThanhToanId = thanhToanNgoai.Id,
+                    NgayTao = now
+                });
+
+                db.ThongBao.Add(new ThongBao
+                {
+                    Id = TaoId.Moi(),
+                    NguoiDungId = user.Id,
+                    LoaiThongBao = "PAYMENT_SUCCESS",
+                    TieuDe = "Nạp ví thành công",
+                    NoiDung = $"Yêu cầu nạp {TroGiup.DinhDangTienVND(yeuCau.SoTien)} đã được duyệt thành công.",
+                    DuongDan = "/pricing",
+                    Metadata = System.Text.Json.JsonSerializer.Serialize(new { amount = yeuCau.SoTien, externalPaymentId = thanhToanNgoai.Id }),
+                    NgayTao = now
+                });
+
+                await GhiNhatKy("APPROVE_TOP_UP", "YeuCauNapVi", id, new { yeuCau.NguoiDungId, yeuCau.SoTien });
+                await db.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Results.Ok(new { message = "Đã duyệt yêu cầu nạp tiền thành công." });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return Results.Json(new { message = "Lỗi hệ thống khi duyệt nạp ví.", detail = ex.Message }, statusCode: 500);
+            }
+        });
+    }
+
+    [HttpPost("/api/admin/topup-requests/{id}/reject")]
+    public async Task<IResult> TuChoiYeuCauNapVi(string id, [FromBody] DTOs.YeuCau.TuChoiRequest? body)
+    {
+        var loi = TroGiup.YeuCauAdmin(User);
+        if (loi is not null) return loi;
+
+        var yeuCau = await db.YeuCauNapVi.FirstOrDefaultAsync(y => y.Id == id);
+        if (yeuCau is null) return Results.NotFound(new { message = "Không tìm thấy yêu cầu nạp ví" });
+
+        if (yeuCau.TrangThai != "Pending")
+            return Results.BadRequest(new { message = "Yêu cầu này đã được xử lý rồi." });
+
+        yeuCau.TrangThai = "Rejected";
+        yeuCau.NgayDuyet = DateTime.UtcNow;
+        yeuCau.LyDoTuChoi = string.IsNullOrWhiteSpace(body?.GhiChu) ? "Bị từ chối bởi Admin" : body.GhiChu.Trim();
+
+        db.ThongBao.Add(new ThongBao
+        {
+            Id = TaoId.Moi(),
+            NguoiDungId = yeuCau.NguoiDungId,
+            LoaiThongBao = "PAYMENT_FAILED",
+            TieuDe = "Yêu cầu nạp ví bị từ chối",
+            NoiDung = $"Yêu cầu nạp {TroGiup.DinhDangTienVND(yeuCau.SoTien)} đã bị từ chối. Lý do: {yeuCau.LyDoTuChoi}",
+            DuongDan = "/pricing",
+            NgayTao = DateTime.UtcNow
+        });
+
+        await GhiNhatKy("REJECT_TOP_UP", "YeuCauNapVi", id, new { yeuCau.NguoiDungId, yeuCau.SoTien, lyDo = yeuCau.LyDoTuChoi });
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { message = "Đã từ chối yêu cầu nạp ví." });
     }
 
     private static JsonObject DocCaiDat(NguoiDung user)

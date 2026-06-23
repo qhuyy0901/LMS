@@ -5,6 +5,8 @@ using LMS.Api.Infrastructure.Persistence;
 using LMS.Api.DTOs.PhanHoi;
 using LMS.Api.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Http;
 
 namespace LMS.Api.Application.Services;
 
@@ -16,6 +18,8 @@ public interface IDichVuThanhToan
     Task<IResult> NapViAsync(string userId, int soTien, string frontendUrl);
     Task<IResult> MuaKhoaHocAsync(string userId, string khoaHocId, string frontendUrl, string? maGiamGia);
     Task<(bool HopLe, MaGiamGia? MaGiam, int SoTienGiam, string? Loi)> KiemTraMaGiamGiaAsync(string? code, string khoaHocId, int giaKhoaHoc, string userId);
+    Task<IResult> TaoYeuCauNapViAsync(string userId, int soTien, string maGiaoDich);
+    Task<IResult> LayDanhSachYeuCauNapViCuaToiAsync(string userId);
 }
 
 public class DichVuThanhToan(ApplicationDbContext db) : IDichVuThanhToan
@@ -206,4 +210,44 @@ public class DichVuThanhToan(ApplicationDbContext db) : IDichVuThanhToan
         }
         return Math.Min(coupon.DiscountValue, giaKhoaHoc);
     }
+
+    public async Task<IResult> TaoYeuCauNapViAsync(string userId, int soTien, string maGiaoDich)
+    {
+        if (soTien < 100000 || soTien > 2000000 || soTien % 10000 != 0)
+            return Results.BadRequest(new { message = "Số tiền nạp phải từ 100.000đ đến 2.000.000đ và là bội số của 10.000đ" });
+
+        var user = await db.NguoiDung.FirstOrDefaultAsync(u => u.Id == userId);
+        if (user is null) return Results.NotFound(new { message = "Không tìm thấy người dùng" });
+
+        // Clean user name for transfer note (e.g. LMS NAP123456 NGUYEN VAN A)
+        var safeName = TroGiup.TaoSlug(user.Ten).Replace("-", " ").ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(safeName)) safeName = "HOC VIEN";
+        var transferNote = $"LMS {maGiaoDich} {safeName}";
+
+        var yeuCau = new YeuCauNapVi
+        {
+            Id = TaoId.Moi(),
+            NguoiDungId = userId,
+            SoTien = soTien,
+            NoiDungChuyenKhoan = transferNote,
+            TrangThai = "Pending",
+            MaGiaoDich = maGiaoDich,
+            NgayTao = DateTime.UtcNow
+        };
+
+        db.YeuCauNapVi.Add(yeuCau);
+        await db.SaveChangesAsync();
+
+        return Results.Ok(new { message = "Gửi yêu cầu nạp ví thành công.", request = yeuCau });
+    }
+
+    public async Task<IResult> LayDanhSachYeuCauNapViCuaToiAsync(string userId)
+    {
+        var list = await db.YeuCauNapVi
+            .Where(r => r.NguoiDungId == userId)
+            .OrderByDescending(r => r.NgayTao)
+            .ToListAsync();
+        return Results.Ok(list);
+    }
+
 }

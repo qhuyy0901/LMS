@@ -96,7 +96,14 @@ const WalletTopup = () => {
   const [loading, setLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  const [transactionCode, setTransactionCode] = useState(() => 'NAP' + Math.floor(100000 + Math.random() * 900000));
+  const [topupRequests, setTopupRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+
+  const regenerateCode = () => setTransactionCode('NAP' + Math.floor(100000 + Math.random() * 900000));
+
   const amount = useMemo(() => normalizeAmount(customAmount) || selectedAmount, [customAmount, selectedAmount]);
+  
   const transferCode = useMemo(() => {
     const name = user?.name || 'Hoc vien';
     const safeName = name
@@ -105,9 +112,10 @@ const WalletTopup = () => {
       .replace(/đ/g, 'd')
       .replace(/Đ/g, 'D')
       .replace(/[^a-zA-Z0-9 ]/g, '')
-      .trim();
-    return `LMS ${user?.id?.slice(0, 8)?.toUpperCase() || 'DEMO'} ${safeName || 'Hoc vien'}`;
-  }, [user?.id, user?.name]);
+      .trim()
+      .toUpperCase();
+    return `LMS ${transactionCode} ${safeName}`;
+  }, [user?.name, transactionCode]);
 
   const tierInfo = useMemo(() => {
     const balance = walletBalance;
@@ -174,12 +182,25 @@ const WalletTopup = () => {
     }
   };
 
+  const loadTopupRequests = async () => {
+    setRequestsLoading(true);
+    try {
+      const response = await axios.get('/api/user/topup-requests');
+      setTopupRequests(Array.isArray(response.data) ? response.data : []);
+    } catch (err) {
+      console.error('Failed to load topup requests', err);
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
   useEffect(() => {
     setWalletBalance(user?.walletBalance || 0);
   }, [user?.walletBalance]);
 
   useEffect(() => {
     loadHistory();
+    loadTopupRequests();
   }, []);
 
   const handlePresetClick = (value) => {
@@ -189,7 +210,7 @@ const WalletTopup = () => {
     setError('');
   };
 
-  const confirmDemoPayment = async () => {
+  const handlePaymentSubmit = async () => {
     setMessage('');
     setError('');
 
@@ -200,20 +221,15 @@ const WalletTopup = () => {
 
     setLoading(true);
     try {
-      await axios.post('/api/payments/create-checkout-session', {
-        type: 'topup',
+      await axios.post('/api/payments/yeu-cau-nap-vi', {
         amount,
+        transactionCode,
       });
-      const nextUser = await refreshUser?.();
-      if (nextUser) {
-        setWalletBalance(nextUser.walletBalance || 0);
-      } else {
-        setWalletBalance((current) => current + amount);
-      }
-      await loadHistory();
-      setMessage('Đã tạo yêu cầu nạp ví. Giao dịch đang xử lý.');
+      setMessage('Yêu cầu nạp tiền đã được gửi thành công. Vui lòng chuyển tiền theo thông tin và chờ Admin phê duyệt.');
+      regenerateCode();
+      await loadTopupRequests();
     } catch (requestError) {
-      setError(requestError.response?.data?.message || 'Không thể xác nhận thanh toán demo.');
+      setError(requestError.response?.data?.message || 'Không thể tạo yêu cầu thanh toán. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -371,53 +387,45 @@ const WalletTopup = () => {
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 border border-purple-100 text-purple-700">
                 <LandmarkIcon className="h-4.5 w-4.5" />
               </div>
-              <h2 className="text-sm font-bold uppercase tracking-wider text-[#111111]">Thông tin chuyển khoản giả lập</h2>
+              <h2 className="text-sm font-bold uppercase tracking-wider text-[#111111]">Thông tin chuyển khoản</h2>
             </div>
 
             <div className="min-w-0 rounded-lg border border-[#EAEAEA] bg-[#FBFBFA] p-5 lg:p-6">
               <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_180px]">
                 <dl className="min-w-0 text-xs space-y-1">
                   <InfoRow label="Ngân hàng" value="MB Bank" />
-                  <InfoRow label="Chủ tài khoản" value="LMS SKILLIO DEMO" />
-                  <InfoRow label="Số tài khoản" value="0901000000" />
+                  <InfoRow label="Chủ tài khoản" value="NGUYEN QUANG HUY" />
+                  <InfoRow label="Số tài khoản" value="0399750340" />
                   <InfoRow label="Số tiền cần nạp" value={formatCurrency(amount)} highlight />
                   <InfoRow label="Nội dung chuyển khoản" value={transferCode} isCode />
                 </dl>
 
-                {/* QR DEMO Wrapper with positioning corners and technical glow */}
-                <div className="relative flex min-h-[160px] w-full items-center justify-center rounded-lg border border-[#EAEAEA] bg-white p-3 shadow-[0_2px_6px_rgba(0,0,0,0.01)]">
-                  {/* Scanner corners design */}
-                  <div className="absolute top-2 left-2 h-3 w-3 border-t-2 border-l-2 border-purple-700 rounded-tl-sm" />
-                  <div className="absolute top-2 right-2 h-3 w-3 border-t-2 border-r-2 border-purple-700 rounded-tr-sm" />
-                  <div className="absolute bottom-2 left-2 h-3 w-3 border-b-2 border-l-2 border-purple-700 rounded-bl-sm" />
-                  <div className="absolute bottom-2 right-2 h-3 w-3 border-b-2 border-r-2 border-purple-700 rounded-br-sm" />
-                  
-                  {/* Subtle technical scanner line effect */}
-                  <div className="absolute top-2 left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-30 animate-pulse" style={{ animationDuration: '2.5s' }} />
-
-                  <div className="flex flex-col items-center justify-center">
-                    <span className="text-center text-[10px] font-bold tracking-[0.2em] text-purple-700">QR DEMO</span>
-                    <span className="mt-1 text-[8px] text-slate-400 uppercase tracking-wider font-semibold">Scan to mock pay</span>
-                  </div>
+                {/* QR code using dynamic VietQR API */}
+                <div className="relative flex min-h-[180px] w-full items-center justify-center rounded-lg border border-[#EAEAEA] bg-white p-2.5 shadow-[0_2px_6px_rgba(0,0,0,0.01)]">
+                  <img
+                    src={`https://img.vietqr.io/image/MB-0399750340-compact2.png?amount=${amount}&addInfo=${encodeURIComponent(transferCode)}&accountName=NGUYEN%20QUANG%20HUY`}
+                    alt="Mã QR chuyển khoản"
+                    className="max-h-[170px] w-auto object-contain"
+                  />
                 </div>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={confirmDemoPayment}
+              onClick={handlePaymentSubmit}
               disabled={loading}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-purple-700 px-5 py-3.5 text-sm font-semibold text-white transition duration-150 hover:bg-purple-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <ClockIcon className="h-4.5 w-4.5 animate-spin text-white" />
-                  Đang xử lý nạp ví...
+                  Đang xử lý thanh toán...
                 </>
               ) : (
                 <>
                   <CheckCircleIcon className="h-4.5 w-4.5" />
-                  Xác nhận thanh toán demo (Cộng tiền ngay)
+                  Tôi đã chuyển khoản
                 </>
               )}
             </button>
@@ -473,6 +481,59 @@ const WalletTopup = () => {
                         {item.amountText}
                       </p>
                       <p className="mt-0.5 text-[10px] text-[#787774]">Số dư: {item.balanceAfterText}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* Topup Requests Section */}
+        <section className="min-w-0 rounded-lg border border-[#EAEAEA] bg-white p-6 lg:p-8 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 border border-purple-100 text-purple-700">
+              <LandmarkIcon className="h-4.5 w-4.5" />
+            </div>
+            <h2 className="text-sm font-bold uppercase tracking-wider text-[#111111]">Yêu cầu nạp ví đang xử lý</h2>
+          </div>
+
+          {requestsLoading ? (
+            <div className="space-y-2.5">
+              <div className="h-12 animate-pulse rounded-lg bg-[#F7F6F3]" />
+            </div>
+          ) : topupRequests.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-[#EAEAEA] bg-[#FBFBFA] px-5 py-6 text-center text-xs text-[#787774]">
+              Không có yêu cầu nạp ví nào đang xử lý.
+            </div>
+          ) : (
+            <div className="divide-y divide-[#EAEAEA]/60">
+              {topupRequests.slice(0, 5).map((req) => {
+                const statusLabels = {
+                  Pending: 'Chờ xác nhận',
+                  Approved: 'Đã duyệt',
+                  Rejected: 'Bị từ chối',
+                };
+                const statusClasses = {
+                  Pending: 'bg-amber-50 text-amber-700 border border-amber-100',
+                  Approved: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+                  Rejected: 'bg-rose-50 text-rose-700 border border-rose-100',
+                };
+                return (
+                  <div key={req.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3 text-xs">
+                    <div>
+                      <p className="font-bold text-[#111111]">Mã GD: {req.maGiaoDich}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">Nội dung: {req.noiDungChuyenKhoan}</p>
+                      <p className="text-[10px] text-slate-400">{new Date(req.ngayTao).toLocaleString('vi-VN')}</p>
+                      {req.lyDoTuChoi && (
+                        <p className="text-[10px] text-rose-600 font-medium mt-0.5">Lý do từ chối: {req.lyDoTuChoi}</p>
+                      )}
+                    </div>
+                    <div className="sm:text-right shrink-0 flex items-center sm:flex-col gap-2 sm:gap-1">
+                      <span className="font-bold text-purple-700 text-sm">{formatCurrency(req.soTien)}</span>
+                      <span className={`inline-flex rounded px-2 py-0.5 text-[10px] font-semibold border ${statusClasses[req.trangThai] || 'bg-slate-50 text-slate-650'}`}>
+                        {statusLabels[req.trangThai] || req.trangThai}
+                      </span>
                     </div>
                   </div>
                 );

@@ -38,6 +38,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<TinNhan> TinNhan => Set<TinNhan>();
     public DbSet<TinNhanDinhKem> TinNhanDinhKem => Set<TinNhanDinhKem>();
     public DbSet<KhoaHocDaLuu> KhoaHocDaLuu => Set<KhoaHocDaLuu>();
+    public DbSet<YeuCauNapVi> YeuCauNapVi => Set<YeuCauNapVi>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -506,6 +507,18 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             entity.Property(item => item.Metadata).HasMaxLength(4000);
             entity.HasOne(item => item.NguoiDung)
                 .WithMany(item => item.CacThongBao)
+                .HasForeignKey(item => item.NguoiDungId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+
+        modelBuilder.Entity<YeuCauNapVi>(entity =>
+        {
+            entity.ToTable("YeuCauNapVi");
+            entity.HasKey(item => item.Id);
+            entity.HasIndex(item => item.MaGiaoDich).IsUnique();
+            entity.HasIndex(item => new { item.NguoiDungId, item.NgayTao });
+            entity.HasOne(item => item.NguoiDung)
+                .WithMany()
                 .HasForeignKey(item => item.NguoiDungId)
                 .OnDelete(DeleteBehavior.NoAction);
         });

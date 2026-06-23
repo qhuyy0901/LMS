@@ -24,4 +24,5 @@ backend-dotnet/appsettings.Development.json
 *.log
 skills-lock.json
 artifacts/
+publish/
 

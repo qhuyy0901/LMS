@@ -27,12 +27,7 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
 
         if (yeuCau.Type == "topup")
         {
-            if (User.IsInRole("INSTRUCTOR") || User.IsInRole("ADMIN"))
-            {
-                return Results.Json(new { message = "Ví nạp tiền chỉ dành cho học viên." }, statusCode: 403);
-            }
-
-            return await dichVu.NapViAsync(userId, yeuCau.Amount ?? 0, FrontendUrl);
+            return Results.BadRequest(new { message = "Nạp ví tự động bằng demo đã bị tắt. Vui lòng nạp bằng QR ngân hàng." });
         }
 
         if (yeuCau.Type != "course" || string.IsNullOrWhiteSpace(yeuCau.CourseId))
@@ -42,6 +37,34 @@ public class ThanhToanController(IDichVuThanhToan dichVu, IConfiguration cauHinh
 
         return await dichVu.MuaKhoaHocAsync(userId, yeuCau.CourseId, FrontendUrl, yeuCau.CouponCode);
     }
+
+    public record YeuCauNapViRequest(int Amount, string TransactionCode);
+
+    [HttpPost("/api/payments/yeu-cau-nap-vi")]
+    public async Task<IResult> YeuCauNapViThang([FromBody] YeuCauNapViRequest request)
+    {
+        if (LaXemThuSinhVien())
+        {
+            return Results.BadRequest(new { message = "Chế độ xem thử không thể phát sinh giao dịch." });
+        }
+
+        var userId = TroGiup.LayUserId(User);
+        if (userId is null) return Results.Unauthorized();
+
+        if (User.IsInRole("INSTRUCTOR") || User.IsInRole("ADMIN"))
+        {
+            return Results.Json(new { message = "Yêu cầu nạp ví chỉ dành cho học viên." }, statusCode: 403);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.TransactionCode))
+        {
+            return Results.BadRequest(new { message = "Mã giao dịch không được để trống." });
+        }
+
+        return await dichVu.TaoYeuCauNapViAsync(userId, request.Amount, request.TransactionCode.Trim().ToUpperInvariant());
+    }
+
+
 
     [HttpPost("/api/student/courses/{id}/purchase")]
     public async Task<IResult> MuaKhoaHocSinhVien(string id, [FromBody] MuaKhoaHocRequest? yeuCau)
